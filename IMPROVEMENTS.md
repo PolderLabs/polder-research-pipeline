@@ -2340,6 +2340,7 @@ Add:
 - [ ] Add verification-agent instructions.
 - [ ] Add sorting-cleanup-agent instructions.
 - [ ] Add knowledge-maintenance-agent instructions.
+- [ ] Add knowledge-query-agent instructions.
 - [ ] Add synthesis-agent instructions.
 - [ ] Add evolution-agent instructions.
 - [ ] Add event schema.
@@ -4110,6 +4111,7 @@ A more mature target structure is:
 │   ├── verification-agent.md
 │   ├── sorting-cleanup-agent.md
 │   ├── knowledge-maintenance-agent.md
+│   ├── knowledge-query-agent.md
 │   ├── synthesis-agent.md
 │   ├── evolution-agent.md
 │   └── roles/
@@ -4238,8 +4240,9 @@ Only after A-D:
 3. processing workers;
 4. classification;
 5. verification;
-6. synthesis;
-7. adaptive research loops.
+6. knowledge-base query/answer layer;
+7. synthesis;
+8. adaptive research loops.
 
 Gate:
 
@@ -4344,3 +4347,311 @@ The durable core becomes:
 Obsidian then provides an excellent navigable research interface without being required to define workflow state, freshness, source identity, or agent coordination.
 
 This should be the target architecture for the implementation phase.
+
+
+---
+
+# 85. Knowledge Base Query / Answer agent
+
+Add a dedicated `knowledge-query-agent` whose purpose is to answer user questions from the maintained knowledge base with precise, structured, source-backed responses.
+
+This role is different from both the research agent and the synthesis agent.
+
+- The research agent searches externally and gathers new evidence.
+- The synthesis agent creates larger reports from verified knowledge.
+- The query agent answers a user's immediate question from the KB as it currently exists.
+
+## 85.1 Primary contract
+
+The query agent should be **KB-first, KB-bounded, and read-oriented by default**.
+
+It must not silently use model memory to fill holes in the maintained research.
+
+If the repository does not establish an answer, it should explicitly say:
+
+> The current knowledge base does not establish this.
+
+It may then identify what evidence is missing and propose a research task.
+
+## 85.2 Retrieval order
+
+Use an inspectable hybrid retrieval sequence.
+
+Recommended order:
+
+1. exact stable IDs;
+2. canonical entity names and aliases;
+3. structured claim records;
+4. source/evidence edges;
+5. relevant research notes;
+6. lexical/full-text retrieval;
+7. graph neighborhood expansion;
+8. optional semantic/vector retrieval;
+9. reranking by question scope, verification state, and freshness.
+
+Semantic retrieval is an accelerator, not the authority.
+
+Every retrieved chunk must resolve back to a durable record and ultimately to a source where the statement is source-backed.
+
+## 85.3 Answer structure
+
+Default answer shape:
+
+~~~text
+Answer
+<direct response>
+
+Evidence
+- <claim ID> — <claim>
+- <claim ID> — <claim>
+
+Sources
+- <source ID> — <title>, <exact locator>
+- <source ID> — <title>, <exact locator>
+
+Status
+<supported / disputed / stale / unresolved / mixed>
+
+Freshness
+<valid-as-of and last verification data where relevant>
+
+Conflicts / caveats
+<any contradictory or scope-limited evidence>
+
+Knowledge gaps
+<what the KB does not currently establish>
+~~~
+
+Not every short question needs every heading, but all material uncertainty and provenance must remain available.
+
+## 85.4 Citation behavior
+
+Prefer citations at the most exact level available.
+
+Examples:
+
+- PDF page and section;
+- documentation heading;
+- repository commit + file + line range;
+- video/audio timestamp;
+- standard clause;
+- dataset version and selection;
+- web snapshot identifier/heading.
+
+The answer should expose both:
+
+- human-readable source title;
+- stable source ID.
+
+This makes answers useful to humans and machine-verifiable.
+
+## 85.5 Claim preference
+
+When multiple records are relevant, prefer:
+
+1. verified claims;
+2. fresh claims;
+3. primary/direct evidence;
+4. independent corroboration;
+5. claims matching the user's exact time/version/scope.
+
+Do not automatically discard disputed claims. Surface the disagreement.
+
+## 85.6 Scope and temporal precision
+
+The agent must preserve scope.
+
+Example:
+
+A claim verified for software version 3.2 does not automatically answer a question about version 4.0.
+
+A pricing claim verified six months ago may need a freshness warning.
+
+A country-specific legal claim must not be generalized globally.
+
+The agent should state the time/version/geographic scope when it materially affects the answer.
+
+## 85.7 Insufficient evidence behavior
+
+When evidence is missing:
+
+1. do not guess;
+2. show the closest relevant KB material;
+3. state exactly what is missing;
+4. optionally create or propose a gap record;
+5. optionally request a task from the orchestrator.
+
+Suggested event:
+
+~~~text
+query.insufficient_evidence
+~~~
+
+A user can then explicitly ask the research pipeline to investigate the missing question.
+
+## 85.8 External research behavior
+
+Default mode should not browse externally.
+
+External research is allowed only when:
+
+- the user explicitly asks to research/refresh beyond the KB; or
+- project policy explicitly permits automatic escalation and the orchestrator approves it.
+
+Any external result must enter through the normal source pipeline before it is treated as durable KB evidence.
+
+The query agent should not bypass acquisition, processing, classification, and verification simply because it found a web result while answering.
+
+## 85.9 Write permissions
+
+Default allowed writes:
+
+- query event;
+- answer event;
+- user feedback event;
+- proposed research-gap record;
+- proposed task request.
+
+Default forbidden writes:
+
+- editing verified claim meaning;
+- resolving conflicts;
+- modifying canonical source metadata;
+- merging entities;
+- accepting decisions;
+- changing schemas;
+- changing research policy.
+
+This keeps retrieval behavior separate from knowledge mutation.
+
+## 85.10 Query events
+
+Useful events:
+
+~~~text
+query.asked
+query.answered
+query.insufficient_evidence
+query.conflict_surfaced
+query.stale_evidence
+query.research_requested
+query.feedback_received
+~~~
+
+Do not log full sensitive user questions or source contents when project sensitivity policy forbids it.
+
+## 85.11 Feedback loop
+
+User feedback may create structured signals:
+
+- answer useful;
+- answer incomplete;
+- wrong source;
+- stale information;
+- missing topic;
+- ambiguous entity;
+- incorrect interpretation.
+
+Feedback should not directly alter claims.
+
+It should create:
+
+- verification task;
+- gap task;
+- entity-review task;
+- maintenance signal;
+
+depending on the issue.
+
+## 85.12 Performance architecture
+
+The Q&A layer should support fast repeated retrieval without weakening provenance.
+
+Recommended layers:
+
+1. metadata/ID index;
+2. lexical FTS;
+3. generated graph index;
+4. optional vector index;
+5. small answer-context assembly;
+6. provenance validation before output.
+
+Caches and vector indexes are derived state and must be rebuildable.
+
+## 85.13 Role manifest
+
+Suggested capabilities:
+
+~~~yaml
+role: knowledge-query-agent
+instruction_version: 1
+
+task_types:
+  - query.answer
+  - query.explain
+  - query.compare
+  - query.trace-source
+
+read:
+  - 01-project/**
+  - 02-research/**
+  - 03-knowledge/**
+  - 04-decisions/**
+  - 05-operations/reports/**
+  - 06-sources/**
+  - .research/generated/**
+  - .research/state.json
+
+write:
+  - .research/events/**
+  - .research/handoffs/**
+  - .research/tasks/**
+
+forbidden:
+  - research.config.yaml
+  - schemas/**
+  - agents/**
+  - 03-knowledge/claims/**
+  - 03-knowledge/entities/**
+  - 04-decisions/**
+  - 06-sources/records/**
+~~~
+
+A task-creation write should create a proposal/queued research task, not directly perform semantic KB mutation.
+
+## 85.14 Acceptance tests
+
+The query agent is not ready until fixtures prove that it:
+
+- answers from an exact supporting source when available;
+- cites the correct locator;
+- refuses to invent an answer when evidence is absent;
+- surfaces conflicting claims;
+- warns on stale evidence;
+- respects version/time/geography scope;
+- distinguishes primary and derivative sources;
+- does not count mirrors as independent corroboration;
+- routes unresolved questions into research gaps;
+- does not mutate verified knowledge while answering.
+
+Add Q&A fixtures such as:
+
+~~~text
+tests/fixtures/query/
+  exact-answer/
+  unsupported-question/
+  conflicting-evidence/
+  stale-claim/
+  version-mismatch/
+  alias-resolution/
+  source-lineage/
+  multiple-independent-sources/
+~~~
+
+## 85.15 User-facing goal
+
+The intended experience should eventually be:
+
+> Ask the repository a question and receive the most precise answer the maintained evidence can support, with direct source traceability, explicit uncertainty, and a clear statement when more research is required.
+
+This agent should become the primary interactive interface to the accumulated research knowledge.
