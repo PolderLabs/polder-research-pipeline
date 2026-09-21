@@ -1,7 +1,7 @@
 # Polder Research Pipeline — Audit and Improvement Plan
 
 **Audit date:** 2026-09-21  
-**Audited baseline:** initial scaffold at `b37afb629db579d296b55ff6cb495874fa0ed5d7`; deep structural re-audit against `main` at `ebd94b829cfa45394c3381669a0105eafa35cd5c`  
+**Audited baseline:** initial scaffold at b37afb629db579d296b55ff6cb495874fa0ed5d7; structural re-audits through d5c6739d5530cbce3be9768c564a55bbf0cb1354 on main
 **Target:** a reusable, self-maintaining agent research pipeline and knowledge-base template for arbitrary projects, problems, technologies, literature reviews, investigations, and subjects.
 
 ---
@@ -4655,3 +4655,1964 @@ The intended experience should eventually be:
 > Ask the repository a question and receive the most precise answer the maintained evidence can support, with direct source traceability, explicit uncertainty, and a clear statement when more research is required.
 
 This agent should become the primary interactive interface to the accumulated research knowledge.
+
+
+---
+
+# 86. Four-pass deep audit — conventions, UI, automation, and operations
+
+A fourth audit round was performed against main at d5c6739d5530cbce3be9768c564a55bbf0cb1354.
+
+This round deliberately used four independent passes instead of extending the previous architecture audit in only one direction.
+
+## Pass 1 — naming, information architecture, schemas, and repository conventions
+
+Questions:
+
+- Can a human or agent predict how every file, ID, field, event, branch, and record should be named?
+- Are concepts named consistently across documentation, scripts, templates, CSS, and state?
+- Are stable identities separated from filenames and display titles?
+- Can naming rules be validated mechanically?
+- Is the repository structure generic enough for non-software research?
+
+## Pass 2 — visual language, color conventions, accessibility, and Obsidian UX
+
+Questions:
+
+- Do colors have one documented semantic meaning?
+- Are status colors separate from decorative domain colors?
+- Does the dashboard remain usable in light/dark themes, with reduced motion, keyboard focus, and color-vision differences?
+- Are CSS classes scoped and maintainable?
+- Are remote visual dependencies necessary?
+- Can visual rules be tested rather than judged manually?
+
+## Pass 3 — automation, CI, tests, release discipline, and repository governance
+
+Questions:
+
+- Which checks run locally, on pull requests, on main, on schedules, and on releases?
+- Are generated artifacts checked for drift?
+- Can documentation examples regress unnoticed?
+- Are dependencies pinned and maintained?
+- Can an autonomous agent bypass the only validation layer?
+- Is control-plane code governed more strongly than ordinary research content?
+
+## Pass 4 — autonomous-agent reliability, security, failure recovery, and maintenance
+
+Questions:
+
+- Are agents permission-bounded?
+- Are task execution and retries idempotent?
+- Can the pipeline recover after interruption?
+- Can hostile source content alter agent behavior?
+- Are destructive actions reversible?
+- Does state identify the exact code/config/instructions that produced an artifact?
+- Can maintenance be triggered deterministically?
+
+The main conclusion after all four passes is unchanged but stronger:
+
+> The project should be treated as a research data/control system with a Markdown/Obsidian interface, not as a collection of notes with increasingly complex agent prompts.
+
+---
+
+# 87. Pass 1 findings — naming and structural conventions
+
+## 87.1 Product naming still drifts
+
+The current repository still contains legacy terminology, including:
+
+- “Polder Video Pipeline” in the dashboard CSS header;
+- “Polder Video Pipeline” in the vault_audit.py module documentation;
+- realtime AI/video-specific descriptions in older agent/OpenWolf/domain guidance;
+- “Polder Research Pipeline” in newer root documentation.
+
+This becomes harmful once agents use search to determine repository context.
+
+### Required convention
+
+Canonical product name:
+
+~~~text
+Polder Research Pipeline
+~~~
+
+Canonical short name:
+
+~~~text
+PRP
+~~~
+
+Canonical Python package namespace:
+
+~~~text
+polder_research
+~~~
+
+Canonical CLI executable:
+
+~~~text
+research
+~~~
+
+“Polder Video Pipeline” should only appear in historical/migration material if needed.
+
+Add an audit rule for deprecated product terminology.
+
+---
+
+## 87.2 Add a formal naming standard
+
+Create:
+
+~~~text
+00-home/naming-conventions.md
+~~~
+
+and make executable parts of the convention machine-readable.
+
+Recommended naming matrix:
+
+| Object | Convention | Example |
+|---|---|---|
+| Conventional root docs | conventional uppercase names | README.md, AGENTS.md, CHANGELOG.md |
+| Human-facing Markdown notes | lowercase kebab-case | streaming-inference.md |
+| Top-level content domains | two-digit prefix + lowercase kebab | 02-research/ |
+| Profile research domains | lowercase kebab | model-inference/ |
+| Python packages/modules | lowercase snake_case | polder_research/state_builder.py |
+| Python classes | PascalCase | StateBuilder |
+| Python functions/variables | snake_case | build_state_snapshot |
+| JSON/YAML keys | snake_case | last_verified_at |
+| Environment variables | uppercase PRP_ prefix | PRP_STORAGE_MODE |
+| Agent role IDs | lowercase kebab + -agent | knowledge-query-agent |
+| Agent instruction file | role ID + .md | knowledge-query-agent.md |
+| Agent role manifest | same role ID + .yaml | roles/knowledge-query-agent.yaml |
+| JSON Schema files | record name + .schema.json | claim.schema.json |
+| Templates | record name + -template.md | claim-template.md |
+| CSS component classes | prp- namespace | prp-card |
+| CSS custom properties | --prp- namespace | --prp-color-status-danger |
+| Git branches | conventional prefix + slash | feat/claim-graph |
+| Release tags | SemVer | v0.4.0 |
+| Audit/report files | ISO date + kind + slug | 2026-09-21--audit--repository-conventions.md |
+
+Avoid new unscoped generic CSS classes such as span-4, span-6, span-8, and span-12 because they can collide with Obsidian themes/plugins.
+
+Use prp-span-4 style names or scope utilities underneath one dashboard root.
+
+---
+
+## 87.3 Stable identity must not depend on filenames
+
+Human-facing note filenames may remain readable.
+
+Machine records should use stable IDs.
+
+Recommended prefixes:
+
+| Record | Prefix |
+|---|---|
+| research run | run_ |
+| task | task_ |
+| event | evt_ |
+| source | src_ |
+| source segment | seg_ |
+| claim | clm_ |
+| entity | ent_ |
+| research question | qst_ |
+| research gap | gap_ |
+| conflict | cnf_ |
+| decision | dec_ |
+| experiment | exp_ |
+| benchmark | bnch_ |
+| maintenance round | mnt_ |
+| evolution proposal | evo_ |
+| handoff | hnd_ |
+
+Use time-sortable UUIDv7 identifiers for newly generated durable IDs.
+
+Do not encode mutable titles, status, agent names, or folder names into IDs.
+
+RFC 9562 defines UUIDv7 as a Unix-time-based UUID and recommends versions 6 or 7 over version 1 for new time-ordered use cases:
+
+https://www.rfc-editor.org/rfc/rfc9562.html
+
+---
+
+## 87.4 Machine record filenames should be predictable
+
+Examples:
+
+~~~text
+06-sources/records/src_<uuidv7>.json
+03-knowledge/claims/clm_<uuidv7>.json
+03-knowledge/entities/ent_<uuidv7>.json
+.research/tasks/task_<uuidv7>.json
+~~~
+
+Human-facing research notes remain readable:
+
+~~~text
+02-research/domains/<domain>/<short-readable-slug>.md
+~~~
+
+Each durable human-facing note still gets a stable frontmatter ID.
+
+This solves Unicode-title and rename problems without sacrificing Obsidian usability.
+
+---
+
+## 87.5 Timestamp conventions are underspecified
+
+Machine timestamps should use RFC 3339 / ISO 8601 UTC.
+
+Example:
+
+~~~text
+2026-09-21T21:42:14Z
+~~~
+
+Rules:
+
+- machine events: UTC with timezone;
+- date-only human fields: YYYY-MM-DD;
+- never store ambiguous local timestamps without offset;
+- fields ending in _at mean timestamp;
+- fields ending in _date mean date-only;
+- duration fields include units, such as duration_ms;
+- generated state includes generated_at.
+
+---
+
+## 87.6 Event naming needs a grammar
+
+Use:
+
+~~~text
+<object>.<past-tense-event>
+~~~
+
+Examples:
+
+~~~text
+source.discovered
+source.acquired
+source.changed
+claim.extracted
+claim.verified
+task.claimed
+task.completed
+query.answered
+maintenance.completed
+~~~
+
+Commands/actions may use imperative verbs.
+
+Do not mix source.discovery, discover.source, source.discover, and source.discovered for the same concept.
+
+---
+
+## 87.7 Status fields should use typed names
+
+Do not use one universal status field once structured records exist.
+
+Prefer:
+
+~~~yaml
+lifecycle_status:
+claim_status:
+verification_status:
+freshness_status:
+decision_status:
+task_status:
+run_status:
+source_status:
+maintenance_status:
+~~~
+
+This prevents accidental comparison of unrelated state machines.
+
+---
+
+## 87.8 Template names must match semantics
+
+source-entry-template.md currently represents a research-note structure.
+
+The naming standard should require:
+
+~~~text
+template filename
+→ registered template type
+→ frontmatter type
+→ schema
+→ generator mapping
+~~~
+
+Any disagreement should fail audit.
+
+---
+
+## 87.9 Central glossary is required
+
+Create:
+
+~~~text
+00-home/glossary.md
+~~~
+
+Canonical definitions are needed for:
+
+- source;
+- segment;
+- evidence edge;
+- claim;
+- research note;
+- observation;
+- inference;
+- question;
+- research gap;
+- conflict;
+- decision;
+- run;
+- task;
+- event;
+- artifact;
+- entity;
+- tag;
+- topic;
+- domain.
+
+Particularly:
+
+Source = an artifact or authoritative external/internal record that was examined.
+
+Segment = an addressable portion of a source.
+
+Evidence edge = a typed relationship between a segment/observation and a claim.
+
+Claim = a proposition that can be supported, contradicted, qualified, updated, or superseded.
+
+Research note = a human-readable synthesis over structured claims.
+
+Entity = a canonical identifiable thing.
+
+Tag = a lightweight categorization label, not an entity or state.
+
+---
+
+## 87.10 Root documentation is becoming monolithic
+
+Approximate sizes during this audit:
+
+- README.md: about 30 KB;
+- IMPROVEMENTS.md: more than 100 KB.
+
+The README is now substantially more truthful but is too large to remain the permanent single entry point.
+
+The audit file is also becoming a specification store instead of a bounded audit artifact.
+
+Recommended eventual split:
+
+~~~text
+README.md
+00-home/
+  architecture.md
+  naming-conventions.md
+  glossary.md
+  agent-model.md
+  evidence-model.md
+  visual-style-guide.md
+  automation-guide.md
+
+05-operations/audits/
+  README.md
+  2026-09-21/
+    summary.md
+    pass-01-structure.md
+    pass-02-visual.md
+    pass-03-automation.md
+    pass-04-agent-operations.md
+~~~
+
+Keep IMPROVEMENTS.md temporarily as the master plan while implementation is still at the foundation stage.
+
+---
+
+## 87.11 Add EditorConfig and Git attributes
+
+Add .editorconfig with:
+
+- UTF-8;
+- LF line endings;
+- final newline;
+- trailing-whitespace cleanup;
+- Python indentation: 4 spaces;
+- YAML/JSON indentation: 2 spaces;
+- Markdown exceptions only where meaningful.
+
+Add .gitattributes to:
+
+- normalize text to LF;
+- mark real binary formats as binary;
+- prevent cross-platform line-ending noise;
+- optionally identify generated artifacts for GitHub linguist/diff behavior.
+
+---
+
+## 87.12 Global binary ignores are too broad
+
+Root .gitignore currently ignores PDF, ZIP, MOV, MP4 and other extensions globally.
+
+That can block legitimate version-controlled artifacts elsewhere.
+
+Prefer path-scoped storage policy, for example:
+
+~~~gitignore
+/90-inbox/raw/**
+!/90-inbox/raw/.gitkeep
+!/90-inbox/raw/README.md
+~~~
+
+and policy-based storage backends.
+
+---
+
+# 88. Pass 2 findings — visual and color conventions
+
+The dashboard is visually coherent but does not yet have a defined design system.
+
+Current CSS includes:
+
+- hard-coded accent RGB;
+- Obsidian variable fallbacks;
+- raw HSL domain/status hues;
+- translucent white surfaces;
+- glass blur;
+- remote Google Fonts;
+- transition: all;
+- hover translations;
+- custom narrow scrollbars;
+- global utility classes;
+- a 1px dashed focus outline;
+- no prefers-reduced-motion handling;
+- no explicit light-theme token set;
+- no focus-visible policy.
+
+Static class comparison suggests roughly twenty CSS classes are no longer referenced by the current index.md, including older domain-row, link-grid, and health-row components.
+
+Treat this as design-system debt, not only CSS cleanup.
+
+---
+
+## 88.1 Separate decorative and semantic color systems
+
+Brand/decorative colors are for:
+
+- accent;
+- domain identity;
+- charts;
+- decoration.
+
+Semantic colors are for:
+
+- success;
+- current/information;
+- pending/draft;
+- warning/review;
+- danger/conflict/failure;
+- inactive/superseded.
+
+Do not reuse decorative domain colors as semantic state colors.
+
+---
+
+## 88.2 Recommended semantic mapping
+
+| Meaning | Token | Typical states |
+|---|---|---|
+| Positive/verified | success | verified, supported, healthy, completed |
+| Informational/current | info | current, active, informational |
+| Pending | pending | queued, draft, proposed |
+| Warning/review | warning | stale, review-due, partial, degraded |
+| Danger | danger | failed, contradicted, rejected, critical conflict |
+| Neutral | neutral | superseded, archived, inactive, unknown |
+
+Color must not be the only carrier of status.
+
+Every semantic state should also expose text and, where useful, an icon/shape.
+
+W3C WCAG 2.2 Use of Color:
+
+https://www.w3.org/WAI/WCAG22/Understanding/use-of-color
+
+---
+
+## 88.3 Establish separate light and dark palettes
+
+Example accessible foreground palette for light surfaces:
+
+| Token | Example |
+|---|---|
+| accent | #4F46E5 |
+| info | #1D4ED8 |
+| success | #166534 |
+| warning | #92400E |
+| danger | #B91C1C |
+| neutral | #475569 |
+
+Example foreground palette on a dark surface around #0F172A:
+
+| Token | Example |
+|---|---|
+| accent | #A5B4FC |
+| info | #93C5FD |
+| success | #86EFAC |
+| warning | #FCD34D |
+| danger | #FCA5A5 |
+| neutral | #CBD5E1 |
+
+These are starting tokens, not a mandate for exact colors.
+
+Actual rendered tokens must be contrast-tested against actual backgrounds.
+
+The current fallback accent #6366F1 is approximately 4.47:1 against white, narrowly below the 4.5:1 WCAG minimum for normal text.
+
+WCAG contrast guidance:
+
+https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum
+
+---
+
+## 88.4 Use design tokens instead of raw component colors
+
+Recommended token hierarchy:
+
+~~~text
+--prp-color-bg-canvas
+--prp-color-bg-surface
+--prp-color-bg-surface-raised
+
+--prp-color-text-primary
+--prp-color-text-secondary
+--prp-color-text-muted
+
+--prp-color-border-default
+--prp-color-border-strong
+
+--prp-color-accent
+--prp-color-accent-contrast
+
+--prp-color-status-info
+--prp-color-status-success
+--prp-color-status-pending
+--prp-color-status-warning
+--prp-color-status-danger
+--prp-color-status-neutral
+~~~
+
+Raw HSL values should live only in the token/theme layer.
+
+---
+
+## 88.5 Theme handling should be explicit
+
+Define theme-specific token overrides under Obsidian theme contexts such as theme-light and theme-dark.
+
+Current translucent white surfaces cannot be assumed correct in both themes.
+
+Visual smoke tests should cover:
+
+- default light;
+- default dark;
+- narrow/mobile-width layout.
+
+---
+
+## 88.6 Keyboard focus needs improvement
+
+Current focus is a 1px dashed outline.
+
+Use focus-visible and a strong, consistent focus ring.
+
+Target:
+
+- at least a clearly visible 2 CSS px apparent perimeter;
+- clear offset;
+- at least 3:1 focus-state change of contrast;
+- consistent behavior across links and controls.
+
+W3C WCAG 2.2 Focus Appearance:
+
+https://www.w3.org/WAI/WCAG22/Understanding/focus-appearance
+
+---
+
+## 88.7 Respect reduced-motion preferences
+
+Current cards/rows translate on hover and use transitions.
+
+Add reduced-motion handling.
+
+W3C documents prefers-reduced-motion as a technique for suppressing nonessential interaction motion:
+
+https://www.w3.org/WAI/WCAG22/Techniques/css/C39
+
+A conservative pattern is to enable motion only when the user has no reduced-motion preference.
+
+---
+
+## 88.8 Remove transition: all
+
+Explicitly list animated properties.
+
+This prevents unrelated future property changes from becoming animated accidentally.
+
+---
+
+## 88.9 Remote Google Fonts should not be mandatory
+
+Current CSS imports Google Fonts at runtime.
+
+Problems:
+
+- offline use breaks custom typography;
+- opening the vault causes a third-party network request;
+- privacy/network policy may prohibit it;
+- font loading can shift layout;
+- remote availability becomes part of dashboard rendering.
+
+Prefer Obsidian/system font tokens by default.
+
+Custom fonts can be an optional user-controlled enhancement.
+
+---
+
+## 88.10 Font-weight choices should match actual font files
+
+The dashboard asks Instrument Serif for high weights in places where the family may not supply those exact variants.
+
+Avoid relying on browser-synthesized bold for core visual hierarchy.
+
+---
+
+## 88.11 Define minimum typography tokens
+
+The dashboard frequently uses 0.7em and 0.72em.
+
+Define:
+
+~~~text
+--prp-font-size-xs
+--prp-font-size-sm
+--prp-font-size-md
+~~~
+
+Avoid combining very small size, uppercase, wide tracking, and muted color.
+
+---
+
+## 88.12 Responsive behavior is incomplete
+
+The 1100px breakpoint expands span-4 and span-8 but not span-6.
+
+Surface cards can remain side by side at widths where they should stack.
+
+Also test:
+
+- four-column inbox grid;
+- hero stats;
+- surface row labels;
+- large editable hero title;
+- domain cards.
+
+Target a narrow layout around 360–430 CSS px.
+
+---
+
+## 88.13 Scrollbars are too narrow
+
+A 4px custom scrollbar is difficult to acquire with a mouse.
+
+Prefer system scrollbars or a more usable minimum.
+
+---
+
+## 88.14 CSS utilities must be scoped
+
+Global span classes should be renamed or scoped.
+
+All dashboard components should use prp- classes or live underneath one unique root.
+
+---
+
+## 88.15 Create a visual style guide
+
+Add:
+
+~~~text
+00-home/visual-style-guide.md
+~~~
+
+Define:
+
+- semantic colors;
+- light/dark behavior;
+- domain colors;
+- icon vocabulary;
+- status labels;
+- typography;
+- spacing;
+- radius;
+- elevation;
+- focus;
+- hover;
+- motion;
+- responsive breakpoints;
+- charts;
+- empty states;
+- warnings/errors.
+
+Agents modifying UI should not invent new semantic colors locally.
+
+---
+
+## 88.16 Visual review checklist
+
+Dashboard/UI changes should check:
+
+- no new unscoped CSS classes;
+- no raw semantic colors outside tokens;
+- no transition: all;
+- no mandatory external font/network dependency;
+- focus-visible for controls;
+- color not sole state indicator;
+- reduced-motion support;
+- normal text contrast at least 4.5:1;
+- meaningful UI/focus contrast at least 3:1;
+- light/dark check;
+- narrow layout check;
+- dead CSS not added.
+
+---
+
+# 89. Pass 3 findings — automation and engineering best practices
+
+Current repository state includes:
+
+- no .github directory;
+- no CI workflows;
+- no tests directory;
+- no Python package manifest;
+- no dependency lock;
+- no .editorconfig;
+- no .gitattributes;
+- no generated-file drift test;
+- no dependency-update configuration;
+- no release process;
+- unprotected main;
+- one local pre-commit shell hook that users must manually activate.
+
+This is the largest practical gap before autonomous agents can write broadly.
+
+---
+
+## 89.1 Adopt layered automation
+
+### Layer A — local fast checks
+
+Run on commit:
+
+- Python lint/format;
+- changed JSON/YAML validation;
+- frontmatter validation;
+- naming convention;
+- deprecated terminology;
+- obvious internal links;
+- cache/bytecode check;
+- secret patterns;
+- generated-file write protection where possible.
+
+Target: seconds.
+
+### Layer B — pull-request CI
+
+Run:
+
+- full unit tests;
+- schema validation;
+- repository audit;
+- documentation-conformance tests;
+- full internal-link graph;
+- state/event integrity;
+- generated rebuild + diff;
+- fixture suite;
+- control-plane policy tests;
+- optional static accessibility/CSS checks.
+
+### Layer C — scheduled health
+
+Run:
+
+- external link report;
+- dependency updates;
+- source refresh candidates;
+- stale claims;
+- abandoned tasks/leases;
+- index age;
+- ontology drift;
+- audit trend.
+
+### Layer D — release gate
+
+Run:
+
+- full audit;
+- all tests;
+- migrations;
+- changelog;
+- version consistency;
+- reproducible package build;
+- generated drift;
+- release notes.
+
+---
+
+## 89.2 Use a bootstrapable hook framework
+
+The current custom hook is opt-in.
+
+Adopt pre-commit or an equivalent declarative hook runner.
+
+research bootstrap should install/configure hooks.
+
+CI must invoke the same checks independently so bypassing a local hook cannot bypass correctness.
+
+---
+
+## 89.3 Add pyproject.toml
+
+When core code moves to src/polder_research, define:
+
+- package metadata;
+- supported Python range;
+- dependencies;
+- dev dependencies;
+- Ruff;
+- pytest;
+- type-check configuration;
+- CLI entry point.
+
+Recommended minimum:
+
+- Ruff;
+- pytest;
+- JSON Schema validation;
+- YAML validation;
+- project-specific audit commands.
+
+Avoid overlapping linters/formatters.
+
+---
+
+## 89.4 Pin and test supported Python versions
+
+The committed Python 3.14 bytecode artifact shows environment leakage.
+
+Choose an intentional runtime range and test it.
+
+Do not infer compatibility from whichever interpreter generated a pyc file.
+
+---
+
+## 89.5 Add deterministic dependency locking
+
+CI and local bootstrap should resolve identical dependency versions.
+
+Floating “latest” installs are inappropriate for autonomous workflows.
+
+---
+
+## 89.6 Standardize JSON Schema dialect
+
+If JSON Schema is chosen, use Draft 2020-12 consistently.
+
+Current JSON Schema specification:
+
+https://json-schema.org/specification
+
+Each schema should declare its dialect and stable ID.
+
+Do not silently mix schema drafts.
+
+---
+
+## 89.7 Add schema compatibility tests
+
+Test:
+
+- valid current record;
+- missing required fields;
+- invalid enum;
+- bad ID prefix;
+- bad timestamp;
+- illegal state transition;
+- supported old schema;
+- migration to current;
+- unknown future schema fails safely.
+
+---
+
+## 89.8 Add generated-artifact drift checks
+
+CI pattern:
+
+~~~text
+research generate --all
+git diff --exit-code
+~~~
+
+Apply to tracked derived artifacts such as:
+
+- state snapshots;
+- source catalogs;
+- graph indexes;
+- human manifests;
+- static navigation;
+- ontology indexes.
+
+---
+
+## 89.9 Test documentation examples
+
+Every supported executable example should be:
+
+- executed in docs tests;
+- or marked explicitly as illustrative.
+
+This would have caught several current defects.
+
+Documentation is part of the API.
+
+---
+
+## 89.10 Add convention linting
+
+Add:
+
+~~~text
+research audit conventions
+~~~
+
+Checks:
+
+- root files;
+- filename patterns;
+- directory patterns;
+- ID prefixes;
+- JSON/YAML key convention;
+- timestamp format;
+- event grammar;
+- CSS namespace;
+- deprecated terminology;
+- template/schema registration;
+- typed-status requirements.
+
+---
+
+## 89.11 Markdown checks should be conservative
+
+Useful checks:
+
+- valid frontmatter;
+- heading hierarchy;
+- internal links;
+- trailing whitespace;
+- final newline;
+- fenced blocks;
+- table pipe escaping.
+
+Avoid aggressive prose reflow that creates noisy research-note diffs.
+
+---
+
+## 89.12 Add a secrets/sensitive-data gate
+
+Before multi-agent write automation:
+
+- reject credentials/API keys;
+- prevent secrets in events;
+- scan staged changes;
+- redact sensitive tool output;
+- support allowlisted fake-secret fixtures.
+
+A real secret finding should be a hard failure.
+
+---
+
+## 89.13 Add dependency automation
+
+Configure Dependabot for Python and GitHub Actions when manifests/workflows exist.
+
+GitHub supports GitHub Actions as a Dependabot package ecosystem:
+
+https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/auto-update-actions
+
+Dependency PRs still pass normal CI.
+
+Do not auto-merge major parser/security/agent-runtime changes without review.
+
+---
+
+## 89.14 GitHub Actions security conventions
+
+Each workflow should declare minimum permissions.
+
+Third-party actions should be pinned to full commit SHAs.
+
+GitHub recommends minimum GITHUB_TOKEN permissions and full-SHA action pinning:
+
+https://docs.github.com/en/code-security/tutorials/secure-your-organization/protect-against-threats
+
+https://docs.github.com/en/actions/reference/security/secure-use
+
+---
+
+## 89.15 Cancel stale CI runs
+
+Use GitHub Actions concurrency groups and cancel-in-progress for PR CI.
+
+GitHub workflow concurrency documentation:
+
+https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax
+
+---
+
+## 89.16 Recommended workflow set
+
+### ci.yml
+
+Triggers:
+
+- pull request;
+- push to main.
+
+Runs:
+
+1. bootstrap;
+2. Ruff;
+3. unit tests;
+4. schemas;
+5. docs conformance;
+6. repository audit;
+7. generated drift;
+8. fixtures.
+
+### scheduled-health.yml
+
+Weekly.
+
+Runs:
+
+- external-link report;
+- maintenance trigger evaluation;
+- stale-state detection;
+- dependency/source health.
+
+It should produce a report or issue/PR, not silently commit research conclusions.
+
+### full-maintenance-check.yml
+
+Monthly or manual.
+
+Runs:
+
+- all fixtures;
+- graph rebuild;
+- index rebuild;
+- source consistency;
+- ontology analysis;
+- archive integrity.
+
+### release.yml
+
+On reviewed release tag.
+
+Runs:
+
+- full CI;
+- package build;
+- version checks;
+- changelog checks;
+- release artifact generation.
+
+---
+
+## 89.17 Govern main
+
+Current main is unprotected.
+
+Before autonomous agents can modify control-plane files, require appropriate status checks.
+
+Where repository plan/features permit:
+
+- require pull requests for control-plane changes;
+- require CI;
+- block force pushes/deletion;
+- resolve review conversations;
+- require code-owner review for sensitive paths;
+- optionally sign release commits/tags.
+
+GitHub protected branch documentation:
+
+https://docs.github.com/en/repositories/configuring-branches-and-merges/managing-protected-branches/about-protected-branches
+
+---
+
+## 89.18 Add CODEOWNERS for control-plane paths
+
+Conceptually:
+
+~~~text
+/agents/                 maintainers
+/schemas/                maintainers
+/research.config.yaml    maintainers
+/src/polder_research/    maintainers
+/.github/                maintainers
+/07-evolution/           maintainers
+~~~
+
+Research-content additions may use lighter review policy.
+
+---
+
+## 89.19 Standardize commits and releases
+
+Use Conventional Commits:
+
+~~~text
+feat(state): add event snapshot builder
+fix(intake): insert first manifest row correctly
+docs(audit): define visual conventions
+refactor(schema): centralize lifecycle enums
+chore(ci): pin action SHAs
+~~~
+
+Specification:
+
+https://www.conventionalcommits.org/en/v1.0.0/
+
+Use Semantic Versioning for the template/CLI once the public contract is defined.
+
+Early development can remain 0.x.y.
+
+https://semver.org/
+
+---
+
+## 89.20 Add CHANGELOG discipline
+
+CHANGELOG.md should track:
+
+- CLI changes;
+- schema changes;
+- agent-instruction behavior;
+- migrations;
+- folder/layout changes;
+- breaking workflow changes.
+
+Do not put every research-note content change in the product changelog.
+
+---
+
+## 89.21 Add automation severity classes
+
+### Error — block merge
+
+- invalid schema;
+- broken authoritative reference;
+- missing required provenance;
+- invalid state transition;
+- generated drift;
+- secret detected;
+- test failure;
+- control-plane instruction conflict.
+
+### Warning
+
+- external link unavailable;
+- review due;
+- near-duplicate tag;
+- noncritical stale claim;
+- maintenance threshold nearing.
+
+### Info
+
+- source refresh suggestion;
+- ontology cleanup candidate;
+- performance advisory.
+
+Exit codes/reporting should reflect severity.
+
+---
+
+# 90. Pass 4 findings — autonomous agent reliability and security
+
+The previous audit defined roles and state. This pass defines what those roles require operationally.
+
+---
+
+## 90.1 Every run records its execution envelope
+
+Record at least:
+
+~~~json
+{
+  "agent_role": "classification-agent",
+  "instruction_version": 3,
+  "role_manifest_version": 2,
+  "config_hash": "sha256:...",
+  "schema_set_version": "4",
+  "code_revision": "<git-sha>",
+  "runtime": "...",
+  "model": "...",
+  "toolset_version": "...",
+  "started_at": "...",
+  "run_id": "run_..."
+}
+~~~
+
+Without this, later maintainers cannot reproduce why identical inputs produced different output.
+
+---
+
+## 90.2 Validate outputs before authoritative writes
+
+Pipeline:
+
+~~~text
+agent output
+→ parse
+→ schema validate
+→ semantic invariant validate
+→ permission check
+→ concurrency check
+→ authoritative write
+→ event
+~~~
+
+Never write partially parsed model output to authoritative state.
+
+---
+
+## 90.3 Capability manifests must be enforceable
+
+A role manifest should specify:
+
+- readable paths;
+- writable paths;
+- allowed task types;
+- allowed tools;
+- network policy;
+- source-size limits;
+- browsing permission;
+- code-execution permission;
+- destructive-operation permission;
+- approval requirements.
+
+Runtime enforcement is preferred over prompt-only enforcement.
+
+---
+
+## 90.4 Add network/SSRF policy
+
+Default remote fetch policy:
+
+- allow HTTP/HTTPS;
+- deny loopback;
+- deny link-local;
+- deny private network ranges unless explicitly configured;
+- limit redirects;
+- revalidate destination after redirect;
+- limit response bytes;
+- set timeouts;
+- inspect MIME type independently of filename;
+- log canonical destination.
+
+Internal research should use explicit internal connectors/policies rather than weakening the generic fetcher.
+
+---
+
+## 90.5 Add an ingestion quarantine stage
+
+Before parsing:
+
+- file-size limit;
+- MIME sniff;
+- extension/MIME mismatch;
+- archive depth;
+- compression ratio;
+- path traversal;
+- symlinks;
+- executables;
+- macros where relevant;
+- malformed parser input;
+- encrypted files;
+- content hash.
+
+Archive extraction must prevent zip-slip/path traversal.
+
+Set decompression and resource limits.
+
+---
+
+## 90.6 Sandbox parsers
+
+Where practical:
+
+- low-privilege subprocess/container;
+- no credentials;
+- no unnecessary network;
+- read-only input;
+- bounded CPU/memory/time;
+- controlled output directory;
+- output validation.
+
+Do not execute scripts, notebooks, macros, binaries, or repository build steps merely to understand a source.
+
+---
+
+## 90.7 Treat source instructions as data
+
+Source content cannot:
+
+- change agent policy;
+- grant permissions;
+- request credentials;
+- authorize writes;
+- override role constraints.
+
+Prompt-injection-like content is evidence content only.
+
+Processing should convert raw external content into structured evidence before action-capable roles consume it where practical.
+
+---
+
+## 90.8 Add deterministic error taxonomy
+
+Recommended classes:
+
+~~~text
+transient
+validation
+policy
+permission
+conflict
+dependency
+source-unavailable
+source-malformed
+budget
+timeout
+rate-limit
+internal
+unknown
+~~~
+
+Each failure includes:
+
+- error class;
+- retryable;
+- retry-after where known;
+- attempt;
+- max attempts;
+- human-action-required;
+- sanitized diagnostic.
+
+---
+
+## 90.9 Retry by error class
+
+| Error | Automatic retry |
+|---|---|
+| timeout | yes, bounded backoff |
+| HTTP 429 | yes, respect retry-after |
+| transient 5xx | yes, bounded |
+| invalid schema output | perhaps one repair attempt, then fail |
+| permission denied | no |
+| policy violation | no |
+| concurrent edit | re-read/reconcile |
+| malformed source | no blind retry |
+| budget exhausted | no until budget changes |
+
+Never retry indefinitely.
+
+---
+
+## 90.10 Add circuit breakers
+
+If an adapter/provider/parser repeatedly fails:
+
+- pause new assignments;
+- mark degraded state;
+- preserve queued work;
+- use fallback only if policy allows;
+- notify maintenance/orchestrator.
+
+---
+
+## 90.11 Add per-task budgets
+
+Task records can define:
+
+~~~json
+{
+  "budget": {
+    "max_tool_calls": 40,
+    "max_sources": 20,
+    "max_wall_time_s": 1800,
+    "max_cost": 5.0
+  }
+}
+~~~
+
+The stop reason must be explicit:
+
+- completed;
+- diminishing returns;
+- budget;
+- policy;
+- dependency blocked;
+- user cancelled.
+
+---
+
+## 90.12 Add heartbeat and orphan recovery
+
+Claimed tasks need:
+
+- claimed_at;
+- heartbeat_at;
+- lease_expires_at;
+- attempt.
+
+Before retrying an expired task:
+
+- inspect prior events;
+- inspect partial artifacts;
+- determine whether the task is safe to repeat;
+- avoid duplicating side effects.
+
+---
+
+## 90.13 Add idempotency keys
+
+Examples:
+
+~~~text
+acquire:<canonical-url>:<retrieval-policy-version>
+process:<source-id>:<content-hash>:<parser-version>
+classify:<segment-set-hash>:<schema-version>
+verify:<claim-id>:<claim-revision>:<verification-policy-version>
+~~~
+
+Equivalent completed work should be reused unless explicitly forced.
+
+---
+
+## 90.14 Use optimistic concurrency for semantic records
+
+Each mutable authoritative record should expose a revision/hash.
+
+If the expected revision changed before write:
+
+- do not overwrite;
+- re-read;
+- reconcile;
+- create a semantic conflict task if needed.
+
+---
+
+## 90.15 Prefer tombstones to identity deletion
+
+For provenance-bearing sources/claims/entities:
+
+- supersede;
+- merge through redirect;
+- archive;
+- tombstone.
+
+Do not erase identity that old events/reports still reference.
+
+---
+
+## 90.16 Add write-ahead intent for high-risk operations
+
+Examples:
+
+- entity merge;
+- bulk tag migration;
+- schema migration;
+- note merge;
+- decision supersession;
+- raw-storage relocation.
+
+Operation state:
+
+~~~text
+planned
+validated
+approved
+applying
+completed
+rolled-back
+failed
+~~~
+
+Store affected IDs and rollback information.
+
+---
+
+## 90.17 Make events tamper-evident enough for the threat model
+
+Git history already provides practical traceability.
+
+For stronger auditability, events may include:
+
+- content_sha256;
+- checkpoint/previous-event hash;
+- code revision;
+- actor identity.
+
+Do not build a heavyweight cryptographic ledger unless the threat model requires it.
+
+---
+
+## 90.18 Sensitive-data policy must cover logs
+
+Do not automatically log:
+
+- full source text;
+- complete sensitive user questions;
+- credentials;
+- authorization headers;
+- connector tokens;
+- personal data;
+- confidential prompts.
+
+Events should favor IDs, hashes, classifications, and sanitized summaries.
+
+---
+
+## 90.19 Gate external-model use by sensitivity
+
+Restricted data should not be sent to external providers unless policy permits it.
+
+Routing must consider:
+
+- sensitivity;
+- provider;
+- data-region/policy;
+- project configuration.
+
+Do not leave this to individual agent judgment.
+
+---
+
+## 90.20 Q&A answers need a deterministic provenance check
+
+Before returning a sourced answer:
+
+1. claim exists;
+2. claim revision is current;
+3. evidence edge resolves;
+4. segment/source resolves;
+5. locator exists where required;
+6. claim is not silently superseded;
+7. freshness is known;
+8. conflict state is surfaced;
+9. answer wording remains within claim scope.
+
+---
+
+## 90.21 Track unsupported-answer metrics
+
+For query/synthesis evaluation:
+
+~~~text
+unsupported_claim_rate
+incorrect_citation_rate
+citation_locator_accuracy
+conflict_omission_rate
+stale_evidence_use_rate
+scope_overreach_rate
+insufficient_evidence_detection_rate
+~~~
+
+Evaluate evidence behavior, not prose quality alone.
+
+---
+
+## 90.22 Add maintenance SLOs
+
+Example defaults:
+
+| Condition | Target |
+|---|---|
+| critical audit failure | triage immediately |
+| expired task lease | reclaim next orchestrator cycle |
+| critical changed source | impact analysis next maintenance cycle |
+| high-impact stale claim | verify before next trusted synthesis |
+| broken canonical source pointer | maintenance queue immediately |
+| generated state drift | block merge |
+| dependency security update | review by severity |
+
+Make these configurable.
+
+---
+
+## 90.23 Scheduled checks should not silently rewrite conclusions
+
+Scheduled automation should primarily:
+
+- inspect;
+- evaluate;
+- create reports;
+- create tasks;
+- create PRs;
+- refresh derived caches.
+
+Trusted research changes should still pass:
+
+~~~text
+source change
+→ processing
+→ classification
+→ verification
+→ controlled update
+~~~
+
+---
+
+# 91. Recommended automation matrix
+
+| Trigger | Automation | Blocking? | Writes trusted research? |
+|---|---|---:|---:|
+| developer commit | fast local checks | local block | no |
+| pull request | full CI + schemas + audit | yes | no |
+| push to main | verification + drift check | yes/report | no |
+| weekly schedule | health/links/dependencies/maintenance | no | no |
+| monthly schedule | full maintenance/evaluation report | no | no |
+| source-change event | impact task generation | no | no direct conclusion |
+| schema change | migration + fixtures | yes | controlled |
+| release tag | release gate | yes | package/docs only |
+| manual maintenance | selected maintenance workflow | policy-dependent | controlled |
+| agent task completion | role-specific validation | yes for handoff | scoped |
+
+---
+
+# 92. Naming quick reference
+
+## Files
+
+~~~text
+lower-kebab-case.md
+record-type.schema.json
+role-name-agent.md
+YYYY-MM-DD--report-kind--slug.md
+~~~
+
+## IDs
+
+~~~text
+src_<uuidv7>
+clm_<uuidv7>
+ent_<uuidv7>
+task_<uuidv7>
+run_<uuidv7>
+evt_<uuidv7>
+~~~
+
+## Data keys
+
+~~~text
+snake_case
+~~~
+
+## CSS
+
+~~~text
+.prp-component
+.prp-component__element
+.prp-component--state
+--prp-color-...
+--prp-space-...
+--prp-radius-...
+~~~
+
+Strict BEM is optional; prp namespacing and semantic tokens are required.
+
+## Events
+
+~~~text
+noun.past_tense
+source.acquired
+claim.verified
+query.answered
+~~~
+
+## Git branches
+
+~~~text
+feat/<slug>
+fix/<slug>
+docs/<slug>
+refactor/<slug>
+research/<slug>
+maintenance/<slug>
+~~~
+
+Commits:
+
+~~~text
+type(scope): imperative summary
+~~~
+
+Releases:
+
+~~~text
+vMAJOR.MINOR.PATCH
+~~~
+
+---
+
+# 93. Visual convention quick reference
+
+## Status semantics
+
+~~~text
+success = verified / supported / healthy / completed
+info    = current / informational / active
+pending = queued / draft / proposed
+warning = stale / review due / degraded / partial
+danger  = failed / contradicted / rejected / critical
+neutral = superseded / archived / inactive / unknown
+~~~
+
+## Accessibility baseline
+
+- WCAG 2.2 AA target;
+- normal text contrast >= 4.5:1;
+- large text contrast >= 3:1;
+- meaningful UI/focus contrast >= 3:1;
+- color never sole state carrier;
+- visible keyboard focus;
+- reduced-motion support;
+- light/dark theme tests;
+- narrow-width test.
+
+## CSS rules
+
+- no raw semantic colors in component blocks;
+- no transition: all;
+- no global generic utilities;
+- no mandatory remote fonts;
+- no tiny status text below the defined minimum;
+- no hover-only critical information;
+- no shared project state stored only in localStorage.
+
+Local UI preferences may use localStorage. Shared project identity may not.
+
+---
+
+# 94. Revised backlog from the four-pass audit
+
+## New P0 — correctness and naming
+
+- [ ] Replace remaining “Polder Video Pipeline” terminology.
+- [ ] Remove remaining realtime-video assumptions from generic control docs.
+- [ ] Add naming-conventions.md.
+- [ ] Add glossary.md.
+- [ ] Define ID prefixes and UUIDv7 generation.
+- [ ] Define RFC 3339 timestamp rules.
+- [ ] Add convention validator.
+- [ ] Centralize typed status vocabularies.
+- [ ] Add .editorconfig.
+- [ ] Add .gitattributes.
+- [ ] Scope raw-file ignores.
+- [ ] Migrate misleading source template.
+- [ ] Prevent unscoped CSS utilities.
+
+## New P0 — visual/accessibility
+
+- [ ] Create semantic design tokens.
+- [ ] Add separate light/dark palettes.
+- [ ] Contrast-test text/status tokens.
+- [ ] Replace 1px dashed focus with accessible focus-visible.
+- [ ] Add reduced motion.
+- [ ] Remove transition: all.
+- [ ] Remove or optionalize remote font loading.
+- [ ] Fix responsive span-6/inbox/stat layouts.
+- [ ] Remove dead CSS after verification.
+- [ ] Add visual-style-guide.md.
+- [ ] Make all status meaning readable without color.
+
+## New P0 — automation
+
+- [ ] Add pyproject.toml.
+- [ ] Define supported Python versions.
+- [ ] Add deterministic dependency lock.
+- [ ] Move core code to src/polder_research/.
+- [ ] Add pytest fixtures.
+- [ ] Add schema validation.
+- [ ] Add documentation-conformance tests.
+- [ ] Add naming/convention lint.
+- [ ] Add generated-drift check.
+- [ ] Add secret scanning.
+- [ ] Add CI workflow.
+- [ ] Set minimum Actions permissions.
+- [ ] SHA-pin third-party actions.
+- [ ] Add CI concurrency cancellation.
+- [ ] Protect main / require CI where available.
+
+## New P1 — maintenance and releases
+
+- [ ] Add weekly scheduled health workflow.
+- [ ] Add monthly full-maintenance check.
+- [ ] Add Dependabot for Python and Actions.
+- [ ] Add CODEOWNERS for control plane.
+- [ ] Document Conventional Commits.
+- [ ] Add SemVer template/CLI versioning.
+- [ ] Add CHANGELOG.
+- [ ] Add release workflow.
+- [ ] Add severity-aware audit reporting.
+
+## New P0 — agent reliability/security
+
+- [ ] Record instruction/config/schema/code revisions in runs.
+- [ ] Validate agent output before authoritative writes.
+- [ ] Enforce role capabilities.
+- [ ] Add network/SSRF policy.
+- [ ] Add ingestion quarantine.
+- [ ] Add archive/path traversal/decompression limits.
+- [ ] Sandbox parsers.
+- [ ] Add deterministic error taxonomy.
+- [ ] Add bounded retry policy.
+- [ ] Add circuit breakers.
+- [ ] Add task budgets.
+- [ ] Add heartbeats and orphan recovery.
+- [ ] Add idempotency keys.
+- [ ] Add optimistic concurrency.
+- [ ] Add tombstone/supersession semantics.
+- [ ] Add write-ahead migration/merge records.
+- [ ] Add sensitive-log redaction.
+- [ ] Add sensitivity-aware model routing.
+- [ ] Add deterministic Q&A provenance validation.
+
+---
+
+# 95. Four-pass acceptance gates
+
+## Pass 1 gate — conventions
+
+- product naming consistent;
+- deprecated names fail audit;
+- filenames conform;
+- IDs conform;
+- timestamps conform;
+- event names conform;
+- role names conform;
+- templates match registered record types;
+- glossary exists;
+- display titles are decoupled from identity;
+- control-plane ownership is clear.
+
+## Pass 2 gate — visual system
+
+- semantic colors use tokens;
+- light/dark token sets exist;
+- contrast tests pass;
+- state remains clear without color;
+- reduced motion works;
+- keyboard focus is visible;
+- narrow layout works;
+- CSS is namespaced;
+- dead CSS removed/documented;
+- no mandatory remote font dependency.
+
+## Pass 3 gate — automation
+
+- fresh clone bootstrap is deterministic;
+- local checks install through bootstrap;
+- PR CI runs full checks;
+- docs examples are tested;
+- generated drift blocks merge;
+- schemas validate;
+- dependencies are pinned/locked;
+- workflow permissions are minimal;
+- third-party actions are SHA-pinned;
+- main requires appropriate checks;
+- scheduled health cannot silently rewrite trusted research.
+
+## Pass 4 gate — agent operations
+
+- role permissions enforceable;
+- outputs schema validated;
+- task execution idempotent;
+- retries bounded/classified;
+- expired tasks recoverable;
+- ingestion sandboxed/quarantined;
+- prompt injection cannot alter policy;
+- sensitive data has routing/logging controls;
+- semantic writes use concurrency checks;
+- destructive identity loss prevented;
+- query answers provenance-validated;
+- trusted artifacts identify producing execution envelope.
+
+---
+
+# 96. Primary references used for this pass
+
+- W3C WCAG 2.2 — Use of Color:
+  https://www.w3.org/WAI/WCAG22/Understanding/use-of-color
+- W3C WCAG — Contrast Minimum:
+  https://www.w3.org/WAI/WCAG21/Understanding/contrast-minimum
+- W3C WCAG 2.2 — Focus Appearance:
+  https://www.w3.org/WAI/WCAG22/Understanding/focus-appearance
+- W3C WCAG technique C39 — prefers-reduced-motion:
+  https://www.w3.org/WAI/WCAG22/Techniques/css/C39
+- JSON Schema specification:
+  https://json-schema.org/specification
+- GitHub Actions secure use:
+  https://docs.github.com/en/actions/reference/security/secure-use
+- GitHub Actions workflow syntax/concurrency:
+  https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax
+- GitHub protected branches:
+  https://docs.github.com/en/repositories/configuring-branches-and-merges/managing-protected-branches/about-protected-branches
+- GitHub Dependabot for Actions:
+  https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/auto-update-actions
+- Conventional Commits 1.0.0:
+  https://www.conventionalcommits.org/en/v1.0.0/
+- Semantic Versioning:
+  https://semver.org/
+- RFC 9562 UUIDs:
+  https://www.rfc-editor.org/rfc/rfc9562.html
+
+These references inform conventions and validation criteria. The pipeline remains model/runtime/provider independent.
+
+---
+
+# 97. Priority after all four passes
+
+Implementation should now proceed in this order:
+
+1. Make current repository guidance truthful and naming-consistent.
+2. Centralize schemas, IDs, terminology, naming, and state vocabularies.
+3. Establish the control plane and enforce role permissions.
+4. Add deterministic local and CI validation.
+5. Harden ingestion and source-processing security.
+6. Implement source/claim/entity/evidence provenance primitives.
+7. Implement the KB query agent on verified evidence.
+8. Implement bounded research workers.
+9. Add scheduled health and maintenance automation.
+10. Only then enable self-evolution and broader autonomous writes.
+
+Critical principle:
+
+> Automation should increase only after the state model, validation model, provenance model, and recovery model are stronger than the autonomy being granted.
