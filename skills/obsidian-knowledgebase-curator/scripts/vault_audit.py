@@ -290,13 +290,18 @@ def audit():
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--quiet", action="store_true", help="exit code only, no output")
     args = ap.parse_args(argv)
     r = audit()
-
     if args.json:
         print(json.dumps(r, indent=2, ensure_ascii=False))
         return 0
-
+    if args.quiet:
+        blocking = sum(len(r[k]) for k in (
+            "frontmatter_issues", "tag_issues", "link_issues",
+            "structure_issues", "orphans", "unreachable",
+        ))
+        return 1 if blocking else 0
     files = vault_md_files()
     n_files = len(files)
     print(f"VAULT AUDIT — {n_files} vault .md files")

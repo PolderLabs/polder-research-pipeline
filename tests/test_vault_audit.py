@@ -80,6 +80,7 @@ def test_vault_audit_template_stubs_not_flagged(tmp_path: Path, monkeypatch):
 
 def test_vault_audit_main_exit_code_blocks_on_orphans(tmp_path: Path, monkeypatch):
     """main() must exit non-zero when orphans exist (P0 §3 / §33)."""
+
     (tmp_path / "00-home").mkdir()
     (tmp_path / "index.md").write_text("---\ntype: moc\nstatus: current\ntags:\n  - d\n---\n# D\n", encoding="utf-8")
     (tmp_path / "AUDIT.md").write_text("---\ntype: guide\nstatus: current\ntags:\n  - a\n---\n# A\n", encoding="utf-8")
