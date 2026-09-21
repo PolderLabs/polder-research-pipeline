@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://polder.dev/schemas/source.schema.json",
+  "title": "Source record",
+  "description": "One canonical record per source (AUDIT.md §11).",
+  "type": "object",
+  "required": ["id", "schema_version", "source_status", "source_type", "media_type", "title", "retrieved_at", "content_sha256"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^src_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "source_status": {
+      "enum": ["current", "stale", "superseded", "archived", "retracted"]
+    },
+    "source_type": {
+      "enum": [
+        "paper", "documentation", "repository", "webpage", "article",
+        "dataset", "benchmark", "video", "audio", "transcript", "book",
+        "standard", "issue", "discussion", "other"
+      ]
+    },
+    "media_type": {
+      "enum": [
+        "pdf", "html", "markdown", "text", "json", "csv", "image",
+        "audio", "video", "git", "api", "other"
+      ]
+    },
+    "title": {"type": "string", "minLength": 1},
+    "authors": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "publisher": {"type": "string", "default": ""},
+    "canonical_url": {"type": "string", "format": "uri", "default": ""},
+    "alternate_urls": {
+      "type": "array",
+      "items": {"type": "string", "format": "uri"}
+    },
+    "doi": {"type": "string", "default": ""},
+    "repository": {"type": "string", "default": ""},
+    "version": {"type": "string", "default": ""},
+    "commit": {"type": "string", "default": ""},
+    "published_at": {"type": "string", "default": ""},
+    "updated_at": {"type": "string", "default": ""},
+    "retrieved_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "last_checked_at": {"type": "string", "default": ""},
+    "language": {"type": "string", "default": "en"},
+    "license": {"type": "string", "default": ""},
+    "content_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "byte_size": {"type": "integer", "minimum": 0},
+    "mime_type": {"type": "string", "default": ""},
+    "raw_location": {"type": "string", "default": ""},
+    "archive_location": {"type": "string", "default": ""},
+    "independence_group": {"type": "string", "default": ""},
+    "sensitivity": {
+      "enum": ["public", "internal", "confidential", "restricted"],
+      "default": "public"
+    },
+    "storage_policy": {
+      "enum": [
+        "metadata-only", "git", "git-lfs", "local-only",
+        "object-storage", "external-canonical"
+      ],
+      "default": "metadata-only"
+    },
+    "personal_data": {"type": "boolean", "default": false},
+    "redistribution_rights": {"type": "string", "default": ""},
+    "tags": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"}
+    },
+    "entities": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^ent_"}
+    },
+    "research_runs": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^run_"}
+    },
+    "lineage": {
+      "type": "array",
+      "description": "Edges to other sources. Type is one of the canonical lineage verbs.",
+      "items": {
+        "type": "object",
+        "required": ["relation", "target"],
+        "additionalProperties": false,
+        "properties": {
+          "relation": {
+            "enum": [
+              "cites", "mirrors", "republishes", "summarizes", "forks",
+              "derives_from", "vendor_claim_about", "independent_replication_of"
+            ]
+          },
+          "target": {"type": "string", "pattern": "^src_"},
+          "independent": {"type": "boolean", "default": false}
+        }
+      }
+    },
+    "freshness": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "volatility": {
+          "enum": ["very-short", "short", "moderate", "long", "event-triggered", "stable"],
+          "default": "moderate"
+        },
+        "review_after": {"type": "string", "default": ""},
+        "valid_as_of": {"type": "string", "default": ""}
+      }
+    }
+  }
+}

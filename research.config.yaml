@@ -1,0 +1,235 @@
+# research.config.yaml — authoritative pipeline configuration (AUDIT.md §22)
+#
+# This file is the single source of truth for pipeline policy. All typed
+# status enums, transition rules, freshness thresholds, and agent defaults
+# live here. Tools MUST read this file rather than hard-coding values.
+#
+# NOTE: This is the P2 implementation. P0/P1 establish the skeleton.
+# P3+ wire the config into actual agent code.
+
+schema_version: 1
+pipeline_version: "0.1.0"
+
+# ─── Vault scan scope ───────────────────────────────────────────────────────
+# Controls what the vault_audit and frontmatter_fix tools consider "in scope".
+# Align with SKIP_PARTS in paths.py and scripts.
+scan:
+  content_plane_dirs:
+    - "00-home"
+    - "01-project"
+    - "02-research"
+    - "03-system"
+    - "04-decisions"
+    - "05-operations"
+    - "06-sources"
+    - "90-inbox"
+    - "99-templates"
+  control_plane_dirs:
+    - "agents"
+    - "schemas"
+    - "src"
+    - "tests"
+    - ".research"
+    - "skills"
+    - ".githooks"
+    - ".github"
+  skip_patterns:
+    - ".git"
+    - ".obsidian"
+    - ".wolf"
+    - ".claude"
+    - ".codex"
+    - "node_modules"
+    - ".venv"
+    - "dist"
+    - "build"
+
+# ─── Frontmatter vocabulary ─────────────────────────────────────────────────
+frontmatter:
+  required_keys:
+    - type
+    - status
+    - tags
+  valid_types:
+    - index
+    - moc
+    - guide
+    - template
+    - inbox
+    - project
+    - research
+    - system
+    - decision
+    - operation
+    - experiment
+    - source
+  valid_status_values:
+    - current
+    - draft
+    - stale
+    - superseded
+
+# ─── Intake lifecycle ───────────────────────────────────────────────────────
+intake:
+  valid_status:
+    - new
+    - triaged
+    - processing
+    - distilled
+    - filed
+    - rejected
+    - blocked
+  valid_kind:
+    - pdf
+    - repository
+    - article
+    - paper
+    - log
+    - transcript
+    - media
+    - url-list
+    - documentation
+    - webpage
+    - dataset
+    - benchmark
+    - video
+    - audio
+    - book
+    - standard
+    - issue
+    - discussion
+    - other
+
+# ─── Task lifecycle ─────────────────────────────────────────────────────────
+task:
+  valid_status:
+    - pending
+    - leased
+    - in_progress
+    - awaiting_handoff
+    - completed
+    - failed
+    - blocked
+    - abandoned
+  valid_task_kind:
+    - intake
+    - acquire
+    - process
+    - classify
+    - verify
+    - distill
+    - synthesize
+    - query
+    - maintain
+    - evolve
+    - decide
+    - plan
+  lease_ttl_seconds: 300
+
+# ─── Source model ───────────────────────────────────────────────────────────
+source:
+  valid_source_type:
+    - paper
+    - documentation
+    - repository
+    - webpage
+    - article
+    - dataset
+    - benchmark
+    - video
+    - audio
+    - transcript
+    - book
+    - standard
+    - issue
+    - discussion
+    - other
+  valid_media_type:
+    - pdf
+    - html
+    - markdown
+    - text
+    - json
+    - csv
+    - image
+    - audio
+    - video
+    - git
+    - api
+    - other
+
+# ─── Claim model ────────────────────────────────────────────────────────────
+claim:
+  valid_status:
+    - draft
+    - verified
+    - disputed
+    - refuted
+    - superseded
+    - archived
+  valid_claim_kind:
+    - factual
+    - quantitative
+    - comparative
+    - causal
+    - predictive
+    - definitional
+    - methodological
+    - opinion
+    - other
+
+# ─── Decision model ─────────────────────────────────────────────────────────
+decision:
+  valid_status:
+    - proposed
+    - accepted
+    - review-due
+    - superseded
+    - rejected
+
+# ─── Freshness policy ───────────────────────────────────────────────────────
+freshness:
+  defaults:
+    - volatility: moderate
+      review_after_days: 90
+    - volatility: very-short
+      review_after_days: 1
+    - volatility: short
+      review_after_days: 14
+    - volatility: long
+      review_after_days: 180
+    - volatility: event-triggered
+      review_after_days: null
+      trigger_on: ["source.updated_at", "source.retracted"]
+    - volatility: stable
+      review_after_days: 365
+
+# ─── Run model ─────────────────────────────────────────────────────────────
+run:
+  valid_status:
+    - draft
+    - active
+    - paused
+    - completed
+    - aborted
+    - failed
+
+# ─── Handoff model ─────────────────────────────────────────────────────────
+handoff:
+  valid_status:
+    - open
+    - accepted
+    - rejected
+    - expired
+  default_ttl_seconds: 600
+
+# ─── Maintenance ────────────────────────────────────────────────────────────
+maintenance:
+  orphan_check_enabled: true
+  orphan_exclude_dirs:
+    - "90-inbox"
+    - "99-templates"
+  frontmatter_check_enabled: true
+  broken_link_check_enabled: true
+  staleness_check_enabled: true
+  health_compute_interval_hours: 24

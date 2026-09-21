@@ -1,0 +1,42 @@
+# CODEOWNERS — who must approve changes to specific paths (AUDIT.md §42)
+# Order matters — later patterns override earlier ones.
+
+# Default owner for the whole repository
+*       @PolderLabs/maintainers
+
+# Control plane changes need stricter review
+/agents/                    @PolderLabs/maintainers
+/agents/roles/              @PolderLabs/maintainers
+/schemas/                   @PolderLabs/maintainers
+/research.config.yaml       @PolderLabs/maintainers
+/src/                       @PolderLabs/maintainers
+/.github/                   @PolderLabs/maintainers
+/.gitignore                 @PolderLabs/maintainers
+/.gitattributes             @PolderLabs/maintainers
+/.editorconfig              @PolderLabs/maintainers
+/pyproject.toml             @PolderLabs/maintainers
+/ruff.toml                  @PolderLabs/maintainers
+
+# Evolution/migrations get strict review
+/07-evolution/              @PolderLabs/maintainers
+
+# Knowledge base content
+/00-home/                   @PolderLabs/maintainers
+/01-project/                @PolderLabs/maintainers
+/02-research/               @PolderLabs/maintainers
+/03-system/                 @PolderLabs/maintainers
+/04-decisions/              @PolderLabs/maintainers
+/05-operations/             @PolderLabs/maintainers
+/06-sources/                @PolderLabs/maintainers
+/90-inbox/                  @PolderLabs/maintainers
+/99-templates/              @PolderLabs/maintainers
+
+# Skills
+/skills/                    @PolderLabs/maintainers
+
+# Tests can be reviewed by any contributor
+/tests/                     @PolderLabs/maintainers
+
+# Documentation
+/README.md                  @PolderLabs/maintainers
+/AUDIT.md                   @PolderLabs/maintainers

@@ -1,0 +1,23 @@
+schema_version: 1
+role: acquisition-agent
+description: Discovers and ingests raw research material.
+tools:
+  - http_get
+  - git_clone
+  - arxiv_fetch
+  - compute_hash
+  - register_source
+  - emit_event
+read:
+  - .research/state.json
+  - .research/sources/**
+write:
+  - .research/sources/**
+  - .research/events/**
+  - 90-inbox/manifest.md
+forbidden:
+  - schemas/**
+  - agents/**
+  - 01-project/**
+  - 02-research/**
+  - 04-decisions/**

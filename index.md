@@ -509,10 +509,17 @@ Everything in this repository is part of the vault. The dashboard above renders 
 
 [[00-home/README|00-home]] · [[01-project/README|01-project]] · [[02-research/README|02-research]] · [[03-system/README|03-system]] · [[04-decisions/README|04-decisions]] · [[05-operations/README|05-operations]] · [[06-sources/README|06-sources]] · [[90-inbox/README|90-inbox]] · [[99-templates/README|99-templates]]
 
+### Standards
+
+[[00-home/naming-conventions|naming conventions]] · [[00-home/glossary|glossary]] · [[00-home/evidence-model|evidence model]] · [[00-home/provenance-model|provenance model]] · [[01-project/brief|project brief]]
+
 ### Operator
 
 [[AGENTS|AGENTS.md]] · [[CLAUDE|CLAUDE.md]] · `skills/obsidian-knowledgebase-curator/SKILL.md` · `skills/obsidian-knowledgebase-curator/README.md` · [[90-inbox/README|inbox rules]] · [[90-inbox/manifest|inbox manifest]]
 
 ### Guides and templates
 
+
 [[00-home/vault-standards|standards]] · [[00-home/knowledge-base-guide|knowledge base guide]] · [[00-home/research-intake-guide|intake guide]] · [[99-templates/intake-record-template|intake record]] · [[99-templates/decision-record-template|decision record]] · [[99-templates/conflict-note-template|conflict note]] · [[99-templates/experiment-template|experiment]] · [[99-templates/source-entry-template|source entry]]
+
+Reference catalog: [[06-sources/reference-catalog]] · Research note template: [[99-templates/research-note-template]]

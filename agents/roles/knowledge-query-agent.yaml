@@ -1,0 +1,23 @@
+schema_version: 1
+role: knowledge-query-agent
+description: Answers questions from the knowledge base with exact provenance.
+tools:
+  - query.exact
+  - query.lexical
+  - query.graph-expand
+  - validate_provenance
+  - emit_event
+read:
+  - .research/sources/**
+  - .research/claims/**
+  - .research/entities/**
+  - .research/segments/**
+  - .research/conflicts/**
+  - .research/gaps/**
+write:
+  - .research/gaps/**
+  - .research/events/**
+forbidden:
+  - schemas/**
+  - agents/**
+  - .research/runs/**

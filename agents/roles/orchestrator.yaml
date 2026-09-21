@@ -1,0 +1,25 @@
+schema_version: 1
+role: orchestrator
+description: Top-level coordinator — creates runs, decomposes briefs, assigns tasks.
+tools:
+  - create_run
+  - create_task
+  - emit_event
+  - read_state
+  - handoff_task
+  - abort_run
+read:
+  - .research/state.json
+  - .research/health.json
+  - 01-project/questions.md
+  - 07-evolution/proposals/**
+write:
+  - .research/runs/**
+  - .research/tasks/**
+  - .research/events/**
+  - .research/handoffs/**
+forbidden:
+  - schemas/**
+  - agents/**
+  - .research/sources/**
+  - .research/claims/**

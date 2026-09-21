@@ -1,0 +1,21 @@
+schema_version: 1
+role: sorting-cleanup-agent
+description: Maintains structural integrity of the vault (frontmatter, links, orphans).
+tools:
+  - vault_audit
+  - fix_frontmatter
+  - emit_event
+read:
+  - "**/*.md"
+  - .research/state.json
+write:
+  - .research/maintenance/**
+  - .research/events/**
+forbidden:
+  - ".research/sources/**"
+  - ".research/claims/**"
+  - ".research/entities/**"
+  - "schemas/**"
+  - "01-project/**"
+  - "02-research/**"
+  - "04-decisions/**"

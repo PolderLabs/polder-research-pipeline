@@ -1,5 +1,5 @@
 ---
-type: guide
+type: inbox
 status: current
 tags:
   - intake
@@ -26,7 +26,7 @@ The raw original is never edited, overwritten, or deleted. Once dropped, it stay
 ## Quick drop
 
 ```bash
-cp ~/Downloads/my-paper.pdf /home/drb0rk/projects/polder-research-pipeline/90-inbox/raw/
+cp "$REPO/my-paper.pdf" ./my-paper.pdf   # adjust to your repository path
 python3 skills/obsidian-knowledgebase-curator/scripts/intake_register.py \
   --file my-paper.pdf --kind pdf --owner curator
 ```

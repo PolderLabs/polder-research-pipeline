@@ -1,0 +1,25 @@
+schema_version: 1
+role: research-agent
+description: Executes a research run end-to-end using specialist sub-agents.
+tools:
+  - acquire_sources
+  - classify_claims
+  - verify_claims
+  - distill_claims
+  - synthesize_report
+  - emit_event
+read:
+  - .research/runs/**
+  - .research/tasks/**
+  - .research/sources/**
+  - .research/claims/**
+  - .research/entities/**
+write:
+  - .research/tasks/**
+  - .research/events/**
+  - .research/sources/**
+  - .research/claims/**
+  - 02-research/**
+forbidden:
+  - schemas/**
+  - .research/runs/**

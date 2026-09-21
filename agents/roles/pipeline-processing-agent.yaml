@@ -1,0 +1,22 @@
+schema_version: 1
+role: pipeline-processing-agent
+description: Parses raw sources into segments, entities, and draft claims.
+tools:
+  - parse_pdf
+  - parse_html
+  - parse_markdown
+  - extract_segments
+  - extract_entities
+  - draft_claims
+  - emit_event
+read:
+  - .research/sources/**
+write:
+  - .research/segments/**
+  - .research/entities/**
+  - .research/claims/**
+  - .research/events/**
+forbidden:
+  - schemas/**
+  - .research/runs/**
+  - .research/tasks/**

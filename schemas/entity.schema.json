@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://polder.dev/schemas/entity.schema.json",
+  "title": "Entity record",
+  "description": "Canonical identity for a named thing (model, tool, org, person, standard, etc.) (AUDIT.md §14).",
+  "type": "object",
+  "required": ["id", "schema_version", "name", "entity_kind", "created_at"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^ent_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "schema_version": {"type": "integer", "const": 1},
+    "name": {"type": "string", "minLength": 1},
+    "canonical_name": {"type": "string", "default": ""},
+    "entity_kind": {
+      "enum": [
+        "model", "dataset", "tool", "library", "company", "lab",
+        "person", "paper", "standard", "event", "concept", "hardware",
+        "license", "benchmark", "other"
+      ]
+    },
+    "aliases": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "description": {"type": "string", "default": ""},
+    "created_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "updated_at": {"type": "string", "default": ""},
+    "source_ids": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^src_"}
+    },
+    "same_as": {
+      "type": "array",
+      "description": "External canonical identifiers (Wikidata QID, DOI, GitHub repo) that identify the same real-world thing.",
+      "items": {"type": "string"}
+    },
+    "merged_into": {"type": "string", "pattern": "^ent_", "default": ""},
+    "tags": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"}
+    }
+  }
+}

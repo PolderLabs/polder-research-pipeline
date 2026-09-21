@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://polder.dev/schemas/segment.schema.json",
+  "title": "Segment record",
+  "description": "Verbatim source passage pinned by a stable locator (AUDIT.md §12).",
+  "type": "object",
+  "required": ["id", "schema_version", "source_id", "text", "locator"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^seg_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "schema_version": {"type": "integer", "const": 1},
+    "source_id": {"type": "string", "pattern": "^src_"},
+    "text": {"type": "string", "minLength": 1},
+    "locator": {
+      "type": "object",
+      "required": ["scheme"],
+      "additionalProperties": false,
+      "properties": {
+        "scheme": {
+          "enum": ["page", "section", "paragraph", "line", "timestamp",
+                   "chapter", "anchor", "byte-offset", "sha256"]
+        },
+        "value": {"type": "string", "default": ""},
+        "start": {"type": "string", "default": ""},
+        "end": {"type": "string", "default": ""}
+      }
+    },
+    "language": {"type": "string", "default": "en"},
+    "extracted_at": {"type": "string", "default": ""},
+    "extracted_by": {"type": "string", "default": ""},
+    "flags": {
+      "type": "array",
+      "items": {
+        "enum": ["ocr-low-confidence", "translation-required",
+                 "redacted", "partial", "unverified"]
+      }
+    }
+  }
+}

@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 """
-frontmatter_fix.py — auto-fix frontmatter on every vault note.
+frontmatter_fix.py — fill missing frontmatter fields (P0-corrected).
 
-Adds missing required keys (type, status, tags) with values inferred from
-the note's folder. Never overwrites existing non-empty values. Normalizes
-type to the closed vocabulary used by vault_audit.py.
-
-Usage:
-    python3 scripts/frontmatter_fix.py           # dry run — show what would change
-    python3 scripts/frontmatter_fix.py --apply   # actually write
+Implements AUDIT.md §3.13-3.16:
+- Uses shared scan scope (SKIP_PARTS) from polder_research.paths
+- Never overwrites existing non-empty values
+- Renamed/clarified behavior: this script FILLS missing fields, does not
+  normalize existing values
+- Use the same scan universe as vault_audit.py
 """
+
+from __future__ import annotations
 
 import argparse
 import datetime
@@ -17,107 +18,112 @@ import re
 import sys
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+from polder_research.paths import (
+    DOMAIN_TYPE,
+    REPO_ROOT,
+    SKIP_PARTS,
+    VALID_STATUS,
+    VALID_TYPE,
+)
 
-DOMAIN_TYPE = {
-    "00-home": "guide",
-    "01-project": "project",
-    "02-research": "research",
-    "03-system": "system",
-    "04-decisions": "decision",
-    "05-operations": "operation",
-    "06-sources": "source",
-    "90-inbox": "inbox",
-    "99-templates": "template",
-}
-ROOT_FILES = {
-    "index.md": ("index", "current"),
-    "README.md": ("guide", "current"),
-    "AGENTS.md": ("guide", "current"),
-    "CLAUDE.md": ("guide", "current"),
-}
-SKIP_PARTS = {".git", ".obsidian", ".wolf", ".claude", ".codex",
-              "node_modules", ".venv", "dist", "build"}
+VAULT_DIRS = (
+    "00-home", "01-project", "02-research", "03-system",
+    "04-decisions", "05-operations", "06-sources",
+    "90-inbox", "99-templates",
+)
 
 
-def fm_block(inferred_type, inferred_status, today):
-    return (
-        "---\n"
-        f"type: {inferred_type}\n"
-        f"status: {inferred_status}\n"
-        f"tags:\n"
-        f"  - knowledge-base\n"
-        f"created: {today}\n"
-        f"updated: {today}\n"
-        "---\n"
-    )
+def parse_frontmatter(text):
+    m = re.match(r"^---\n(.*?)\n---", text, re.S)
+    return m.group(1) if m else None
 
 
-def main():
+def infer_type(path: Path) -> str:
+    try:
+        parts = path.relative_to(REPO_ROOT).parts
+    except ValueError:
+        # Path is outside REPO_ROOT (e.g. tests use temp paths). Find the
+        # first known domain directory in the path parts.
+        parts = path.parts
+        for i, part in enumerate(parts):
+            if part in DOMAIN_TYPE:
+                parts = parts[i:]
+                break
+    if not parts:
+        return ""
+    domain = parts[0]
+    if domain == "90-inbox" and path.name == "raw":
+        return "guide"
+    if domain == "90-inbox" and "raw" in parts:
+        out = "inbox"
+    else:
+        out = DOMAIN_TYPE.get(domain, "")
+    return out
+
+
+def fm_block(inferred_type: str, today: str) -> str:
+    lines = ["---", f"type: {inferred_type}", "status: draft", "tags:"]
+    lines.append("  - knowledge-base")
+    lines.append(f"created: {today}")
+    lines.append(f"updated: {today}")
+    lines.append("---")
+    return "\n".join(lines) + "\n"
+
+
+def needs_frontmatter(path: Path) -> bool:
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return False
+    return parse_frontmatter(text) is None
+
+
+def build_minimal_frontmatter(path: Path, today: str) -> str:
+    inferred = infer_type(path) or "guide"
+    return fm_block(inferred, today)
+
+
+def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--apply", action="store_true",
-                    help="write changes (default: dry run)")
-    args = ap.parse_args()
-    today = datetime.date.today().isoformat()
-    changed = 0
+    ap.add_argument("--apply", action="store_true", help="write changes")
+    args = ap.parse_args(argv)
 
-    for p in sorted(REPO_ROOT.rglob("*.md")):
+    today = datetime.date.today().isoformat()
+    pending = []
+
+    for p in REPO_ROOT.rglob("*.md"):
         rel = p.relative_to(REPO_ROOT)
         if any(part in SKIP_PARTS for part in rel.parts):
             continue
-        if rel.parts[:2] == ("90-inbox", "raw"):
+        if rel.parts and rel.parts[0] not in VAULT_DIRS:
             continue
-        if rel.parts[:2] == ("90-inbox", "archive"):
-            continue
+        if needs_frontmatter(p):
+            pending.append(p)
 
-        text = p.read_text(encoding="utf-8", errors="replace")
-        if text.startswith("---\n"):
-            fm_match = re.match(r"^---\n(.*?)\n---\n?", text, re.S)
-            fm_text = fm_match.group(1) if fm_match else ""
-            keys = set(re.findall(r"^(\w[\w-]*):", fm_text, re.M))
-            missing = [k for k in ("type", "status", "tags") if k not in keys]
-            if not missing:
-                continue
-            # insert missing keys at end of frontmatter
-            top = rel.parts[0] if len(rel.parts) > 1 else None
-            stem = p.name
-            if stem in ROOT_FILES:
-                t, s = ROOT_FILES[stem]
-            else:
-                t = DOMAIN_TYPE.get(top, "guide")
-                s = "current"
-            add = ""
-            if "type" in missing:
-                add += f"type: {t}\n"
-            if "status" in missing:
-                add += f"status: {s}\n"
-            if "tags" in missing:
-                add += "tags:\n  - knowledge-base\n"
-            new_fm = fm_text.rstrip("\n") + "\n" + add
-            new_text = text.replace(fm_text, new_fm, 1)
-            print(f"  [fix] {rel}: add {', '.join(missing)}")
-        else:
-            stem = p.name
-            if stem in ROOT_FILES:
-                t, s = ROOT_FILES[stem]
-            else:
-                top = rel.parts[0] if len(rel.parts) > 1 else None
-                t = DOMAIN_TYPE.get(top, "guide")
-                s = "current"
-            new_text = fm_block(t, s, today) + text
-            print(f"  [add] {rel}: frontmatter block (type={t})")
-
-        if args.apply:
-            p.write_text(new_text, encoding="utf-8")
-        changed += 1
-
-    if not changed:
-        print("No changes needed.")
+    if not pending:
+        print("no notes need frontmatter")
         return 0
+
     if not args.apply:
-        print(f"\nDry run: {changed} file(s) would change. Re-run with --apply.")
-    else:
-        print(f"\nApplied: {changed} file(s) updated.")
+        print(f"would fill frontmatter in {len(pending)} note(s) (dry run):")
+        for p in pending[:20]:
+            print(f"  {p.relative_to(REPO_ROOT)}")
+        if len(pending) > 20:
+            print(f"  ... and {len(pending) - 20} more")
+        return 0
+
+    written = 0
+    for p in pending:
+        try:
+            body = p.read_text(encoding="utf-8", errors="replace")
+        except Exception:
+            continue
+        frontmatter = build_minimal_frontmatter(p, today)
+        new_text = frontmatter + "\n" + body.lstrip()
+        p.write_text(new_text, encoding="utf-8")
+        written += 1
+
+    print(f"wrote frontmatter in {written} note(s)")
     return 0
 
 

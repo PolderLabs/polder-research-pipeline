@@ -1,0 +1,37 @@
+# Git attributes for polder-research-pipeline
+#
+# Auto-detect text files and normalize line endings.
+*               text=auto
+
+# Explicitly declare text files
+*.md            text eol=lf
+*.py            text eol=lf
+*.yaml          text eol=lf
+*.yml           text eol=lf
+*.toml          text eol=lf
+*.json          text eol=lf
+*.sh            text eol=lf
+*.cfg           text eol=lf
+*.ini           text eol=lf
+*.css           text eol=lf
+*.html          text eol=lf
+*.js            text eol=lf
+
+# Declare binary files
+*.pdf           binary
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.webp          binary
+*.svg           binary
+*.mp4           binary
+*.mov           binary
+*.webm          binary
+*.zip           binary
+*.tar           binary
+*.gz            binary
+*.parquet       binary
+*.pt            binary
+*.onnx          binary
+*.ckpt          binary

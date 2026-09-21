@@ -1,5 +1,5 @@
 ---
-type: guide
+type: inbox
 status: current
 tags:
   - research-intake

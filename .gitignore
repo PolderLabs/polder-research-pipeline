@@ -1,15 +1,60 @@
-# Binary raw originals — never commit
-*.pdf
-*.zip
-*.tar
-*.tar.gz
-*.mov
-*.mp4
-*.webm
-*.m4v
+# Raw inbox binaries — keep placeholder docs/manifests only
+90-inbox/raw/*.pdf
+90-inbox/raw/*.zip
+90-inbox/raw/*.tar
+90-inbox/raw/*.tar.gz
+90-inbox/raw/*.mov
+90-inbox/raw/*.mp4
+90-inbox/raw/*.webm
+90-inbox/raw/*.m4v
+90-inbox/raw/*.png
+90-inbox/raw/*.jpg
+90-inbox/raw/*.jpeg
+90-inbox/raw/*.gif
+90-inbox/raw/*.webp
+90-inbox/raw/*.svg
+90-inbox/raw/*.wav
+90-inbox/raw/*.mp3
+90-inbox/raw/*.flac
+90-inbox/raw/*.docx
+90-inbox/raw/*.xlsx
+90-inbox/raw/*.pptx
+90-inbox/raw/*.epub
+90-inbox/raw/*.parquet
+90-inbox/raw/*.pt
+90-inbox/raw/*.onnx
+90-inbox/raw/*.ckpt
+90-inbox/raw/*.bin
+
+# Runtime control-plane state (derived/rebuildable; keep directory markers only)
+.research/state.json
+.research/health.json
+.research/events/*.json
+.research/tasks/*.json
+.research/runs/*.json
+.research/handoffs/*.json
+.research/maintenance/*.json
+.research/locks/*.json
+.research/generated/*
+.research/sources/*.json
+.research/claims/*.json
+.research/entities/*.json
+.research/segments/*.json
+.research/gaps/*.json
+.research/conflicts/*.json
 
 # Editor / OS
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Misc generated logs
+*.log

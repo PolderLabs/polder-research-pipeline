@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://polder.dev/schemas/decision.schema.json",
+  "title": "Decision record",
+  "description": "Authoritative decision with linked claims and review triggers (AUDIT.md §30).",
+  "type": "object",
+  "required": ["id", "schema_version", "title", "decision_status", "created_at", "summary"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^dec_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+    "schema_version": {"type": "integer", "const": 1},
+    "title": {"type": "string", "minLength": 1},
+    "summary": {"type": "string", "minLength": 1},
+    "decision_status": {
+      "enum": ["proposed", "accepted", "review-due", "superseded", "rejected"]
+    },
+    "owner": {"type": "string", "default": ""},
+    "accepted_at": {"type": "string", "default": ""},
+    "created_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "claim_ids": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^clm_"}
+    },
+    "direct_source_ids": {
+      "type": "array",
+      "items": {"type": "string", "pattern": "^src_"}
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "review_triggers": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "supersedes": {"type": "string", "pattern": "^dec_", "default": ""},
+    "superseded_by": {"type": "string", "pattern": "^dec_", "default": ""},
+    "uncertainty": {"type": "string", "default": ""},
+    "affected_constraints": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}

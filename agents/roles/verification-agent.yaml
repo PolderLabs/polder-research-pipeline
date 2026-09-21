@@ -1,0 +1,21 @@
+schema_version: 1
+role: verification-agent
+description: Verifies high-impact claims against primary evidence.
+tools:
+  - verify_claim
+  - disconfirming_search
+  - update_claim
+  - emit_event
+read:
+  - .research/claims/**
+  - .research/sources/**
+  - .research/segments/**
+write:
+  - .research/claims/**
+  - .research/conflicts/**
+  - .research/events/**
+forbidden:
+  - schemas/**
+  - agents/**
+  - 01-project/**
+  - 02-research/**

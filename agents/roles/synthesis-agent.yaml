@@ -1,0 +1,22 @@
+schema_version: 1
+role: synthesis-agent
+description: Produces final research reports from verified claims.
+tools:
+  - synthesize_report
+  - trace_provenance
+  - emit_event
+read:
+  - .research/claims/**
+  - .research/sources/**
+  - .research/entities/**
+  - .research/gaps/**
+  - .research/conflicts/**
+write:
+  - 02-research/**
+  - .research/events/**
+  - .research/runs/**
+forbidden:
+  - schemas/**
+  - agents/**
+  - 01-project/**
+  - 04-decisions/**
