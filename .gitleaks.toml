@@ -1,0 +1,13 @@
+title = "polder-research-pipeline gitleaks configuration"
+
+[extend]
+# Inherit the upstream default rule set and layer project-specific rules on
+# top of it. This keeps detection current without copying rule bodies here.
+useDefault = true
+
+[allowlist]
+description = "Non-secret example fixtures and generated documentation."
+paths = [
+  '''(?i)\.github/workflows/ci\.yml''',
+  '''(?i)tests/fixtures/.*''',
+]
