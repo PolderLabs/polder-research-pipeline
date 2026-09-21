@@ -10,11 +10,12 @@ tags:
 
 # Polder Research Pipeline — Canonical Audit
 
-Audit date: 2026-09-21  
+Audit date: 2026-09-22  
+Inspected repository revision: `e186e407227ac24c64752e43194673e1bbd4656e`  
 Canonical audit file: `AUDIT.md`  
 Repository: `PolderLabs/polder-research-pipeline`
 
-This is the single canonical audit and improvement specification for Polder Research Pipeline. It consolidates the earlier append-only audit, removes superseded recommendations, resolves duplicated priorities, and defines one current target architecture.
+This is the single canonical audit and improvement specification for Polder Research Pipeline. It supersedes the former `IMPROVEMENTS.md`, consolidates the earlier append-only audit, removes superseded recommendations, resolves duplicated priorities, and defines one current target architecture.
 
 The repository should be understood as a **versioned research data model and agent control plane with Markdown/Obsidian as a human-facing projection**.
 
@@ -70,6 +71,12 @@ This file uses these rules:
 8. Historical audit narration is omitted unless it materially explains a design decision.
 9. External references are collected in one section.
 10. Future audits should edit this file in place rather than append another full audit pass.
+
+## 1.3 Self-audit result
+
+The consolidated audit was itself checked after restructuring. The canonical file now has one target repository structure, one priority roadmap, one acceptance-criteria section, one dashboard specification, and one source-of-truth model. Normalized heading names are unique, there are no references to the former `IMPROVEMENTS.md` inside this audit, and historical recommendations that conflict with the current architecture were removed rather than retained as competing guidance.
+
+The remaining mention of the old product name `Polder Video Pipeline` is intentional: it appears only as a confirmed legacy-terminology defect that must be removed from the repository.
 
 ---
 
