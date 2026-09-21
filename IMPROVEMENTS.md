@@ -6616,3 +6616,1376 @@ Implementation should now proceed in this order:
 Critical principle:
 
 > Automation should increase only after the state model, validation model, provenance model, and recovery model are stronger than the autonomy being granted.
+
+
+---
+
+# 98. Dashboard UI/UX and functionality audit
+
+Audit target: current Obsidian dashboard in index.md plus .obsidian/snippets/polder-dashboard.css.
+
+The dashboard should be treated as the primary human control surface for the research repository. Its job is not to display as many repository statistics as possible. Its job is to answer, in order:
+
+1. What project am I looking at?
+2. Is the research system healthy?
+3. What needs attention now?
+4. What changed recently?
+5. What questions remain unresolved?
+6. What can I do next?
+7. Where can I inspect the underlying evidence?
+
+The current dashboard is visually distinctive, but its hierarchy and metrics are oriented around the repository structure rather than the research workflow. Several cards also display data that looks authoritative while being derived from proxies that are not semantically valid.
+
+This section defines the redesign target.
+
+---
+
+# 99. Executive dashboard findings
+
+## 99.1 Main UX problem
+
+The current dashboard is a repository overview, not yet a research cockpit.
+
+It gives substantial space to:
+
+- domain counts;
+- recent file modifications;
+- tag frequency;
+- folder/operator surfaces;
+- template navigation.
+
+It gives little or no first-class space to:
+
+- unresolved research questions;
+- disputed claims;
+- stale high-impact knowledge;
+- verification backlog;
+- source-change impact;
+- maintenance due state;
+- active research runs/tasks;
+- research coverage;
+- direct knowledge-base querying.
+
+The visual hierarchy therefore does not match the user's highest-value decisions.
+
+## 99.2 Main visual problem
+
+The styling is too decorative for an operational research dashboard.
+
+Current characteristics include:
+
+- oversized hero title;
+- editable browser-local banner;
+- serif display typography;
+- glass surfaces;
+- blur;
+- glow;
+- many rounded cards;
+- domain-specific hue decoration;
+- multiple small uppercase labels;
+- hover transforms;
+- remote fonts.
+
+None of these is individually wrong, but together they make the interface feel closer to a showcase dashboard than a calm professional research workspace.
+
+The desired direction should be:
+
+- quieter;
+- denser;
+- more information-led;
+- less ornamental;
+- fewer card boundaries;
+- stronger hierarchy;
+- better use of whitespace;
+- clear semantic statuses;
+- action-oriented.
+
+## 99.3 Main functionality problem
+
+Several current metrics are not reliable enough to present as operational truth.
+
+Confirmed examples:
+
+- source count includes the 06-sources README/MOC;
+- domain totals include navigation MOCs;
+- “research gaps” are simply draft notes;
+- “stale” means filesystem modification time older than 90 days;
+- recent decisions are selected by mtime, not accepted decision state;
+- raw inbox counts do not reliably include ignored binary artifacts;
+- inbox oldest age relies on Dataview-visible files rather than the intake registry;
+- recent activity is file mtime, not research activity;
+- “last updated” is any vault file modification;
+- recent manifest parsing has an asynchronous read bug;
+- operator links include currently nonexistent files;
+- the editable project banner is stored only in localStorage.
+
+These must be fixed before redesign work treats the values as trusted dashboard indicators.
+
+---
+
+# 100. Dashboard purpose and user journeys
+
+The dashboard should support four primary modes.
+
+## 100.1 Ask
+
+The fastest path should be:
+
+“Ask the knowledge base a question.”
+
+Once the knowledge-query agent exists, this should be the primary interaction surface.
+
+The dashboard should support:
+
+- question entry;
+- recent questions;
+- sourced answer status;
+- insufficient-evidence state;
+- shortcut to launch a research request for an unanswered question.
+
+Until the query agent exists, the UI may show this capability as “planned” in documentation, but must not present a fake input that cannot answer.
+
+## 100.2 Review
+
+The user should immediately see items requiring judgment:
+
+- disputed claims;
+- stale high-impact claims;
+- unresolved conflicts;
+- blocked research tasks;
+- source changes;
+- verification backlog;
+- overdue maintenance.
+
+This is the dashboard’s highest-value operational area.
+
+## 100.3 Continue
+
+The user should see active work:
+
+- active research run;
+- current research question;
+- current phase;
+- tasks running;
+- tasks blocked;
+- latest completed meaningful research action.
+
+## 100.4 Navigate
+
+The user should be able to reach:
+
+- project brief;
+- research domains;
+- sources;
+- decisions;
+- operations;
+- inbox;
+- system/admin surfaces.
+
+Navigation is important, but should not dominate the dashboard.
+
+---
+
+# 101. Recommended information architecture
+
+The dashboard should be reorganized from a card catalogue into a top-down decision flow.
+
+## 101.1 Proposed desktop hierarchy
+
+~~~text
+┌──────────────────────────────────────────────────────────────┐
+│ Polder Research Pipeline          HEALTH: HEALTHY / ATTENTION│
+│ Project title · scope · last state refresh                   │
+├──────────────────────────────────────────────────────────────┤
+│ ASK THE KNOWLEDGE BASE                                      │
+│ [ Ask a question about the research...                  ]    │
+│ recent questions / evidence-backed answer shortcut           │
+├──────────────────────────────────────────────────────────────┤
+│ ATTENTION                                                   │
+│ 4 stale claims · 2 conflicts · 3 gaps · maintenance due     │
+├────────────────────────────────┬─────────────────────────────┤
+│ RESEARCH COVERAGE              │ ACTIVE WORK                 │
+│ questions / coverage / gaps    │ run, phase, tasks, blockers │
+├────────────────────────────────┼─────────────────────────────┤
+│ RECENT VERIFIED CHANGES        │ SOURCE HEALTH               │
+│ semantic research changes      │ changed / missing / new     │
+├────────────────────────────────┼─────────────────────────────┤
+│ DECISIONS & IMPACT             │ MAINTENANCE                 │
+│ decisions needing review       │ audit / refresh / next due  │
+├──────────────────────────────────────────────────────────────┤
+│ RESEARCH AREAS / NAVIGATION                                  │
+├──────────────────────────────────────────────────────────────┤
+│ ADMIN / TOOLS  ▸ collapsed by default                       │
+│ inbox · templates · operator docs · audit details           │
+└──────────────────────────────────────────────────────────────┘
+~~~
+
+The first viewport should contain the project identity, query surface, attention queue, and core work state.
+
+A user should not need to scroll past tag charts or repository links to discover that important knowledge is disputed.
+
+---
+
+# 102. Recommended dashboard for the current scaffold
+
+The future dashboard above depends on structured state that does not exist yet.
+
+Do not fake those metrics in the current implementation.
+
+The current scaffold should instead use a simpler truthful dashboard:
+
+~~~text
+HEADER
+Polder Research Pipeline
+Current scaffold · last vault scan/update
+
+QUICK LINKS
+Project · Research · Decisions · Sources · Inbox
+
+ATTENTION
+- broken/invalid frontmatter
+- orphans
+- current audit problems
+- intake processing items
+
+RECENT RESEARCH NOTES
+actual durable research notes only
+
+INBOX
+registry-backed counts when fixed
+
+DOMAINS
+compact navigation, not large metric cards
+
+TOOLS
+Audit · Intake guide · Templates · Agent guidance
+~~~
+
+Remove or demote metrics that do not yet have reliable semantics.
+
+Professional dashboards should prefer “data unavailable” to a precise-looking but misleading number.
+
+---
+
+# 103. Header and hero audit
+
+## 103.1 Current editable title should be removed
+
+The project banner is editable in an input and stored in browser localStorage.
+
+Problems:
+
+- project identity differs by device;
+- other collaborators do not see the same name;
+- browser storage becomes a hidden configuration layer;
+- the large input looks like an editing control even when the dashboard is primarily for monitoring;
+- focus styling becomes unnecessarily important for a cosmetic control.
+
+Project title should come from research.config.yaml once implemented.
+
+For now, render a fixed title from repository context.
+
+LocalStorage may store optional personal UI preferences, not project truth.
+
+## 103.2 Remove time-of-day greeting and emojis from the primary interface
+
+“Late-night synthesis”, “Morning survey”, and similar greetings do not contribute to the operational task.
+
+They also make the interface feel less neutral/professional and consume valuable hero space.
+
+Replace with one useful line, for example:
+
+~~~text
+Research workspace · 3 items require attention · last checked 21:42
+~~~
+
+## 103.3 Reduce hero height
+
+Current hero title sizing around 4.4em is disproportionately large.
+
+Recommended:
+
+- title: roughly 1.5–2rem;
+- project subtitle/context: 0.875–1rem;
+- health status and last refresh aligned to the right;
+- no decorative duplicate banner text;
+- no serif display headline required.
+
+The dashboard should begin delivering information immediately.
+
+---
+
+# 104. KPI and metric audit
+
+## 104.1 Remove vanity metrics
+
+Current hero metrics:
+
+- NOTES;
+- INBOX;
+- DOMAINS;
+- SOURCES.
+
+“Domains” is configuration, not operational status.
+
+Total notes is rarely actionable.
+
+Total sources is only useful with context.
+
+Replace with action-oriented counters where authoritative data exists:
+
+- Needs attention;
+- Open gaps;
+- Disputed claims;
+- Verification queue;
+- Changed sources;
+- Active run/tasks.
+
+## 104.2 Every metric needs a drill-down
+
+A count without an explanation or click target creates dead-end information.
+
+Each dashboard metric should:
+
+- be clickable;
+- open the filtered underlying records;
+- have a tooltip/help label if meaning is non-obvious;
+- expose how it was computed.
+
+Example:
+
+~~~text
+4 stale high-impact claims
+→ opens claim list filtered:
+  freshness_status=review_due
+  importance=high
+~~~
+
+## 104.3 Distinguish zero from unknown
+
+Never render:
+
+~~~text
+0 conflicts
+~~~
+
+when the conflict engine has never run.
+
+Use states:
+
+- 0 = evaluated and none found;
+- — = not available;
+- unknown = state cannot currently be trusted;
+- error = calculation failed.
+
+This is especially important during migration from the current note-derived dashboard.
+
+---
+
+# 105. Attention center
+
+The dashboard currently lacks a unified “needs attention” surface.
+
+Add one prioritized queue.
+
+Suggested ordering:
+
+1. critical audit/provenance failure;
+2. failed or stuck task;
+3. changed source affecting accepted decision;
+4. disputed high-impact claim;
+5. stale high-impact claim;
+6. unresolved critical conflict;
+7. verification backlog;
+8. overdue maintenance;
+9. intake backlog;
+10. low-priority cleanup.
+
+Each attention item should display:
+
+- severity;
+- object;
+- reason;
+- age;
+- action link.
+
+Example:
+
+~~~text
+CRITICAL
+Decision dec_... depends on a source that changed 2h ago
+Review impact →
+~~~
+
+Use text labels and icons in addition to color.
+
+---
+
+# 106. Research coverage should replace “top tags”
+
+The current Top Tags card is visually neat but not a strong operational research metric.
+
+Tag frequency tells the user what has been mentioned often, not whether the research question has been answered.
+
+Replace or demote it.
+
+Primary research coverage should show:
+
+- research questions;
+- priority;
+- status;
+- independent source count;
+- verification;
+- unresolved gaps.
+
+Compact example:
+
+| Question | Coverage | Verification | Gap |
+|---|---|---|---|
+| Q1 | Complete | Verified | — |
+| Q2 | Partial | Mixed | 2 |
+| Q3 | Low | Unverified | 4 |
+
+A small bar is fine, but the actual status label must remain visible.
+
+---
+
+# 107. Recent activity should become semantic activity
+
+Current Recent Activity is based on file mtime.
+
+This creates noise from:
+
+- formatting changes;
+- backlinks;
+- metadata touch;
+- generated files;
+- non-research docs.
+
+Future source:
+
+.research/events
+
+Useful event categories:
+
+- claim verified;
+- source acquired;
+- source changed;
+- gap resolved;
+- conflict created/resolved;
+- decision accepted/superseded;
+- maintenance completed;
+- research run completed.
+
+Allow a compact filter:
+
+~~~text
+All · Research · Sources · Decisions · Maintenance
+~~~
+
+The current scaffold should at least filter to meaningful durable research notes rather than all durable Markdown files.
+
+---
+
+# 108. Inbox card audit
+
+Current card presents four equal cells:
+
+- raw;
+- processing;
+- filed;
+- rejected.
+
+Problems:
+
+- filed/rejected historical totals are less useful than current backlog;
+- raw count is not authoritative for ignored binaries;
+- oldest raw uses file mtime;
+- equal visual weight makes historical status look as important as active backlog.
+
+Recommended operational version:
+
+~~~text
+INBOX
+7 waiting
+2 processing
+oldest waiting: 3d
+1 blocked
+
+Process inbox →
+~~~
+
+Historical filed/rejected counts belong in detail view.
+
+The backing data must come from structured intake state.
+
+---
+
+# 109. Vault health card audit
+
+Current Vault Health shows:
+
+- orphan count;
+- frontmatter gaps.
+
+That is useful but too narrow.
+
+Once full audit state exists, rename to Repository Health or System Health and include:
+
+- audit pass/fail;
+- schema errors;
+- broken authoritative links;
+- generated drift;
+- state snapshot age;
+- stuck tasks;
+- unprocessed migrations.
+
+Keep content/research health separate:
+
+- stale claims;
+- conflicts;
+- coverage gaps;
+- source changes.
+
+Do not combine technical repository integrity and epistemic research health into one status.
+
+---
+
+# 110. Review candidates audit
+
+Current “Review candidates (90d+)” uses filesystem mtime.
+
+This must be removed as soon as explicit freshness exists.
+
+Future logic should use:
+
+- reviewed_at;
+- valid_as_of;
+- review_after;
+- freshness policy class;
+- source change state;
+- importance.
+
+Card title should become:
+
+~~~text
+Knowledge Review
+~~~
+
+Rows should explain why review is due.
+
+Example:
+
+~~~text
+API pricing
+review due · last verified 12d ago · volatility: high
+~~~
+
+---
+
+# 111. Decisions card audit
+
+Current recent decisions are selected by recent modification time only.
+
+The dashboard should instead show:
+
+- pending decisions requiring evidence;
+- accepted decisions whose supporting claims changed;
+- recently accepted decisions;
+- superseded decisions only when relevant.
+
+Most important first:
+
+~~~text
+DECISIONS NEEDING REVIEW
+2 affected by changed evidence
+~~~
+
+Then secondary:
+
+~~~text
+Recently accepted
+~~~
+
+A merely edited decision note is not a “recent decision”.
+
+---
+
+# 112. Self-evolution card audit
+
+Current “Self-evolution” card is based on drafts, recent decisions, and source count.
+
+This does not measure system evolution.
+
+Until evolution state exists, remove the card.
+
+Future self-evolution card should show only real evolution state:
+
+- proposals open;
+- proposals applied;
+- migrations pending;
+- evaluation regression;
+- ontology changes;
+- last evolution review.
+
+Do not use aspirational labels for unrelated metrics.
+
+---
+
+# 113. Domain coverage card audit
+
+The large first-row domain grid is useful navigation but over-prioritized.
+
+Recommended:
+
+- move below core research state;
+- make cards smaller;
+- show title + useful badge only;
+- do not display MOC-inclusive totals;
+- avoid unique rainbow domain styling unless it aids scanning.
+
+Example:
+
+~~~text
+Project       4 notes
+Research     18 notes · 3 review due
+Decisions     6 · 1 pending
+Sources      42 · 2 changed
+~~~
+
+Domain hue can remain a subtle navigation accent, but must not be confused with status color.
+
+---
+
+# 114. Templates and operator surfaces audit
+
+Current dashboard devotes substantial bottom-of-page space to:
+
+- vault surfaces;
+- operator surfaces;
+- templates.
+
+These are administrative navigation, not primary research state.
+
+Move them under:
+
+~~~text
+Admin & tools ▸
+~~~
+
+collapsed by default.
+
+Possible sections:
+
+- Guides
+- Templates
+- Agent instructions
+- Audit/tooling
+- Repository internals
+
+A professional dashboard should not require every user to scan implementation surfaces every time they open it.
+
+---
+
+# 115. Search and query UX
+
+The future knowledge-query agent should become the dashboard’s most important interaction.
+
+## 115.1 Search and Ask are different
+
+Provide two concepts:
+
+### Search
+
+Find a note, entity, claim, source, or ID.
+
+### Ask
+
+Generate a grounded answer from the KB.
+
+Do not merge them into one ambiguous box unless the system clearly distinguishes the mode.
+
+Possible UI:
+
+~~~text
+[ Search research… ]      [ Ask KB ]
+~~~
+
+or tabs:
+
+~~~text
+Search | Ask
+~~~
+
+## 115.2 Ask answer state
+
+The answer surface should show:
+
+- answer;
+- evidence status;
+- sources;
+- freshness;
+- conflicts;
+- knowledge gaps.
+
+Provide:
+
+~~~text
+View evidence
+Open sources
+Research missing evidence
+~~~
+
+Do not display model-generated confidence percentages unless calibrated.
+
+---
+
+# 116. Quick actions
+
+Quick actions are valuable only if they are functional.
+
+Recommended eventual actions:
+
+- Ask KB;
+- Start research;
+- Process inbox;
+- Run audit;
+- Run maintenance check;
+- Open project brief.
+
+Do not render button-like elements that merely point to documentation while appearing to execute an operation.
+
+If an action cannot execute from Obsidian without a plugin/runtime bridge, label it clearly as navigation:
+
+~~~text
+Open intake guide
+~~~
+
+rather than:
+
+~~~text
+Process now
+~~~
+
+---
+
+# 117. Visual direction for a professional redesign
+
+## 117.1 Reduce glassmorphism
+
+Current use of blur, translucency, glow, and large shadows adds visual noise.
+
+Recommended:
+
+- use Obsidian background-primary/background-secondary;
+- subtle 1px borders;
+- little or no backdrop blur;
+- no glowing status dots;
+- minimal shadow only where elevation communicates hierarchy.
+
+The UI should feel native to Obsidian and remain compatible with community themes. Obsidian’s own developer documentation recommends using built-in CSS variables for custom UI so it remains compatible with themes. 
+
+## 117.2 Reduce card count
+
+Not every section needs its own floating rounded container.
+
+Use:
+
+- one or two major panels;
+- grouped sections;
+- dividers;
+- compact list/table surfaces;
+- cards only for distinctly actionable modules.
+
+This will make the interface cleaner and denser.
+
+## 117.3 Radius scale
+
+Current 28px large card radius is visually soft and decorative.
+
+Recommended:
+
+~~~text
+small: 6px
+medium: 8px
+large: 12px
+pill: 999px only for chips
+~~~
+
+Use one consistent scale.
+
+## 117.4 Spacing scale
+
+Use a defined scale:
+
+~~~text
+4 / 8 / 12 / 16 / 24 / 32
+~~~
+
+Typical dashboard:
+
+- card/internal gap: 12–16;
+- section gap: 24;
+- page block gap: 32;
+- avoid 30/32/18/14/10 as unrelated one-off values unless justified.
+
+## 117.5 Typography
+
+Prefer native/interface fonts.
+
+Recommended hierarchy:
+
+~~~text
+Page title:       24–28px / 600
+Section title:    13–14px / 600, normal or mild uppercase
+Primary metric:   24–32px / 600, tabular numerals
+Body:             14–16px
+Metadata:         12–13px
+~~~
+
+Avoid:
+
+- 4.4em hero text;
+- decorative serif as primary operational font;
+- excessive uppercase tracking;
+- 0.7em metadata where avoidable.
+
+## 117.6 Icons
+
+Use a small consistent icon vocabulary only where it improves scanning.
+
+Examples:
+
+- attention;
+- verified;
+- conflict;
+- stale;
+- source;
+- research gap;
+- maintenance;
+- task blocked.
+
+Icons supplement text; they do not replace status labels.
+
+---
+
+# 118. Color and status behavior
+
+Use the semantic token system defined earlier in this audit.
+
+Important dashboard rule:
+
+Domain color and status color must never share the same visual channel.
+
+Example:
+
+- domain identity: subtle left border or icon accent;
+- status: semantic badge with text.
+
+Do not show a green domain color and expect the user to infer “healthy”.
+
+Do not rely on red/green alone. WCAG requires information conveyed through color to also be available through other visual/text means. citeturn568153search4
+
+---
+
+# 119. Accessibility audit
+
+## 119.1 Focus
+
+Every interactive dashboard element must have visible keyboard focus.
+
+The current custom title focus is only 1px dashed.
+
+Use a consistent focus-visible style.
+
+W3C notes that visible keyboard focus is necessary for keyboard users, and its stronger focus-appearance guidance uses a 2 CSS pixel perimeter-equivalent area with a 3:1 state contrast benchmark. citeturn568153search1turn568153search6
+
+## 119.2 Target size
+
+Standalone dashboard controls should target at least 24×24 CSS pixels or meet the spacing exception defined by WCAG 2.2 AA. citeturn171805search0
+
+Practical design target for primary controls:
+
+~~~text
+32–40px height
+~~~
+
+## 119.3 Contrast
+
+Text:
+
+- normal: at least 4.5:1;
+- large: at least 3:1.
+
+UI/status boundaries and meaningful graphics should target at least 3:1 where WCAG non-text contrast applies. citeturn568153search5
+
+## 119.4 Reduced motion
+
+Hover translation and animation must respect prefers-reduced-motion.
+
+## 119.5 Screen-reader semantics
+
+Dataview-created elements should use meaningful HTML where possible:
+
+- headings for section titles;
+- links for navigation;
+- buttons only for actions;
+- lists/tables for structured collections;
+- aria-label only where native text is insufficient.
+
+Do not build every semantic element as a generic div.
+
+---
+
+# 120. Responsive layout audit
+
+Current responsive behavior is incomplete.
+
+Specific issues:
+
+- span-6 does not stack at the same breakpoint as span-4/span-8;
+- four inbox cells remain dense;
+- surface rows have fixed 200px first column;
+- hero title is extremely large;
+- hero stat row may become wide;
+- metadata rows can wrap unpredictably.
+
+Recommended layout behavior:
+
+## Wide desktop, >=1200px
+
+- max content width 1280–1400px;
+- 12-column grid;
+- two-column major panels.
+
+## Tablet, ~768–1199px
+
+- major panels stack or 6/6;
+- metrics 2×2;
+- navigation cards 2–3 columns.
+
+## Mobile/narrow, <768px
+
+- single-column;
+- metric list or 2-column compact grid;
+- no fixed-width surface labels;
+- no large hero;
+- action targets >=24px;
+- no horizontal scroll.
+
+Use container behavior based on the dashboard’s actual available pane width where possible, because Obsidian panes may be narrower than the app window.
+
+---
+
+# 121. Empty, loading, stale, and failure states
+
+Current UI often treats “empty” as a cheerful success state.
+
+Example:
+
+“All notes are fresh.”
+
+This can be false when freshness has never been evaluated.
+
+Every data module should support:
+
+- loading;
+- empty;
+- unavailable;
+- stale data;
+- error;
+- valid zero.
+
+Examples:
+
+~~~text
+No active research runs
+~~~
+
+is different from:
+
+~~~text
+Run state unavailable — state snapshot missing
+~~~
+
+and:
+
+~~~text
+0 disputed claims
+Checked 2 min ago
+~~~
+
+The last one provides evidence that zero is meaningful.
+
+---
+
+# 122. Dashboard data provenance
+
+Every operational metric should have one authoritative source.
+
+Recommended mapping:
+
+| Dashboard data | Authority |
+|---|---|
+| project title | research.config.yaml |
+| active run | .research/runs + state snapshot |
+| task counts | task records/state |
+| open gaps | gap records |
+| disputed claims | claim records |
+| stale claims | freshness engine |
+| changed sources | source records/events |
+| maintenance due | maintenance state |
+| audit health | health.json |
+| recent semantic activity | event log |
+| intake backlog | structured intake records |
+| source count | source records |
+| decisions requiring review | decision records + impact graph |
+
+The dashboard should never independently redefine these semantics in DataviewJS.
+
+---
+
+# 123. Dashboard architecture recommendation
+
+The current index.md contains data access, business logic, configuration, and rendering in one large DataviewJS block.
+
+Long-term, split this.
+
+## Preferred architecture
+
+~~~text
+authoritative records
+       ↓
+state builders / audit
+       ↓
+.research/state.json
+.research/health.json
+       ↓
+dashboard projection
+~~~
+
+Dashboard responsibilities:
+
+- read;
+- format;
+- filter;
+- render;
+- navigate.
+
+Dashboard should not:
+
+- decide whether a claim is stale;
+- decide whether a note is a research gap;
+- infer accepted decisions;
+- parse workflow manifests;
+- establish source counts;
+- define domain configuration independently.
+
+---
+
+# 124. Current Dataview dependency
+
+The dashboard currently depends heavily on DataviewJS.
+
+Dataview can remain an optional enhanced UI, but:
+
+- README/static home must remain usable without it;
+- dashboard should detect missing Dataview gracefully;
+- no authoritative state exists only inside a Dataview query;
+- core data should be readable by CLI and GitHub.
+
+Consider eventually generating a compact dashboard-data JSON or Markdown summary from the state builder rather than querying the entire vault at render time.
+
+---
+
+# 125. Performance considerations
+
+Current dashboard repeatedly queries dv.pages over the whole vault and multiple folders.
+
+At the current repository size this is insignificant.
+
+At scale, the dashboard should avoid recomputing large graph/state semantics client-side.
+
+Recommended:
+
+- derive summary state once;
+- cache generated state;
+- show source revision/generated_at;
+- invalidate when authoritative state changes;
+- keep dashboard rendering O(number of displayed rows), not O(entire research corpus × cards).
+
+---
+
+# 126. Dashboard interaction conventions
+
+Use consistent interaction semantics:
+
+## Link
+
+Navigates to a record/note/detail.
+
+Style: standard link or clearly clickable row.
+
+## Button
+
+Executes an action.
+
+Examples:
+
+- Run audit;
+- Start research;
+- Ask;
+- Refresh.
+
+Do not style links as command buttons unless they actually execute a command.
+
+## Badge/chip
+
+Displays status/filter.
+
+If clickable as a filter, provide hover/focus and clear selected state.
+
+## Row
+
+If whole row is clickable, ensure keyboard access and avoid nested competing controls.
+
+## Metric
+
+Clickable if a drill-down exists.
+
+Otherwise render it as plain information.
+
+---
+
+# 127. Proposed minimal component system
+
+Keep the component vocabulary small.
+
+~~~text
+prp-dashboard
+prp-header
+prp-health
+prp-command
+prp-section
+prp-panel
+prp-metric
+prp-status
+prp-list
+prp-list-row
+prp-table
+prp-progress
+prp-empty
+prp-alert
+prp-link
+prp-button
+prp-chip
+prp-admin
+~~~
+
+Avoid adding a custom CSS component for every individual dashboard card.
+
+Variants:
+
+~~~text
+prp-status--success
+prp-status--warning
+prp-status--danger
+prp-alert--critical
+prp-panel--attention
+~~~
+
+All styling should flow through tokens.
+
+---
+
+# 128. Professional visual target
+
+The redesign should feel closer to an engineering/research console than a marketing dashboard.
+
+Desired characteristics:
+
+- neutral background;
+- strong typographic hierarchy;
+- compact status row;
+- high data-to-decoration ratio;
+- semantic color used sparingly;
+- no glowing elements;
+- no oversized decorative headline;
+- minimal shadows;
+- consistent borders;
+- concise language;
+- deterministic timestamps;
+- compact tables/lists;
+- clear drill-downs;
+- calm empty states.
+
+The interface should still have a recognizable Polder Labs identity through accent color, spacing, naming, and subtle details, without sacrificing clarity.
+
+---
+
+# 129. Dashboard language and microcopy
+
+Use concise operational language.
+
+Prefer:
+
+~~~text
+Needs attention
+3 items
+
+Verification
+2 claims pending
+
+Maintenance
+Due: source changes
+
+Research coverage
+7/9 critical questions covered
+~~~
+
+Avoid:
+
+~~~text
+SELF-EVOLUTION
+Late-night synthesis
+The vault is freshly empty
+~~~
+
+unless intentionally used in a non-operational personal mode.
+
+Use sentence case for most labels.
+
+Reserve uppercase for compact chips or short telemetry if desired.
+
+---
+
+# 130. Dashboard P0 fixes
+
+Before visual polish:
+
+- [ ] Fix asynchronous manifest read.
+- [ ] Stop counting MOCs as sources/domain content.
+- [ ] Stop using draft notes as research gaps.
+- [ ] Stop using mtime as semantic freshness.
+- [ ] Filter decisions by real decision status.
+- [ ] Make inbox metrics registry/state based.
+- [ ] Remove nonexistent operator links or create their targets.
+- [ ] Remove localStorage project-title authority.
+- [ ] Separate “unknown/unavailable” from zero.
+- [ ] Remove or relabel self-evolution card until real state exists.
+- [ ] Make current recent activity research-note scoped.
+- [ ] Add failure/empty/unavailable states.
+
+---
+
+# 131. Dashboard P1 redesign
+
+- [ ] Replace oversized hero with compact project/status header.
+- [ ] Remove greeting/emoji from primary operational UI.
+- [ ] Add Attention section.
+- [ ] Demote domain navigation below core state.
+- [ ] Remove/demote Top Tags.
+- [ ] Collapse admin/operator/template surfaces.
+- [ ] Replace glass/glow styling with restrained theme-native surfaces.
+- [ ] Adopt prp component namespace.
+- [ ] Adopt semantic design tokens.
+- [ ] Remove remote fonts by default.
+- [ ] Improve responsive behavior.
+- [ ] Add focus-visible.
+- [ ] Add reduced-motion support.
+- [ ] Ensure standalone controls meet target-size rules.
+- [ ] Add light/dark visual tests.
+
+---
+
+# 132. Dashboard P2 after structured state exists
+
+- [ ] Add Ask KB surface.
+- [ ] Add Search surface.
+- [ ] Add active run/task panel.
+- [ ] Add research coverage panel.
+- [ ] Add disputed/stale claim attention queue.
+- [ ] Add source-change health.
+- [ ] Add decisions affected by evidence changes.
+- [ ] Add deterministic maintenance card.
+- [ ] Replace mtime activity with event-log activity.
+- [ ] Add metric drill-downs.
+- [ ] Add state generated_at/freshness indicator.
+- [ ] Add direct evidence navigation from Q&A and attention items.
+
+---
+
+# 133. Dashboard acceptance criteria
+
+The dashboard redesign is complete only when:
+
+## Correctness
+
+- no displayed operational number is derived from a semantically invalid proxy;
+- each metric has one documented authoritative source;
+- zero, unavailable, stale, and error states are distinguishable;
+- dashboard code does not independently redefine research state.
+
+## UX
+
+- first viewport answers what needs attention and what to do next;
+- high-priority research issues appear before navigation/admin content;
+- common navigation is reachable in one interaction;
+- admin/tooling content is available but secondary;
+- every actionable metric has a drill-down/action;
+- buttons execute actions and links navigate.
+
+## Visual quality
+
+- restrained professional style;
+- consistent spacing/radius/type tokens;
+- no unnecessary glow/glass effects;
+- semantic colors are used consistently;
+- domain colors do not imply status;
+- typography remains readable at all densities.
+
+## Accessibility
+
+- WCAG 2.2 AA used as baseline;
+- visible keyboard focus;
+- color not sole status signal;
+- reduced-motion behavior;
+- sufficient text/non-text contrast;
+- suitable target sizes/spacing;
+- meaningful semantic HTML where possible.
+
+## Responsive behavior
+
+- works in wide desktop, tablet-width Obsidian panes, and narrow mobile panes;
+- no horizontal overflow;
+- no fixed widths that break navigation;
+- metrics and actions remain readable/tappable.
+
+## Maintainability
+
+- small reusable component vocabulary;
+- prp CSS namespace;
+- no dead component styles;
+- no business logic duplicated between dashboard and state builders;
+- dashboard presentation can be changed without changing knowledge semantics.
+
+---
+
+# 134. Recommended implementation sequence for the dashboard
+
+1. Correct the current data semantics.
+2. Remove misleading cards and dead styling.
+3. Replace the hero with a compact header.
+4. Introduce semantic tokens and namespaced components.
+5. Build a clean scaffold-era dashboard using only truthful data.
+6. Add responsive/accessibility behavior.
+7. Add automated visual/static checks.
+8. Implement structured state.
+9. Replace note-derived metrics with state-derived metrics.
+10. Add Ask KB, attention queue, research coverage, and active-work surfaces.
+
+Do not start with aesthetic restyling while the underlying values are still unreliable.
+
+The professional result should be built in this order:
+
+> correctness → hierarchy → interaction → accessibility → responsiveness → visual polish.
