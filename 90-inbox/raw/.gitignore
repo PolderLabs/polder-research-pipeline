@@ -1,0 +1,38 @@
+# Ignore raw binary originals — they are tracked by manifest only.
+# Lightweight text artifacts ARE tracked; binaries are kept locally.
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.svg
+*.mp4
+*.mov
+*.mkv
+*.webm
+*.wav
+*.mp3
+*.flac
+*.zip
+*.tar.gz
+*.7z
+*.docx
+*.xlsx
+*.pptx
+*.epub
+*.parquet
+*.csv
+*.bin
+*.pt
+*.onnx
+*.ckpt
+
+# Keep marker files
+!.gitkeep
+!README.md
+!*.md
+!*.txt
+!*.json
+!*.yaml
+!*.yml

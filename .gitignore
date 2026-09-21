@@ -1,0 +1,15 @@
+# Binary raw originals — never commit
+*.pdf
+*.zip
+*.tar
+*.tar.gz
+*.mov
+*.mp4
+*.webm
+*.m4v
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

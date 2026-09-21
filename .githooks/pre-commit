@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Vault self-evolving safety net: run vault_audit.py --quiet before each commit.
+# Non-zero exit aborts the commit with a visible fail.
+set -e
+if [ -x .venv/bin/python ]; then PY=.venv/bin/python; else PY=python3; fi
+$PY skills/obsidian-knowledgebase-curator/scripts/vault_audit.py --quiet
