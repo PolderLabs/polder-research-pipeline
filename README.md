@@ -26,7 +26,7 @@ The goal is a reusable research operating system that can be initialized for an 
 - decide when maintenance or re-research is necessary;
 - evolve tags, relationships, search strategies, schemas, and workflow rules in a controlled and auditable way.
 
-The repository currently contains the **initial knowledge-base and research-intake scaffold**. The deeper agent control plane, structured research state, evidence graph, maintenance engine, query agent, and autonomous research workflow are specified in [IMPROVEMENTS.md](IMPROVEMENTS.md) but are not implemented yet.
+The repository currently contains the **initial knowledge-base and research-intake scaffold**. The deeper agent control plane, structured research state, evidence graph, maintenance engine, query agent, and autonomous research workflow are specified in [AUDIT.md](AUDIT.md) but are not implemented yet.
 
 ## Current status
 
@@ -80,7 +80,7 @@ Designed but not yet implemented:
 - controlled self-evolution;
 - CI and conformance fixtures.
 
-For the complete audit, confirmed defects, target architecture, implementation order, and acceptance gates, see [IMPROVEMENTS.md](IMPROVEMENTS.md).
+For the complete audit, confirmed defects, target architecture, implementation order, and acceptance gates, see [AUDIT.md](AUDIT.md).
 
 ---
 
@@ -252,7 +252,7 @@ Current exit behavior:
 - `0` — all checks currently implemented by the validator passed;
 - `1` — one or more implemented checks failed.
 
-The existing validator does **not yet** cover every repository operating contract. The deeper gaps are documented in [IMPROVEMENTS.md](IMPROVEMENTS.md).
+The existing validator does **not yet** cover every repository operating contract. The deeper gaps are documented in [AUDIT.md](AUDIT.md).
 
 ## 3. Enable the local Git hook
 
@@ -291,7 +291,7 @@ The long-term architecture will keep Obsidian optional.
 ├── README.md
 ├── AGENTS.md
 ├── CLAUDE.md
-├── IMPROVEMENTS.md
+├── AUDIT.md
 ├── index.md
 │
 ├── 00-home/
@@ -410,7 +410,7 @@ Current evidence-origin labels:
 
 Record the outcome and archive the processing record.
 
-The current intake lifecycle and tooling contain known inconsistencies and are not intended to become the final multi-agent state model. See [IMPROVEMENTS.md](IMPROVEMENTS.md).
+The current intake lifecycle and tooling contain known inconsistencies and are not intended to become the final multi-agent state model. See [AUDIT.md](AUDIT.md).
 
 ---
 
@@ -1177,7 +1177,7 @@ The exact numbering is less important than preserving clean authority boundaries
 
 # Development order
 
-The detailed roadmap is in [IMPROVEMENTS.md](IMPROVEMENTS.md).
+The detailed roadmap is in [AUDIT.md](AUDIT.md).
 
 The recommended sequence is:
 
@@ -1296,7 +1296,7 @@ Examples:
 - there is no CI/test suite yet;
 - main is currently unprotected.
 
-These are tracked and prioritized in [IMPROVEMENTS.md](IMPROVEMENTS.md).
+These are tracked and prioritized in [AUDIT.md](AUDIT.md).
 
 ---
 
@@ -1328,7 +1328,7 @@ should eventually receive stronger review than ordinary research-note additions.
 
 | Document | Purpose |
 |---|---|
-| [IMPROVEMENTS.md](IMPROVEMENTS.md) | Full audit, confirmed defects, target architecture, agent/state design, implementation roadmap. |
+| [AUDIT.md](AUDIT.md) | Canonical audit and implementation specification: current defects, target architecture, dashboard, agent/state model, security, automation, roadmap, and acceptance gates. |
 | [AGENTS.md](AGENTS.md) | Current agent-facing repository guidance. |
 | [00-home/knowledge-base-guide.md](00-home/knowledge-base-guide.md) | Current folder and knowledge-base conventions. |
 | [00-home/research-intake-guide.md](00-home/research-intake-guide.md) | Current manual intake workflow. |
