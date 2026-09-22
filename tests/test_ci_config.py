@@ -24,7 +24,7 @@ RUFF_PATH = REPO_ROOT / "ruff.toml"
 # matches `- uses: owner/repo@<sha> # <comment>`
 USES_PIN_RE = re.compile(r"^\s*-\s*uses:\s+([\w.-]+/[\w.-]+)@([0-9a-f]{40})(?:\s+#\s*(.*))?$")
 
-REQUIRED_JOBS = ("lint", "test", "vault-audit", "schema-validate", "secret-scan")
+REQUIRED_JOBS = ("lint", "test", "vault-audit", "schema-validate", "secret-scan", "implementation-status")
 
 
 @pytest.fixture(scope="module")
