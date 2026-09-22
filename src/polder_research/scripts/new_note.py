@@ -5,45 +5,61 @@ from __future__ import annotations
 import datetime
 import re
 import sys
+import unicodedata
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+from ..paths import DOMAIN_TYPE, REPO_ROOT, VALID_STATUS, VALID_TYPE
+from ..templates import TemplateRegistry, registry
 
-DOMAIN_TYPE = {
-    "00-home": "guide",
-    "01-project": "project",
-    "02-research": "research",
-    "03-system": "system",
-    "04-decisions": "decision",
-    "05-operations": "operation",
-    "06-sources": "source",
-    "90-inbox": "inbox",
-    "99-templates": "template",
+# kind (canonical note type) → canonical template name in 99-templates/.
+# Every entry must match a ``*-template.md`` file under that directory;
+# missing templates surface as :class:`KeyError` from the registry.
+TEMPLATE_BY_KIND: dict[str, str] = {
+    "research": "research-note",
+    "experiment": "experiment",
+    "decision": "decision-record",
+    "source": "source-entry",
+    "guide": "research-note",
+    "project": "research-note",
+    "system": "research-note",
+    "operation": "research-note",
+    "inbox": "intake-record",
+    "template": "research-note",
+    "index": "research-note",
+    "moc": "research-note",
 }
-
-VALID_TYPE = frozenset(
-    {
-        "index",
-        "moc",
-        "guide",
-        "template",
-        "inbox",
-        "project",
-        "research",
-        "system",
-        "decision",
-        "operation",
-        "experiment",
-        "source",
-    }
-)
-VALID_STATUS = frozenset({"current", "draft", "stale", "superseded"})
 
 
 def slugify(title: str) -> str:
-    s = title.lower().strip()
-    s = re.sub(r"[^a-z0-9]+", "-", s)
-    return re.sub(r"-+", "-", s).strip("-")
+    """Return a filesystem-safe ASCII slug derived from ``title``.
+
+    The slug is built by:
+
+    1. ``unicodedata.normalize('NFKD', ...)`` — separates base characters
+       from combining accents so ``é`` decomposes to ``e`` + combining acute.
+    2. Encoding to ASCII with ``errors="ignore"`` — drops the combining
+       marks, leaving only the base ASCII characters.
+    3. Lowercasing and collapsing any non-alphanumeric run to ``-``.
+
+    The result is stable across Unicode input (``"Café — Étude"`` →
+    ``"cafe-etude"``) while remaining filesystem-portable.
+    """
+    decomposed = unicodedata.normalize("NFKD", title)
+    ascii_folded = decomposed.encode("ascii", "ignore").decode("ascii")
+    lowered = ascii_folded.lower().strip()
+    collapsed = re.sub(r"[^a-z0-9]+", "-", lowered)
+    return re.sub(r"-+", "-", collapsed).strip("-")
+
+
+def resolve_template(
+    kind: str,
+    *,
+    template_registry: TemplateRegistry | None = None,
+) -> str:
+    """Return the canonical template text for ``kind`` via the registry."""
+    name = TEMPLATE_BY_KIND.get(kind, "research-note")
+    reg = template_registry if template_registry is not None else registry(REPO_ROOT)
+    return reg.resolve(name).text
 
 
 def cmd_new_note(
@@ -79,6 +95,10 @@ def cmd_new_note(
     tlist = tags or ["knowledge-base"]
     tlist = [t.lstrip("#").lower().strip() for t in tlist]
 
+    # Resolve template body through the canonical registry; fall back to a
+    # minimal scaffold if the registry cannot find a template for the kind.
+    template_text = resolve_template(note_type)
+
     lines = ["---", f"type: {note_type}", f"status: {status}"]
     if topic:
         lines.append(f"topic: {topic}")
@@ -86,7 +106,10 @@ def cmd_new_note(
     lines.extend(f"  - {t}" for t in tlist)
     lines.append(f"created: {today}")
     lines.append(f"updated: {today}")
-    lines.append("---", "", f"# {title}", "")
+    lines.extend(["---", "", f"# {title}", ""])
+
+    if template_text.strip():
+        lines.append(template_text.rstrip())
 
     if related:
         lines.append("## Related")
@@ -101,3 +124,12 @@ def cmd_new_note(
     target.write_text(content, encoding="utf-8")
     print(f"created: {target.relative_to(REPO_ROOT)}")
     return 0
+
+
+__all__ = [
+    "DOMAIN_TYPE",
+    "TEMPLATE_BY_KIND",
+    "cmd_new_note",
+    "resolve_template",
+    "slugify",
+]
