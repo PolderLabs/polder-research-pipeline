@@ -131,6 +131,17 @@ def test_secret_scan_job_uses_gitleaks_action(ci_text: str) -> None:
     )
 
 
+def test_secret_scan_job_pins_github_token_only(ci_yaml: dict) -> None:
+    """Gitleaks-action v3 contract: GITHUB_TOKEN required; GITLEAKS_LICENSE
+    is only for organization-owned repositories (this repo is personal, so
+    referencing the unset secret makes the job fail keygen)."""
+    env = ci_yaml["jobs"]["secret-scan"]["steps"][-1].get("env") or {}
+    assert env.get("GITHUB_TOKEN") == "${{ secrets.GITHUB_TOKEN }}"
+    assert "GITLEAKS_LICENSE" not in env, (
+        "GITLEAKS_LICENSE must not be referenced: it is reserved for "
+        "organization repos and is unset here, failing the scan"
+    )
+
 def test_pyproject_declares_supported_python() -> None:
     text = PYPROJECT_PATH.read_text()
     m = re.search(r'^requires-python\s*=\s*"([^"]+)"\s*$', text, re.MULTILINE)
