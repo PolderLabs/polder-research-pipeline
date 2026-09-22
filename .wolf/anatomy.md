@@ -45,6 +45,10 @@ Quick navigation by file. Grep `.wolf/anatomy.md` for the path BEFORE reading it
 | `90-inbox/` | Inbox queue and processing records |
 | `99-templates/` | Note templates |
 
+## Source authority rule
+
+Authoritative source records (`.research/sources/*.json`) are canonical. This Markdown file is the human projection, regenerated from the structured records. Edits must be applied via `evidence.register_source()` or a curator script; do not hand-edit this file.
+
 ## Key references
 
 - `AUDIT.md` §3, §5 — repository structure rules

@@ -10,6 +10,8 @@ tags:
 
 Human-readable projection of registered sources. Authoritative structured source records live in `.research/sources/`.
 
+## Authority rule
+
 ## Catalog
 
 | Source ID | Title | Type | Retrieved | Status | Content SHA-256 | Related note |
