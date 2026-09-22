@@ -19,6 +19,21 @@ It does not repeat the original scaffold audit, already-known dashboard redesign
 
 The repository has moved from a scaffold into an integration-hardening phase. The important problems are now disagreements between implemented components rather than absence of components.
 
+## Eight audit passes
+
+| Pass | Scope | Key result |
+|---|---|---|
+| 1 | Implementation completeness and prior audit claims | Substantial implementation progress, but readiness/completion claims exceed the current integration state. |
+| 2 | Schemas, IDs, state, and authority boundaries | Found runtime/schema incompatibilities, authoritative-state persistence ambiguity, and contract drift. |
+| 3 | Agent roles, manifests, handoffs, and permissions | Role definitions exist, but runtime enforcement and several read/write/tool contracts do not yet align. |
+| 4 | Source, intake, evidence, claim, and test pipeline | Found writer/schema mismatches, incomplete referential integrity, dual evidence authority, and uncollected tests. |
+| 5 | Maintenance, CI, packaging, dependencies, and automation | CI is red; maintenance is partially integrated; reproducibility and generated-drift checks remain incomplete. |
+| 6 | Dashboard/data-surface integration | Existing dashboard correctness debt remains and it is not yet backed by the new structured state model. |
+| 7 | Security, concurrency, durability, and failure recovery | Atomicity, locking, idempotency, runtime authorization, and ingestion security need hardening before autonomy expands. |
+| 8 | Documentation, repository governance, and cross-contract consistency | Readiness prose drifted from reality; source authority/startup guidance and governance still contain inconsistencies. |
+
+The findings below are the consolidated output of these eight passes. They intentionally avoid repeating fixed historical scaffold findings or the already-documented full target architecture.
+
 ---
 
 # 1. Current CI state is misreported
