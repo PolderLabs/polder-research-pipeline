@@ -1,0 +1,822 @@
+/*
+   polder-dashboard.css
+   Visual research dashboard for the Polder Video Pipeline knowledge base.
+   Adapted from the ZOS glass-card design language: large gradient hero,
+   stat cubes, soft domain cards, tag bars, scroll containers.
+
+   Enable: Settings → Appearance → CSS snippets → toggle "polder-dashboard".
+*/
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;700&display=swap');
+
+.dashboard-layout {
+    --polder-accent-rgb: 99, 102, 241;
+    --polder-accent: var(--interactive-accent, rgb(var(--polder-accent-rgb)));
+    --polder-glass: rgba(255, 255, 255, 0.03);
+    --polder-border: 1px solid rgba(var(--mono-rgb-100, 255, 255, 255), 0.08);
+    --polder-radius-lg: 28px;
+    --polder-radius-md: 18px;
+    --polder-radius-sm: 12px;
+    --polder-spacing: 32px;
+    --polder-shadow: 0 20px 50px -12px rgba(0, 0, 0, 0.25);
+    --polder-font-main: 'Outfit', var(--font-interface, sans-serif);
+    --polder-font-serif: 'Instrument Serif', serif;
+    --polder-font-mono: 'JetBrains Mono', var(--font-monospace, monospace);
+}
+
+/* Widen the note container to give the dashboard room to breathe. */
+.dashboard-layout .cm-sizer,
+.dashboard-layout .markdown-preview-sizer {
+    max-width: 1500px !important;
+    width: 100% !important;
+}
+
+/* Hide properties — the dashboard is its own metadata. */
+.dashboard-layout .metadata-container { display: none !important; }
+/* ===========================================================
+   BASE LAYOUT
+   =========================================================== */
+.polder-header {
+    background: var(--polder-glass);
+    backdrop-filter: blur(25px);
+    border-radius: var(--polder-radius-lg);
+    padding: 30px;
+    border: var(--polder-border);
+    margin-bottom: 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.polder-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 320px;
+    height: 320px;
+    background: radial-gradient(circle, var(--polder-accent), transparent 70%);
+    opacity: 0.12;
+    transform: translate(120px, 120px);
+    pointer-events: none;
+}
+
+.polder-hero { flex-grow: 1; }
+
+.polder-hero-title { display: flex; align-items: baseline; gap: 18px; }
+
+.polder-banner-input {
+    font-family: var(--polder-font-serif);
+    font-size: 4.4em;
+    font-weight: 800;
+    line-height: 0.95;
+    letter-spacing: -2.5px;
+    background: linear-gradient(135deg, var(--text-normal) 0%, var(--polder-accent) 150%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    border: none;
+    outline: none;
+    width: 100%;
+    max-width: 720px;
+    margin: 0;
+    padding: 0;
+}
+
+.polder-banner-input:focus {
+    outline: 1px dashed var(--polder-accent);
+    outline-offset: 4px;
+    border-radius: 4px;
+}
+
+.polder-greeting {
+    font-family: var(--polder-font-main);
+    font-size: 1.4em;
+    font-weight: 500;
+    margin-top: 14px;
+    opacity: 0.85;
+    letter-spacing: -0.01em;
+}
+
+.polder-hero-stats {
+    display: flex;
+    gap: 18px;
+    align-items: center;
+    z-index: 2;
+}
+
+.polder-stat-cube {
+    text-align: right;
+    padding: 14px 20px;
+    background: rgba(var(--mono-rgb-100, 255, 255, 255), 0.03);
+    border-radius: var(--polder-radius-md);
+    border: var(--polder-border);
+    min-width: 110px;
+}
+
+.polder-stat-value {
+    font-family: var(--polder-font-serif);
+    font-size: 2.4em;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, var(--text-normal) 0%, var(--polder-accent) 200%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.polder-stat-label {
+    font-size: 0.7em;
+    font-weight: 600;
+    letter-spacing: 1.4px;
+    color: var(--text-muted);
+    margin-top: 4px;
+}
+
+/* ===========================================================
+   GRID
+   =========================================================== */
+.polder-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: var(--polder-spacing);
+}
+
+.span-4  { grid-column: span 4; }
+.span-8  { grid-column: span 8; }
+.span-12 { grid-column: span 12; }
+
+@media (max-width: 1100px) {
+    .span-4, .span-8 { grid-column: span 12; }
+    .polder-header { flex-direction: column; align-items: flex-start; gap: 24px; }
+}
+
+/* ===========================================================
+   CARDS
+   =========================================================== */
+.polder-card {
+    background: var(--polder-glass);
+    backdrop-filter: blur(25px);
+    border-radius: var(--polder-radius-lg);
+    padding: 24px;
+    border: var(--polder-border);
+    box-shadow: var(--polder-shadow);
+    margin-bottom: var(--polder-spacing);
+}
+
+.polder-card:last-child { margin-bottom: 0; }
+
+.polder-card-title {
+    font-size: 0.75em;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* ===========================================================
+   DOMAIN COVERAGE
+   =========================================================== */
+.polder-domain-list { display: flex; flex-direction: column; gap: 10px; }
+
+.polder-domain-row {
+    display: grid;
+    grid-template-columns: 18px 1fr auto;
+    gap: 14px;
+    align-items: center;
+    padding: 14px 16px;
+    background: rgba(var(--mono-rgb-100, 255, 255, 255), 0.02);
+    border-radius: var(--polder-radius-md);
+    border: 1px solid transparent;
+    transition: all 0.25s ease;
+}
+.polder-domain-row:hover {
+    border-color: rgba(var(--polder-accent-rgb), 0.35);
+    transform: translateX(2px);
+}
+
+.polder-domain-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    background: hsl(var(--hue), 70%, 60%);
+    box-shadow: 0 0 12px hsla(var(--hue), 70%, 60%, 0.45);
+}
+
+.polder-domain-name { display: flex; flex-direction: column; gap: 2px; }
+.polder-domain-name > div:first-child {
+    font-weight: 600;
+    font-size: 0.95em;
+    letter-spacing: -0.005em;
+}
+.polder-domain-code {
+    font-family: var(--polder-font-mono);
+    font-size: 0.7em;
+    color: var(--text-muted);
+}
+
+.polder-domain-meta { text-align: right; }
+.polder-domain-total {
+    font-family: var(--polder-font-serif);
+    font-size: 1.6em;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text-normal);
+}
+.polder-domain-status {
+    font-size: 0.7em;
+    color: var(--text-muted);
+    margin-top: 2px;
+    letter-spacing: 0.02em;
+}
+
+/* ===========================================================
+   INBOX
+   =========================================================== */
+.polder-inbox-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+
+.polder-inbox-cell {
+    text-align: center;
+    padding: 18px 10px;
+    background: rgba(var(--mono-rgb-100, 255, 255, 255), 0.03);
+    border-radius: var(--polder-radius-md);
+    border-top: 3px solid hsl(var(--hue), 70%, 60%);
+}
+
+.polder-inbox-value {
+    font-family: var(--polder-font-serif);
+    font-size: 2em;
+    font-weight: 700;
+    line-height: 1;
+}
+.polder-inbox-label {
+    font-size: 0.7em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+    margin-top: 6px;
+}
+
+/* ===========================================================
+   RECENT ACTIVITY
+   =========================================================== */
+.polder-fresh-list { display: flex; flex-direction: column; gap: 8px; }
+
+.polder-fresh-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 14px;
+    align-items: center;
+    padding: 14px 16px;
+    border-radius: var(--polder-radius-md);
+    background: rgba(var(--mono-rgb-100, 255, 255, 255), 0.02);
+    border: 1px solid transparent;
+    transition: all 0.25s ease;
+}
+.polder-fresh-row:hover {
+    border-color: var(--polder-accent);
+    background: rgba(var(--polder-accent-rgb), 0.05);
+    transform: translateY(-1px);
+}
+
+.polder-fresh-link a {
+    font-weight: 600;
+    font-size: 0.95em;
+    text-decoration: none;
+    color: var(--text-normal);
+}
+.polder-fresh-link a:hover { color: var(--polder-accent); }
+
+.polder-fresh-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.polder-status-tag {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted);
+}
+.polder-status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--polder-accent);
+    box-shadow: 0 0 8px var(--polder-accent);
+}
+.polder-type-tag {
+    font-family: var(--polder-font-mono);
+    font-size: 0.7em;
+    padding: 3px 8px;
+    border-radius: 100px;
+    background: rgba(var(--mono-rgb-100, 255, 255, 255), 0.06);
+    color: var(--text-muted);
+}
+.polder-fresh-time {
+    font-family: var(--polder-font-mono);
+    font-size: 0.75em;
+    color: var(--text-muted);
+}
+
+/* ===========================================================
+   DOMAIN NAVIGATION LINKS
+   =========================================================== */
+.polder-link-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+}
+@media (max-width: 1300px) {
+    .polder-link-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 800px) {
+    .polder-link-grid { grid-template-columns: 1fr; }
+}
+
+.polder-link-block {
+    padding: 16px;
+    border-radius: var(--polder-radius-md);
+    background: rgba(var(--mono-rgb-100, 255, 255, 255), 0.02);
+    border: 1px solid rgba(var(--polder-accent-rgb), 0.18);
+    border-top: 3px solid hsl(var(--hue), 60%, 55%);
+    transition: all 0.25s ease;
+}
+.polder-link-block:hover {
+    transform: translateY(-3px);
+    border-color: rgba(var(--polder-accent-rgb), 0.5);
+}
+
+.polder-link-block-title {
+    font-size: 0.7em;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+}
+
+.polder-link-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+}
+.polder-link-row a {
+    font-size: 0.92em;
+    text-decoration: none;
+    color: var(--text-normal);
+    font-weight: 500;
+}
+.polder-link-row a:hover { color: var(--polder-accent); }
+.polder-link-bullet {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: hsl(var(--hue), 70%, 65%);
+    flex-shrink: 0;
+}
+
+/* ===========================================================
+   ORPHANS / REVIEW / TAGS
+   =========================================================== */
+.polder-orphan-list, .polder-stale-list { display: flex; flex-direction: column; gap: 6px; }
+
+.polder-orphan-row, .polder-stale-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: var(--polder-radius-sm);
+    background: rgba(var(--mono-rgb-100, 255, 255, 255), 0.02);
+}
+.polder-orphan-row a, .polder-stale-row a {
+    text-decoration: none;
+    color: var(--text-normal);
+    font-weight: 500;
+}
+.polder-orphan-row a:hover, .polder-stale-row a:hover { color: var(--polder-accent); }
+
+.polder-orphan-status {
+    font-size: 0.7em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.polder-stale-time {
+    font-family: var(--polder-font-mono);
+    font-size: 0.75em;
+    color: var(--text-muted);
+}
+
+.polder-tag-list { display: flex; flex-direction: column; gap: 6px; }
+
+.polder-tag-row {
+    display: grid;
+    grid-template-columns: 1fr 90px 28px;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+}
+
+.polder-tag-name {
+    font-family: var(--polder-font-mono);
+    font-size: 0.85em;
+    color: var(--text-normal);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.polder-tag-bar {
+    height: 6px;
+    background: rgba(var(--mono-rgb-100, 255, 255, 255), 0.06);
+    border-radius: 100px;
+    overflow: hidden;
+}
+.polder-tag-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--polder-accent), rgba(var(--polder-accent-rgb), 0.45));
+    border-radius: 100px;
+    box-shadow: 0 0 8px rgba(var(--polder-accent-rgb), 0.4);
+}
+
+.polder-tag-count {
+    font-family: var(--polder-font-mono);
+    font-size: 0.8em;
+    color: var(--text-muted);
+    text-align: right;
+}
+
+/* ===========================================================
+   HINTS & FOOTER
+   =========================================================== */
+.polder-hint {
+    padding: 24px;
+    text-align: center;
+    background: rgba(var(--polder-accent-rgb), 0.05);
+    border-radius: var(--polder-radius-md);
+    border: 1px dashed var(--polder-accent);
+    color: var(--polder-accent);
+    font-size: 0.9em;
+}
+
+.polder-footer {
+    margin-top: 24px;
+    padding: 16px 24px;
+    border-top: 1px dashed rgba(var(--mono-rgb-100, 255, 255, 255), 0.1);
+    color: var(--text-muted);
+    font-size: 0.85em;
+    text-align: center;
+}
+.polder-footer-text { letter-spacing: 0.02em; }
+
+/* ===========================================================
+   SCROLLBARS
+   =========================================================== */
+.polder-fresh-list::-webkit-scrollbar,
+.polder-orphan-list::-webkit-scrollbar,
+.polder-stale-list::-webkit-scrollbar,
+.polder-tag-list::-webkit-scrollbar {
+    width: 4px;
+}
+.polder-fresh-list::-webkit-scrollbar-thumb,
+.polder-orphan-list::-webkit-scrollbar-thumb,
+.polder-stale-list::-webkit-scrollbar-thumb,
+.polder-tag-list::-webkit-scrollbar-thumb {
+    background: rgba(var(--polder-accent-rgb), 0.3);
+    border-radius: 4px;
+}
+.polder-fresh-list::-webkit-scrollbar-thumb:hover,
+.polder-orphan-list::-webkit-scrollbar-thumb:hover,
+.polder-stale-list::-webkit-scrollbar-thumb:hover,
+.polder-tag-list::-webkit-scrollbar-thumb:hover {
+    background: var(--polder-accent);
+}
+
+/* ===========================================================
+   OPERATING RULES (preserved static section below the JS dashboard)
+   =========================================================== */
+.dashboard-layout .markdown-rendered h2[id*="operating"] {
+    margin-top: 36px;
+    padding-top: 18px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.1);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.85em;
+    color: var(--text-muted);
+    border-bottom: none;
+}
+.dashboard-layout .markdown-rendered p {
+    font-size: 0.92em;
+    line-height: 1.6;
+    color: var(--text-normal);
+    margin: 4px 0;
+}
+.dashboard-layout .markdown-rendered p a,
+.dashboard-layout .markdown-rendered ul li a {
+    color: var(--polder-accent);
+    text-decoration: none;
+    font-weight: 500;
+}
+.dashboard-layout .markdown-rendered p a:hover,
+.dashboard-layout .markdown-rendered ul li a:hover {
+    text-decoration: underline;
+}
+.dashboard-layout .markdown-rendered ul {
+    margin: 8px 0 24px;
+    padding-left: 20px;
+    color: var(--text-normal);
+    font-size: 0.92em;
+    line-height: 1.65;
+}
+.dashboard-layout .markdown-rendered ul li { margin: 4px 0; }
+
+/* ===========================================================
+   SURFACE CARDS (Implementation + Operator surfaces)
+   =========================================================== */
+.polder-grid-surfaces {
+    margin-top: 8px;
+    margin-bottom: 12px;
+}
+
+.polder-surface-row {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 18px;
+    align-items: center;
+    padding: 12px 16px;
+    border-radius: var(--polder-radius-sm);
+    border: 1px solid transparent;
+    transition: all 0.25s ease;
+}
+.polder-surface-row:hover {
+    border-color: rgba(var(--polder-accent-rgb), 0.35);
+    background: rgba(var(--polder-accent-rgb), 0.04);
+}
+
+.polder-surface-link a {
+    font-weight: 600;
+    font-size: 0.95em;
+    text-decoration: none;
+    color: var(--text-normal);
+}
+.polder-surface-link a:hover { color: var(--polder-accent); }
+
+.polder-surface-desc {
+    font-size: 0.85em;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+.polder-surface-static {
+    font-weight: 600;
+    font-size: 0.95em;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+/* Span override for the surface row */
+.span-6 { grid-column: span 6; }
+
+/* ===========================================================
+   TEMPLATES CARD
+   =========================================================== */
+.polder-template-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+}
+.polder-template-card {
+    padding: 14px 16px;
+    border-radius: var(--polder-radius-sm);
+    background: rgba(var(--polder-accent-rgb), 0.04);
+    border: 1px solid rgba(var(--polder-accent-rgb), 0.15);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.polder-template-card a {
+    font-weight: 600;
+    color: var(--text-normal);
+    text-decoration: none;
+}
+.polder-template-card a:hover { color: var(--polder-accent); }
+.polder-template-topic {
+    font-size: 0.78em;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+/* ===========================================================
+   RESTRUCTURED DASHBOARD — row 1 domain cards, banner, inbox hint
+   =========================================================== */
+.polder-domain-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    gap: 14px;
+    margin-top: 12px;
+}
+.polder-domain-card {
+    padding: 16px 18px;
+    border-radius: var(--polder-radius-sm);
+    background: hsla(var(--hue), 55%, 55%, 0.07);
+    border: 1px solid hsla(var(--hue), 55%, 55%, 0.25);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.polder-domain-card:hover {
+    transform: translateY(-2px);
+    border-color: hsla(var(--hue), 65%, 60%, 0.5);
+}
+.polder-domain-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.polder-domain-head a {
+    font-weight: 700;
+    font-size: 1.05em;
+    color: var(--text-normal);
+    text-decoration: none;
+}
+.polder-domain-head a:hover { color: hsl(var(--hue), 70%, 60%); }
+.polder-banner-text {
+    font-family: var(--polder-font-serif);
+    font-size: 2.6em;
+    letter-spacing: 0.02em;
+    color: var(--text-normal);
+    margin-bottom: 4px;
+}
+.polder-inbox-hint {
+    margin-top: 12px;
+    font-size: 0.9em;
+    text-align: right;
+}
+.polder-inbox-hint a { color: var(--polder-accent); text-decoration: none; }
+
+/* ===========================================================
+   POLISH PASS — last-updated stamp, inbox CTA, surface/domain
+   health cards, status-dot hue, orphan alert border.
+   =========================================================== */
+
+/* Hero timestamp under the greeting — small mono caption. */
+.polder-last-updated {
+    margin-top: 6px;
+    font-family: var(--polder-font-mono);
+    font-size: 0.78em;
+    letter-spacing: 0.04em;
+    color: var(--text-muted);
+}
+
+/* Open inbox CTA — pill button linking to the intake contract. */
+.polder-inbox-cta {
+    margin-top: 16px;
+    display: flex;
+    justify-content: flex-end;
+}
+.polder-inbox-cta a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 100px;
+    background: rgba(var(--polder-accent-rgb), 0.12);
+    border: 1px solid rgba(var(--polder-accent-rgb), 0.45);
+    color: var(--polder-accent);
+    font-size: 0.85em;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+.polder-inbox-cta a:hover {
+    background: rgba(var(--polder-accent-rgb), 0.22);
+    transform: translateY(-1px);
+    text-decoration: none;
+}
+
+.polder-inbox-age {
+    margin-top: 8px;
+    font-family: var(--polder-font-mono);
+    font-size: 0.72em;
+    color: var(--text-muted);
+    text-align: right;
+}
+
+/* Red border on the orphan card when there are orphans. */
+.polder-card.polder-card-alert {
+    border-color: hsla(0, 80%, 60%, 0.55);
+    box-shadow: 0 0 0 1px hsla(0, 80%, 60%, 0.25),
+                0 20px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Drive the recent-activity status dot from --hue (set per-row). */
+.polder-status-tag { color: hsl(var(--hue), 50%, 55%); }
+.polder-status-tag .polder-status-dot {
+    background: hsl(var(--hue), 75%, 60%);
+    box-shadow: 0 0 8px hsla(var(--hue), 75%, 60%, 0.7);
+}
+
+/* Health row that pairs surface health with domain index health. */
+.polder-health-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: var(--polder-spacing);
+    margin-bottom: var(--polder-spacing);
+}
+.polder-health-grid > .polder-card { margin-bottom: 0; }
+
+.polder-health-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.polder-health-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 14px;
+    border-radius: var(--polder-radius-sm);
+    background: rgba(var(--mono-rgb-100, 255, 255, 255), 0.02);
+    border: 1px solid transparent;
+    border-left: 3px solid hsla(var(--hue, 200), 60%, 55%, 0.45);
+    transition: background 0.2s ease, border-color 0.2s ease;
+}
+.polder-health-row:hover {
+    background: rgba(var(--polder-accent-rgb), 0.04);
+    border-color: rgba(var(--polder-accent-rgb), 0.35);
+}
+.polder-health-row.polder-health-row-alert {
+    border-left-color: hsla(0, 75%, 60%, 0.7);
+    background: hsla(0, 75%, 55%, 0.06);
+}
+
+.polder-health-name a {
+    font-family: var(--polder-font-mono);
+    font-size: 0.88em;
+    font-weight: 600;
+    color: var(--text-normal);
+    text-decoration: none;
+}
+.polder-health-name a:hover { color: var(--polder-accent); }
+
+.polder-health-flag {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.72em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+}
+.polder-health-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+.polder-health-ok {
+    background: hsl(160, 70%, 55%);
+    box-shadow: 0 0 8px hsla(160, 70%, 55%, 0.65);
+}
+.polder-health-missing {
+    background: hsl(0, 75%, 60%);
+    box-shadow: 0 0 8px hsla(0, 75%, 60%, 0.65);
+}
+
+.polder-health-count {
+    font-family: var(--polder-font-mono);
+    font-size: 0.78em;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+/* Fallback label inside a domain card when no MOC exists. */
+.polder-domain-name-static {
+    font-weight: 700;
+    font-size: 1.05em;
+    color: var(--text-normal);
+}

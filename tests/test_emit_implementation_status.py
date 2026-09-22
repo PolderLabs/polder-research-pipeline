@@ -51,7 +51,8 @@ def temp_repo(tmp_path: Path) -> Path:
     (tmp_path / "tests" / "test_dummy.py").write_text(
         "def test_x():\n    assert True\n", encoding="utf-8"
     )
-    audit = tmp_path / "AUDIT.md"
+    audit = tmp_path / "knowledge-base" / "AUDIT.md"
+    audit.parent.mkdir(parents=True, exist_ok=True)
     audit.write_text(
         "Audit date: 2026-09-22\n"
         "Implementation revision inspected: abc1234567def\n",
@@ -63,7 +64,7 @@ def temp_repo(tmp_path: Path) -> Path:
 def test_emitter_appends_block_when_no_sentinels(temp_repo: Path) -> None:
     rc = emit.main(["--repository-root", str(temp_repo)])
     assert rc == 0
-    text = (temp_repo / "AUDIT.md").read_text()
+    text = (temp_repo / "knowledge-base" / "AUDIT.md").read_text()
     assert text.count(emit.BEGIN_SENTINEL) == 1
     assert text.count(emit.END_SENTINEL) == 1
     # Original front-matter survives untouched.
@@ -74,9 +75,9 @@ def test_emitter_appends_block_when_no_sentinels(temp_repo: Path) -> None:
 
 def test_emitter_is_idempotent(temp_repo: Path) -> None:
     emit.main(["--repository-root", str(temp_repo)])
-    text_before = (temp_repo / "AUDIT.md").read_text()
+    text_before = (temp_repo / "knowledge-base" / "AUDIT.md").read_text()
     emit.main(["--repository-root", str(temp_repo)])
-    text_after = (temp_repo / "AUDIT.md").read_text()
+    text_after = (temp_repo / "knowledge-base" / "AUDIT.md").read_text()
     # Idempotent on the surrounding file: sentinel count is still 1 and
     # the only changes (if any) are timestamp/revision counter updates.
     assert text_after.count(emit.BEGIN_SENTINEL) == 1
@@ -111,7 +112,8 @@ def test_block_uses_backticked_fields(temp_repo: Path) -> None:
 
 def test_emitter_replaces_block_in_place(tmp_path: Path) -> None:
     """When sentinels already exist, write_block must replace, not append."""
-    audit = tmp_path / "AUDIT.md"
+    audit = tmp_path / "knowledge-base" / "AUDIT.md"
+    audit.parent.mkdir(parents=True, exist_ok=True)
     audit.write_text(
         "header\n" + emit.BEGIN_SENTINEL + "\nold body\n" + emit.END_SENTINEL + "\nfooter\n",
         encoding="utf-8",

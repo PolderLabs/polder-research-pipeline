@@ -37,8 +37,8 @@ def test_fills_missing_frontmatter(tmp_path: Path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     # Patch REPO_ROOT
     monkeypatch.setattr(_mod, "REPO_ROOT", tmp_path)
-    (tmp_path / "00-home").mkdir()
-    note = tmp_path / "00-home" / "no-fm.md"
+    (tmp_path / "knowledge-base" / "00-home").mkdir(parents=True)
+    note = tmp_path / "knowledge-base" / "00-home" / "no-fm.md"
     note.write_text("# Hello\n\nContent.\n", encoding="utf-8")
 
     rc = _mod.main(argv=[])
@@ -51,8 +51,8 @@ def test_fills_missing_frontmatter(tmp_path: Path, monkeypatch):
 def test_apply_writes_frontmatter(tmp_path: Path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(_mod, "REPO_ROOT", tmp_path)
-    (tmp_path / "00-home").mkdir()
-    note = tmp_path / "00-home" / "no-fm.md"
+    (tmp_path / "knowledge-base" / "00-home").mkdir(parents=True)
+    note = tmp_path / "knowledge-base" / "00-home" / "no-fm.md"
     note.write_text("# Hello\n\nContent.\n", encoding="utf-8")
 
     rc = _mod.main(argv=["--apply"])
@@ -66,6 +66,6 @@ def test_apply_writes_frontmatter(tmp_path: Path, monkeypatch):
 
 def test_infer_type_from_domain(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(_mod, "REPO_ROOT", tmp_path)
-    assert _mod.infer_type(Path(tmp_path / "00-home" / "x.md")) == "guide"
-    assert _mod.infer_type(Path(tmp_path / "02-research" / "x.md")) == "research"
-    assert _mod.infer_type(Path(tmp_path / "04-decisions" / "x.md")) == "decision"
+    assert _mod.infer_type(Path(tmp_path / "knowledge-base" / "00-home" / "x.md")) == "guide"
+    assert _mod.infer_type(Path(tmp_path / "knowledge-base" / "02-research" / "x.md")) == "research"
+    assert _mod.infer_type(Path(tmp_path / "knowledge-base" / "04-decisions" / "x.md")) == "decision"

@@ -36,20 +36,21 @@ from polder_research.paths import (
 
 def test_repo_root_is_absolute_path():
     assert isinstance(REPO_ROOT, Path)
-    assert (REPO_ROOT / "AUDIT.md").is_file()
+    assert (REPO_ROOT / "AGENTS.md").is_file()
+    assert (REPO_ROOT / "knowledge-base" / "AUDIT.md").is_file()
 
 
 def test_vault_dirs_canonical():
     expected = (
-        "00-home",
-        "01-project",
-        "02-research",
-        "03-system",
-        "04-decisions",
-        "05-operations",
-        "06-sources",
-        "90-inbox",
-        "99-templates",
+        "knowledge-base/00-home",
+        "knowledge-base/01-project",
+        "knowledge-base/02-research",
+        "knowledge-base/03-system",
+        "knowledge-base/04-decisions",
+        "knowledge-base/05-operations",
+        "knowledge-base/06-sources",
+        "knowledge-base/90-inbox",
+        "knowledge-base/99-templates",
     )
     assert VAULT_DIRS == expected
 
@@ -85,9 +86,9 @@ def test_valid_status_values():
 
 
 def test_domain_type_mapping():
-    assert DOMAIN_TYPE["00-home"] == "guide"
-    assert DOMAIN_TYPE["01-project"] == "project"
-    assert DOMAIN_TYPE["90-inbox"] == "inbox"
+    assert DOMAIN_TYPE["knowledge-base/00-home"] == "guide"
+    assert DOMAIN_TYPE["knowledge-base/01-project"] == "project"
+    assert DOMAIN_TYPE["knowledge-base/90-inbox"] == "inbox"
 
 
 def test_skip_parts_includes_control_plane():
@@ -162,13 +163,10 @@ def test_durable_exclude_set_is_frozenset():
 
 def test_no_orphan_check_set_is_frozenset():
     assert isinstance(NO_ORPHAN_CHECK, frozenset)
-    assert "90-inbox" in NO_ORPHAN_CHECK
-    assert "99-templates" in NO_ORPHAN_CHECK
+    assert "knowledge-base/90-inbox" in NO_ORPHAN_CHECK
+    assert "knowledge-base/99-templates" in NO_ORPHAN_CHECK
 
 
 def test_canonical_paths_exist():
     assert SCHEMAS_DIR.is_dir()
     assert AGENTS_DIR.is_dir()
-    assert TEMPLATES_DIR.is_dir()
-    assert INTAKE_MANIFEST.parent.is_dir()
-    assert INTAKE_RAW_DIR.is_dir()

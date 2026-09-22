@@ -7,7 +7,7 @@ import re
 import sys
 import unicodedata
 
-from ..paths import DOMAIN_TYPE, REPO_ROOT, VALID_STATUS, VALID_TYPE
+from ..paths import DOMAIN_TYPE, REPO_ROOT, VALID_STATUS, VALID_TYPE, VAULT_ROOT
 from ..templates import TemplateRegistry, registry
 
 # kind (canonical note type) → canonical template name in 99-templates/.
@@ -57,7 +57,7 @@ def resolve_template(
 ) -> str:
     """Return the canonical template text for ``kind`` via the registry."""
     name = TEMPLATE_BY_KIND.get(kind, "research-note")
-    reg = template_registry if template_registry is not None else registry(REPO_ROOT)
+    reg = template_registry if template_registry is not None else registry(VAULT_ROOT)
     return reg.resolve(name).text
 
 
@@ -71,12 +71,14 @@ def cmd_new_note(
     related: list[str] | None = None,
     dry_run: bool = False,
 ) -> int:
-    if domain not in DOMAIN_TYPE:
+    bare_domain = domain.rsplit("/", 1)[-1]
+    vault_domain = f"knowledge-base/{bare_domain}"
+    if vault_domain not in DOMAIN_TYPE:
         print(f"error: unknown domain '{domain}'", file=sys.stderr)
-        print(f"valid: {', '.join(DOMAIN_TYPE)}", file=sys.stderr)
+        print(f"valid: {', '.join(k.rsplit('/', 1)[-1] for k in DOMAIN_TYPE)}", file=sys.stderr)
         return 2
 
-    note_type = type_ or DOMAIN_TYPE[domain]
+    note_type = type_ or DOMAIN_TYPE[vault_domain]
     if note_type not in VALID_TYPE:
         print(f"error: invalid type '{note_type}'; valid: {sorted(VALID_TYPE)}", file=sys.stderr)
         return 2
@@ -85,7 +87,7 @@ def cmd_new_note(
         return 2
 
     slug = slugify(title)
-    target = REPO_ROOT / domain / f"{slug}.md"
+    target = REPO_ROOT / "knowledge-base" / bare_domain / f"{slug}.md"
     if target.exists():
         print(f"error: {target.relative_to(REPO_ROOT)} already exists", file=sys.stderr)
         return 2

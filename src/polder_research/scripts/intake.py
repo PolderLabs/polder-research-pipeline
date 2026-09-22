@@ -16,11 +16,9 @@ from ..paths import (
     INTAKE_VALID_STATUS as VALID_STATUS,
 )
 from ..paths import (
+    REPO_ROOT,
     RESEARCH_INTAKE_DIR,
 )
-
-REPO_ROOT = Path(__file__).resolve().parents[3]
-MANIFEST = REPO_ROOT / "90-inbox" / "manifest.md"
 
 _CANONICAL_SOURCE_TYPES = frozenset(
     {
@@ -335,7 +333,6 @@ def cmd_intake_register(
 
 
 __all__ = [
-    "MANIFEST",
     "VALID_KIND",
     "VALID_STATUS",
     "canonical_source_for_raw",

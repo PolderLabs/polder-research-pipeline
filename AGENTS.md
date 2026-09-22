@@ -85,10 +85,11 @@ tags:
 
 ## Wikilinks
 
-Vault-root-relative, no `.md`: `[[02-research/streaming-models]]`. With alias: `[[02-research/streaming-models|Streaming Models]]`.
+Vault-root-relative from inside the vault (``knowledge-base/`` in this repo, since
+AGENTS.md/CLAUDE.md live outside the vault at the repo root): `[[knowledge-base/02-research/streaming-models]]`. With alias: `[[knowledge-base/02-research/streaming-models|Streaming Models]]`.
 
 ## Related
 
 - [[CLAUDE|CLAUDE.md]] — simplified protocol for Claude sessions.
-- [[00-home/vault-standards|Vault standards]].
-- [[index|dashboard]].
+- [[knowledge-base/00-home/vault-standards|Vault standards]].
+- [[knowledge-base/index|dashboard]].

@@ -105,7 +105,7 @@ def _test_count(repository_root: Path) -> int:
 
 def build_status_block(repository_root: Path) -> str:
     """Build the markdown block (between sentinels) for the given repo."""
-    audit_text = (repository_root / "AUDIT.md").read_text(encoding="utf-8")
+    audit_text = (repository_root / "knowledge-base" / "AUDIT.md").read_text(encoding="utf-8")
     revision = _git_short_sha(repository_root)
     py_ver = python_version()
     schema_count = _schema_count(repository_root)
@@ -156,11 +156,11 @@ def main(argv: list[str] | None = None) -> int:
         "--audit-path",
         type=Path,
         default=None,
-        help="Path to AUDIT.md (default: <repository-root>/AUDIT.md).",
+        help="Path to AUDIT.md (default: <repository-root>/knowledge-base/AUDIT.md).",
     )
     args = parser.parse_args(argv)
 
-    audit_path = args.audit_path or args.repository_root / "AUDIT.md"
+    audit_path = args.audit_path or args.repository_root / "knowledge-base" / "AUDIT.md"
     block = build_status_block(args.repository_root)
     write_block(audit_path, block)
     print(f"updated status block in {audit_path}")

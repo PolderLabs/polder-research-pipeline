@@ -40,51 +40,53 @@ def test_vault_audit_clean_run(repo_root, monkeypatch):
 
 def test_vault_audit_detects_orphan(tmp_path: Path, monkeypatch):
     # create minimal vault
-    (tmp_path / "00-home").mkdir()
-    (tmp_path / "index.md").write_text(
+    vault = tmp_path / "knowledge-base"
+    (vault / "00-home").mkdir(parents=True)
+    (vault / "index.md").write_text(
         "---\ntype: moc\nstatus: current\ntags:\n  - dashboard\n---\n# Dashboard\n",
         encoding="utf-8",
     )
-    (tmp_path / "AUDIT.md").write_text(
+    (vault / "AUDIT.md").write_text(
         "---\ntype: guide\nstatus: current\ntags:\n  - audit\n---\n# Audit\n", encoding="utf-8"
     )
-    (tmp_path / "AGENTS.md").write_text(
+    (vault / "AGENTS.md").write_text(
         "---\ntype: guide\nstatus: current\ntags:\n  - agents\n---\n# Agents\n", encoding="utf-8"
     )
-    (tmp_path / "README.md").write_text(
+    (vault / "README.md").write_text(
         "---\ntype: guide\nstatus: current\ntags:\n  - nav\n---\n# Root\n", encoding="utf-8"
     )
-    (tmp_path / "00-home/README.md").write_text(
+    (vault / "00-home/README.md").write_text(
         "---\ntype: moc\nstatus: current\ntags:\n  - x\n---\n# Home\n\n[[orphan-somewhere|Somewhere]]\n",
         encoding="utf-8",
     )
-    (tmp_path / "00-home" / "orphan-note.md").write_text(
+    (vault / "00-home" / "orphan-note.md").write_text(
         "---\ntype: guide\nstatus: current\ntags:\n  - x\n---\n# Orphan\n",
         encoding="utf-8",
     )
 
     monkeypatch.setattr(_vault_audit, "REPO_ROOT", tmp_path)
     r = _vault_audit.audit()
-    assert "00-home/orphan-note.md" in r["orphans"]
+    assert "knowledge-base/00-home/orphan-note.md" in r["orphans"]
 
 
 def test_vault_audit_template_stubs_not_flagged(tmp_path: Path, monkeypatch):
     """Template files contain `[[path/to/source]]` stubs; those must not be flagged."""
-    (tmp_path / "00-home").mkdir()
-    (tmp_path / "index.md").write_text(
+    vault = tmp_path / "knowledge-base"
+    (vault / "00-home").mkdir(parents=True)
+    (vault / "index.md").write_text(
         "---\ntype: moc\nstatus: current\ntags:\n  - d\n---\n# D\n", encoding="utf-8"
     )
-    (tmp_path / "AUDIT.md").write_text(
+    (vault / "AUDIT.md").write_text(
         "---\ntype: guide\nstatus: current\ntags:\n  - a\n---\n# A\n", encoding="utf-8"
     )
-    (tmp_path / "AGENTS.md").write_text(
+    (vault / "AGENTS.md").write_text(
         "---\ntype: guide\nstatus: current\ntags:\n  - a\n---\n# A\n", encoding="utf-8"
     )
-    (tmp_path / "README.md").write_text(
+    (vault / "README.md").write_text(
         "---\ntype: guide\nstatus: current\ntags:\n  - n\n---\n# R\n", encoding="utf-8"
     )
-    (tmp_path / "99-templates").mkdir()
-    (tmp_path / "99-templates/sample.md").write_text(
+    (vault / "99-templates").mkdir()
+    (vault / "99-templates/sample.md").write_text(
         "---\ntype: template\nstatus: current\ntags:\n  - t\n---\n\n# Template\n\n"
         "- `[[path/to/source]]`\n"
         "- `[[02-research/note-slug]]`\n",
@@ -100,22 +102,22 @@ def test_vault_audit_template_stubs_not_flagged(tmp_path: Path, monkeypatch):
 
 def test_vault_audit_main_exit_code_blocks_on_orphans(tmp_path: Path, monkeypatch):
     """main() must exit non-zero when orphans exist (P0 §3 / §33)."""
-
-    (tmp_path / "00-home").mkdir()
-    (tmp_path / "index.md").write_text(
+    vault = tmp_path / "knowledge-base"
+    (vault / "00-home").mkdir(parents=True)
+    (vault / "index.md").write_text(
         "---\ntype: moc\nstatus: current\ntags:\n  - d\n---\n# D\n", encoding="utf-8"
     )
-    (tmp_path / "AUDIT.md").write_text(
+    (vault / "AUDIT.md").write_text(
         "---\ntype: guide\nstatus: current\ntags:\n  - a\n---\n# A\n", encoding="utf-8"
     )
-    (tmp_path / "AGENTS.md").write_text(
+    (vault / "AGENTS.md").write_text(
         "---\ntype: guide\nstatus: current\ntags:\n  - a\n---\n# A\n", encoding="utf-8"
     )
-    (tmp_path / "README.md").write_text(
+    (vault / "README.md").write_text(
         "---\ntype: guide\nstatus: current\ntags:\n  - n\n---\n# R\n", encoding="utf-8"
     )
     # Add an orphan file
-    (tmp_path / "00-home" / "orphan-note.md").write_text(
+    (vault / "00-home" / "orphan-note.md").write_text(
         "---\ntype: guide\nstatus: current\ntags:\n  - x\n---\n# Orphan\n",
         encoding="utf-8",
     )
@@ -158,7 +160,7 @@ def test_vault_audit_blocks_noncanonical_frontmatter(
     tmp_vault: Path, frontmatter: str, expected: str
 ):
     _write_frontmatter_schema(tmp_vault)
-    note = tmp_vault / "00-home" / "invalid-frontmatter.md"
+    note = tmp_vault / "knowledge-base" / "00-home" / "invalid-frontmatter.md"
     note.write_text(frontmatter, encoding="utf-8")
 
     result = _vault_audit.audit(tmp_vault)

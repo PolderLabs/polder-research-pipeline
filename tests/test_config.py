@@ -10,12 +10,12 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_research_config_yaml_exists():
-    path = _REPO_ROOT / "research.config.yaml"
+    path = _REPO_ROOT / "knowledge-base" / "research.config.yaml"
     assert path.is_file()
 
 
 def test_research_config_yaml_parses():
-    path = _REPO_ROOT / "research.config.yaml"
+    path = _REPO_ROOT / "knowledge-base" / "research.config.yaml"
     with open(path) as f:
         config = yaml.safe_load(f)
     assert config["schema_version"] == 1
@@ -34,7 +34,7 @@ def test_research_config_enums_aligned_with_paths():
         VALID_TYPE,
     )
 
-    with open(_REPO_ROOT / "research.config.yaml") as f:
+    with open(_REPO_ROOT / "knowledge-base" / "research.config.yaml") as f:
         config = yaml.safe_load(f)
 
     fm = config["frontmatter"]
@@ -47,7 +47,7 @@ def test_research_config_enums_aligned_with_paths():
 
 
 def test_research_config_task_enum_alignment():
-    with open(_REPO_ROOT / "research.config.yaml") as f:
+    with open(_REPO_ROOT / "knowledge-base" / "research.config.yaml") as f:
         config = yaml.safe_load(f)
     task = config["task"]
     assert "pending" in task["valid_status"]
@@ -59,7 +59,7 @@ def test_research_config_task_enum_alignment():
 
 
 def test_research_config_claim_enum():
-    with open(_REPO_ROOT / "research.config.yaml") as f:
+    with open(_REPO_ROOT / "knowledge-base" / "research.config.yaml") as f:
         config = yaml.safe_load(f)
     claim = config["claim"]
     assert "draft" in claim["valid_status"]
@@ -69,7 +69,7 @@ def test_research_config_claim_enum():
 
 
 def test_research_config_freshness_policy():
-    with open(_REPO_ROOT / "research.config.yaml") as f:
+    with open(_REPO_ROOT / "knowledge-base" / "research.config.yaml") as f:
         config = yaml.safe_load(f)
     fresh = config["freshness"]
     volatilities = {p["volatility"] for p in fresh["defaults"]}

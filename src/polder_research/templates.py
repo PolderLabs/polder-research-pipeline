@@ -1,14 +1,8 @@
 """Canonical template registry.
 
-Templates live under ``99-templates/`` in the repository root. There is no
-parallel hard-coded inventory anywhere else: scripts, tests, and agents
-must resolve a template through :func:`registry` or :class:`TemplateRegistry`.
-
-A template name is the file stem with the trailing ``-template`` stripped.
-``research-note-template.md`` -> ``research-note``; ``README.md`` is not a
-template and is excluded. ``resolve(name)`` returns a :class:`Template` whose
-``path`` and ``text`` come from the same canonical file the registry
-enumerated.
+Templates live under ``knowledge-base/99-templates/``. The :class:`TemplateRegistry`
+resolves against :data:`.paths.VAULT_ROOT` (or an explicit vault root) so that
+all callers — scripts, tests, and agents — share the same lookup.
 """
 
 from __future__ import annotations
@@ -17,7 +11,7 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
-from .paths import REPO_ROOT
+from .paths import VAULT_ROOT
 
 
 @dataclass(frozen=True)
@@ -30,11 +24,19 @@ class Template:
 
 
 class TemplateRegistry:
-    """A view over ``repo_root/99-templates``."""
+    """A view over ``VAULT_ROOT/99-templates``."""
 
     def __init__(self, repo_root: Path | str | None = None) -> None:
-        self.repo_root = Path(repo_root) if repo_root is not None else REPO_ROOT
-        self.templates_dir = self.repo_root / "99-templates"
+        # Accept a repo root or a vault root. If the caller passes a vault root
+        # (identified by the ``knowledge-base`` tail), use it directly;
+        # otherwise prepend ``knowledge-base``.
+        if repo_root is None:
+            vault: Path = VAULT_ROOT
+        else:
+            base = Path(repo_root)
+            vault = base if base.name == "knowledge-base" else base / "knowledge-base"
+        self.repo_root = vault
+        self.templates_dir = vault / "99-templates"
         if not self.templates_dir.is_dir():
             raise FileNotFoundError(f"templates directory does not exist: {self.templates_dir}")
 

@@ -23,6 +23,7 @@ from ..paths import (
     RESEARCH_RUNS_DIR,
     RESEARCH_STATE,
     RESEARCH_TASKS_DIR,
+    VAULT_ROOT,
 )
 
 _RECORD_TYPES = {
@@ -41,7 +42,7 @@ def _root(repository_root: str | Path | None) -> Path | None:
 
 
 def _config(root: Path | None) -> dict[str, Any]:
-    path = (root or REPO_ROOT) / "research.config.yaml"
+    path = (root or VAULT_ROOT) / "research.config.yaml"
     try:
         value = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as exc:

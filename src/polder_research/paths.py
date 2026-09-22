@@ -10,31 +10,35 @@ from pathlib import Path
 
 REPO_ROOT: Path = Path(__file__).resolve().parents[2]
 
+# The Obsidian vault root. Human-readable knowledge lives here so that
+# opening ``knowledge-base/`` in Obsidian shows only the curated notes
+# (never ``src/``, ``tests/``, ``schemas/``, or other control-plane code).
+VAULT_ROOT: Path = REPO_ROOT / "knowledge-base"
+
 # --- canonical domain folders ---------------------------------------------
 
 VAULT_DIRS: tuple[str, ...] = (
-    "00-home",
-    "01-project",
-    "02-research",
-    "03-system",
-    "04-decisions",
-    "05-operations",
-    "06-sources",
-    "90-inbox",
-    "99-templates",
+    "knowledge-base/00-home",
+    "knowledge-base/01-project",
+    "knowledge-base/02-research",
+    "knowledge-base/03-system",
+    "knowledge-base/04-decisions",
+    "knowledge-base/05-operations",
+    "knowledge-base/06-sources",
+    "knowledge-base/90-inbox",
+    "knowledge-base/99-templates",
 )
 
-# Domain folder → conventional ``type`` for non-readme notes in that folder.
 DOMAIN_TYPE: dict[str, str] = {
-    "00-home": "guide",
-    "01-project": "project",
-    "02-research": "research",
-    "03-system": "system",
-    "04-decisions": "decision",
-    "05-operations": "operation",
-    "06-sources": "source",
-    "90-inbox": "inbox",
-    "99-templates": "template",
+    "knowledge-base/00-home": "guide",
+    "knowledge-base/01-project": "project",
+    "knowledge-base/02-research": "research",
+    "knowledge-base/03-system": "system",
+    "knowledge-base/04-decisions": "decision",
+    "knowledge-base/05-operations": "operation",
+    "knowledge-base/06-sources": "source",
+    "knowledge-base/90-inbox": "inbox",
+    "knowledge-base/99-templates": "template",
 }
 
 # Frontmatter vocabulary — single source of truth used by the audit,
@@ -103,20 +107,22 @@ SKIP_PARTS: frozenset[str] = frozenset(
 
 # Folders intentionally excluded from the orphan rule. Their contents are
 # not part of the durable note graph (inbox, templates).
-NO_ORPHAN_CHECK: frozenset[str] = frozenset({"90-inbox", "99-templates"})
+NO_ORPHAN_CHECK: frozenset[str] = frozenset(
+    {"knowledge-base/90-inbox", "knowledge-base/99-templates"}
+)
 
 # Root-level files excluded from orphan check — the navigation durable pages.
 DURABLE_EXCLUDE: frozenset[str] = frozenset(
-    {"AGENTS.md", "CLAUDE.md", "README.md", "AUDIT.md", "index.md"}
+    {"AGENTS.md", "CLAUDE.md", "README.md", "knowledge-base/AUDIT.md", "knowledge-base/index.md"}
 )
 
 # --- intake manifest --------------------------------------------------------
 
-INTAKE_MANIFEST: Path = REPO_ROOT / "90-inbox" / "manifest.md"
-INTAKE_RAW_DIR: Path = REPO_ROOT / "90-inbox" / "raw"
-INTAKE_PROCESSING_DIR: Path = REPO_ROOT / "90-inbox" / "processing"
-INTAKE_ARCHIVE_FILED: Path = REPO_ROOT / "90-inbox" / "archive" / "filed"
-INTAKE_ARCHIVE_REJECTED: Path = REPO_ROOT / "90-inbox" / "archive" / "rejected"
+INTAKE_MANIFEST: Path = VAULT_ROOT / "90-inbox" / "manifest.md"
+INTAKE_RAW_DIR: Path = VAULT_ROOT / "90-inbox" / "raw"
+INTAKE_PROCESSING_DIR: Path = VAULT_ROOT / "90-inbox" / "processing"
+INTAKE_ARCHIVE_FILED: Path = VAULT_ROOT / "90-inbox" / "archive" / "filed"
+INTAKE_ARCHIVE_REJECTED: Path = VAULT_ROOT / "90-inbox" / "archive" / "rejected"
 
 INTAKE_VALID_STATUS: frozenset[str] = frozenset(
     {"new", "triaged", "processing", "distilled", "filed", "rejected", "blocked"}
@@ -174,7 +180,7 @@ EVIDENCE_EDGES_DIR: Path = RESEARCH_DIR / "edges"
 RESEARCH_GENERATED_DIR: Path = RESEARCH_DIR / "generated"
 SCHEMAS_DIR: Path = REPO_ROOT / "schemas"
 AGENTS_DIR: Path = REPO_ROOT / "agents"
-TEMPLATES_DIR: Path = REPO_ROOT / "99-templates"
+TEMPLATES_DIR: Path = VAULT_ROOT / "99-templates"
 
 
 def ensure_research_dirs() -> None:

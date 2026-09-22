@@ -41,13 +41,13 @@ def test_schema_registry_rejects_malformed_canonical_schema(tmp_path: Path):
 
 
 def test_template_registry_is_derived_from_template_files(tmp_path: Path):
-    template_dir = tmp_path / "99-templates"
-    template_dir.mkdir()
+    template_dir = tmp_path / "knowledge-base" / "99-templates"
+    template_dir.mkdir(parents=True)
     (template_dir / "README.md").write_text("not a template", encoding="utf-8")
     (template_dir / "zeta-template.md").write_text("zeta body", encoding="utf-8")
     (template_dir / "alpha-template.md").write_text("alpha body", encoding="utf-8")
 
-    registry = TemplateRegistry(tmp_path)
+    registry = TemplateRegistry(tmp_path / "knowledge-base")
 
     assert registry.names() == ("alpha", "zeta")
     assert [template.name for template in registry] == ["alpha", "zeta"]

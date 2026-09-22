@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-_HOME = Path(__file__).resolve().parents[1] / "00-home"
+_HOME = Path(__file__).resolve().parents[1] / "knowledge-base" / "00-home"
 
 
 def test_home_contains_required_docs():
@@ -45,5 +45,5 @@ def test_naming_conventions_kebab_case():
 
 def test_pipelines_brief_exists():
     """P2: project brief lives at 01-project/brief.md."""
-    path = Path(__file__).resolve().parents[1] / "01-project" / "brief.md"
+    path = Path(__file__).resolve().parents[1] / "knowledge-base" / "01-project" / "brief.md"
     assert path.is_file(), "01-project/brief.md is required by P2"

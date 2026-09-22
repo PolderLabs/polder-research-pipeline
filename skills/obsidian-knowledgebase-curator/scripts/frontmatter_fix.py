@@ -22,18 +22,11 @@ from polder_research.paths import (
     DOMAIN_TYPE,
     REPO_ROOT,
     SKIP_PARTS,
+    VAULT_DIRS,
 )
 
-VAULT_DIRS = (
-    "00-home",
-    "01-project",
-    "02-research",
-    "03-system",
-    "04-decisions",
-    "05-operations",
-    "06-sources",
-    "90-inbox",
-    "99-templates",
+VAULT_DOMAIN_DIRS: tuple[str, ...] = tuple(
+    d.split("/", 1)[1] for d in VAULT_DIRS
 )
 
 
@@ -43,26 +36,34 @@ def parse_frontmatter(text):
 
 
 def infer_type(path: Path) -> str:
+    """Return the conventional type for ``path`` based on its vault domain.
+
+    Works both before the vault move (domain is the first path segment)
+    and after (domain is the second segment under ``knowledge-base/``).
+    """
     try:
         parts = path.relative_to(REPO_ROOT).parts
     except ValueError:
-        # Path is outside REPO_ROOT (e.g. tests use temp paths). Find the
-        # first known domain directory in the path parts.
         parts = path.parts
-        for i, part in enumerate(parts):
-            if part in DOMAIN_TYPE:
-                parts = parts[i:]
-                break
     if not parts:
         return ""
     domain = parts[0]
+    if domain == "knowledge-base" and len(parts) >= 2:
+        domain = parts[1]
+    if domain == "knowledge-base":
+        return ""
     if domain == "90-inbox" and path.name == "raw":
         return "guide"
     if domain == "90-inbox" and "raw" in parts:
-        out = "inbox"
-    else:
-        out = DOMAIN_TYPE.get(domain, "")
-    return out
+        return "inbox"
+    # Try the bare domain first (legacy layout), then the vault-prefixed key.
+    if domain in DOMAIN_TYPE:
+        return DOMAIN_TYPE[domain]
+    if len(parts) >= 2:
+        vault_key = f"{parts[0]}/{parts[1]}"
+        if vault_key in DOMAIN_TYPE:
+            return DOMAIN_TYPE[vault_key]
+    return ""
 
 
 def fm_block(inferred_type: str, today: str) -> str:
@@ -99,7 +100,13 @@ def main(argv: list[str] | None = None) -> int:
         rel = p.relative_to(REPO_ROOT)
         if any(part in SKIP_PARTS for part in rel.parts):
             continue
-        if rel.parts and rel.parts[0] not in VAULT_DIRS:
+        # The vault root is the first path segment (``knowledge-base``);
+        # its children are the canonical domain folders from VAULT_DIRS.
+        if rel.parts and rel.parts[0] != "knowledge-base":
+            continue
+        # Reject anything that isn't a direct child of the vault root
+        # (e.g. ``knowledge-base/.obsidian/...``).
+        if len(rel.parts) >= 2 and f"{rel.parts[0]}/{rel.parts[1]}" not in VAULT_DIRS:
             continue
         if needs_frontmatter(p):
             pending.append(p)

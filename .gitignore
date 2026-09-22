@@ -1,30 +1,30 @@
 # Raw inbox binaries — keep placeholder docs/manifests only
-90-inbox/raw/*.pdf
-90-inbox/raw/*.zip
-90-inbox/raw/*.tar
-90-inbox/raw/*.tar.gz
-90-inbox/raw/*.mov
-90-inbox/raw/*.mp4
-90-inbox/raw/*.webm
-90-inbox/raw/*.m4v
-90-inbox/raw/*.png
-90-inbox/raw/*.jpg
-90-inbox/raw/*.jpeg
-90-inbox/raw/*.gif
-90-inbox/raw/*.webp
-90-inbox/raw/*.svg
-90-inbox/raw/*.wav
-90-inbox/raw/*.mp3
-90-inbox/raw/*.flac
-90-inbox/raw/*.docx
-90-inbox/raw/*.xlsx
-90-inbox/raw/*.pptx
-90-inbox/raw/*.epub
-90-inbox/raw/*.parquet
-90-inbox/raw/*.pt
-90-inbox/raw/*.onnx
-90-inbox/raw/*.ckpt
-90-inbox/raw/*.bin
+knowledge-base/90-inbox/raw/*.pdf
+knowledge-base/90-inbox/raw/*.zip
+knowledge-base/90-inbox/raw/*.tar
+knowledge-base/90-inbox/raw/*.tar.gz
+knowledge-base/90-inbox/raw/*.mov
+knowledge-base/90-inbox/raw/*.mp4
+knowledge-base/90-inbox/raw/*.webm
+knowledge-base/90-inbox/raw/*.m4v
+knowledge-base/90-inbox/raw/*.png
+knowledge-base/90-inbox/raw/*.jpg
+knowledge-base/90-inbox/raw/*.jpeg
+knowledge-base/90-inbox/raw/*.gif
+knowledge-base/90-inbox/raw/*.webp
+knowledge-base/90-inbox/raw/*.svg
+knowledge-base/90-inbox/raw/*.wav
+knowledge-base/90-inbox/raw/*.mp3
+knowledge-base/90-inbox/raw/*.flac
+knowledge-base/90-inbox/raw/*.docx
+knowledge-base/90-inbox/raw/*.xlsx
+knowledge-base/90-inbox/raw/*.pptx
+knowledge-base/90-inbox/raw/*.epub
+knowledge-base/90-inbox/raw/*.parquet
+knowledge-base/90-inbox/raw/*.pt
+knowledge-base/90-inbox/raw/*.onnx
+knowledge-base/90-inbox/raw/*.ckpt
+knowledge-base/90-inbox/raw/*.bin
 
 # Authoritative records under .research/{events,tasks,runs,handoffs,sources,segments,claims,entities,gaps,conflicts,edges} remain ignored.
 # Persisted locally via polder_research.atomic.write_atomic with schema validation.
@@ -61,10 +61,3 @@ htmlcov/
 
 # Misc generated logs
 *.log
-
-# Local dev / agent tooling (not part of the project)
-.claude/
-.wolf/
-
-# Local Obsidian editor state (machine-local)
-.obsidian/

@@ -191,8 +191,8 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/emit_implementation_status.py
-          if ! git diff --exit-code -- AUDIT.md; then
-            echo '::error::AUDIT.md status block drift detected.' >&2
-            echo 'Run: python3 scripts/emit_implementation_status.py && git add AUDIT.md' >&2
+          if ! git diff --exit-code -- knowledge-base/AUDIT.md; then
+            echo '::error::knowledge-base/AUDIT.md status block drift detected.' >&2
+            echo 'Run: python3 scripts/emit_implementation_status.py && git add knowledge-base/AUDIT.md' >&2
             exit 1
           fi
