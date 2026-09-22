@@ -26,7 +26,7 @@ The goal is a reusable research operating system that can be initialized for an 
 - decide when maintenance or re-research is necessary;
 - evolve tags, relationships, search strategies, schemas, and workflow rules in a controlled and auditable way.
 
-The repository contains the **canonical vault, control plane, evidence primitives, schemas, agents, and CI/security foundation** described in [AUDIT.md](AUDIT.md). P0–P3 of the priority roadmap are implemented and validated by the test suite, the vault audit, and the CI workflow. P4 evidence primitives are wired into intake and supported by focused tests. P5 dashboard rebuild and the autonomous-research layers (P6–P7) remain pending.
+The repository contains the **canonical vault, control plane, evidence primitives, schemas, agents, and CI/security foundation** described in [AUDIT.md](knowledge-base/AUDIT.md). P0–P3 of the priority roadmap are implemented and validated by the test suite, the vault audit, and the CI workflow. P4 evidence primitives are wired into intake and supported by focused tests. P5 dashboard rebuild and the autonomous-research layers (P6–P7) remain pending.
 
 ## Current status
 
@@ -40,19 +40,19 @@ Implemented:
 - intake registration helper (`intake_register.py`) with exact-match filename and idempotent manifest rows;
 - note scaffolding helper (`new_note.py`) and template registry (`polder_research.templates`);
 - local pre-commit audit hook (`.githooks/pre-commit`);
-- Dataview-based Obsidian dashboard (`index.md`);
+- Dataview-based Obsidian dashboard (`knowledge-base/index.md`);
 - evidence-origin convention: Observed, Source-reported, Inference;
 - conflict-note, experiment, decision, source-entry, research-note, and intake-record templates;
-- canonical audit and priority roadmap (`AUDIT.md`);
+- canonical audit and priority roadmap (`knowledge-base/AUDIT.md`);
 - canonical schema registry under root `schemas/` (claim, conflict, decision, entity, event, evidence, frontmatter, gap, handoff, run, segment, source, task);
 - canonical Python path/vocabulary registry (`polder_research.paths`);
-- canonical pipeline configuration (`research.config.yaml`) with centralized enums;
+- canonical pipeline configuration (`knowledge-base/research.config.yaml`) with centralized enums;
 - agent role contracts: orchestrator, acquisition, research, classification, synthesis, verification, sorting-cleanup, pipeline-processing, knowledge-query, knowledge-maintenance, evolution (`agents/`, `agents/roles/*.yaml`);
 - control plane primitives: events, tasks, runs, handoffs, workflow, maintenance (`polder_research.events/tasks/runs/handoffs/workflow/maintenance`);
 - evidence primitives: source records (SHA-256 dedup), segments, claims, entities, gaps, conflicts, evidence edges (`polder_research.evidence`, `schemas/evidence.schema.json`);
 - canonical source registration on intake with idempotent re-registration;
 - buildable state and health projections (`scripts.state`, `polder_research.workflow.build_state`/`build_health`);
-- deterministic maintenance evaluation (`evaluate_maintenance`) from `research.config.yaml`;
+- deterministic maintenance evaluation (`evaluate_maintenance`) from `knowledge-base/research.config.yaml`;
 - pyproject, Ruff, EditorConfig, gitattributes, CODEOWNERS;
 - GitHub Actions CI: Ruff, pytest, vault-audit, schema-validation, generated-drift, secret-scanning, Dependabot.
 
@@ -67,7 +67,7 @@ Designed but not yet implemented:
 - automated contradiction detection (P4 expansion);
 - controlled self-evolution (P8).
 
-For the complete audit, confirmed defects, target architecture, implementation order, and acceptance gates, see [AUDIT.md](AUDIT.md).
+For the complete audit, confirmed defects, target architecture, implementation order, and acceptance gates, see [AUDIT.md](knowledge-base/AUDIT.md).
 
 ---
 
@@ -239,7 +239,7 @@ Current exit behavior:
 - `0` — all checks currently implemented by the validator passed;
 - `1` — one or more implemented checks failed.
 
-The existing validator does **not yet** cover every repository operating contract. The deeper gaps are documented in [AUDIT.md](AUDIT.md).
+The existing validator does **not yet** cover every repository operating contract. The deeper gaps are documented in [AUDIT.md](knowledge-base/AUDIT.md).
 
 ## 3. Enable the local Git hook
 
@@ -259,7 +259,7 @@ A future bootstrap command should automate this.
 
 Use the repository root as the Obsidian vault.
 
-The current dashboard is [index.md](index.md).
+The current dashboard is [index.md](knowledge-base/index.md).
 
 The enhanced dashboard expects Dataview and uses:
 
@@ -275,54 +275,59 @@ The long-term architecture will keep Obsidian optional.
 
 ```text
 .
-├── README.md
-├── AGENTS.md
-├── CLAUDE.md
-├── AUDIT.md
-├── index.md
+├── README.md                          # this file
+├── AGENTS.md                          # agent protocol (outside the vault)
+├── CLAUDE.md                          # simplified protocol for Claude sessions
 │
-├── 00-home/
-├── 01-project/
-├── 02-research/
-├── 03-system/
-├── 04-decisions/
-├── 05-operations/
-├── 06-sources/
+├── knowledge-base/                    # ← Obsidian vault root
+│   ├── index.md                       # Dataview dashboard
+│   ├── AUDIT.md                       # canonical audit + roadmap
+│   ├── README.md                      # vault root navigation
+│   ├── research.config.yaml           # authoritative pipeline config
+│   │
+│   ├── 00-home/
+│   ├── 01-project/
+│   ├── 02-research/
+│   ├── 03-system/
+│   ├── 04-decisions/
+│   ├── 05-operations/
+│   ├── 06-sources/
+│   │
+│   ├── 90-inbox/
+│   │   ├── raw/
+│   │   ├── processing/
+│   │   ├── archive/
+│   │   └── manifest.md
+│   │
+│   └── 99-templates/
 │
-├── 90-inbox/
-│   ├── raw/
-│   ├── processing/
-│   ├── archive/
-│   └── manifest.md
+├── src/  tests/  schemas/  agents/  scripts/  .github/  ...
 │
-├── 99-templates/
-│
-├── skills/
+├── skills/                            # skill scripts live outside the vault
 │   └── obsidian-knowledgebase-curator/
 │       └── scripts/
 │
-├── .wolf/
-├── .claude/
-├── .obsidian/
 └── .githooks/
 ```
 
 | Path | Current purpose |
 |---|---|
-| `00-home/` | Operating guides and human navigation. |
-| `01-project/` | Goals, requirements, constraints, ethics, and stable project context. |
-| `02-research/` | Distilled research notes. The initial scaffold remains biased toward the original realtime-AI/video research case. |
-| `03-system/` | Architecture, runtime, performance, and deployment notes for technical projects. This is expected to become profile/domain-specific. |
-| `04-decisions/` | Decision records, comparisons, and rationale. |
-| `05-operations/` | Experiments, benchmarks, roadmaps, and runbooks. |
-| `06-sources/` | Intended source catalog/evidence area. Structured canonical source records are not implemented yet. |
-| `90-inbox/` | Raw research intake and processing workflow. |
-| `99-templates/` | Current Markdown note templates. |
-| `skills/.../scripts/` | Current helper scripts for audit, frontmatter, intake, and note creation. |
-| `.wolf/` | Current OpenWolf context files. |
-| `.claude/` | Claude-specific guidance hook. |
-| `.obsidian/` | Obsidian presentation assets. |
-| `.githooks/` | Repository-local Git hooks. |
+| `AGENTS.md`, `CLAUDE.md` | Agent protocols. Outside the vault. |
+| `knowledge-base/` | Obsidian vault root — open this folder in Obsidian to see only human-readable notes. |
+| `knowledge-base/{index,AUDIT,README}.md` | Vault root durable pages (dashboard, audit, navigation). |
+| `knowledge-base/00-home/` | Operating guides and human navigation. |
+| `knowledge-base/01-project/` | Goals, requirements, constraints, ethics, and stable project context. |
+| `knowledge-base/02-research/` | Distilled research notes. The initial scaffold remains biased toward the original realtime-AI/video research case. |
+| `knowledge-base/03-system/` | Architecture, runtime, performance, and deployment notes for technical projects. This is expected to become profile/domain-specific. |
+| `knowledge-base/04-decisions/` | Decision records, comparisons, and rationale. |
+| `knowledge-base/05-operations/` | Experiments, benchmarks, roadmaps, and runbooks. |
+| `knowledge-base/06-sources/` | Intended source catalog/evidence area. Structured canonical source records are not implemented yet. |
+| `knowledge-base/90-inbox/` | Raw research intake and processing workflow. |
+| `knowledge-base/99-templates/` | Canonical Markdown note templates. |
+| `knowledge-base/research.config.yaml` | Authoritative project and research policy. |
+| `src/`, `tests/`, `schemas/`, `agents/`, `scripts/`, `.github/` | Code, schemas, agents, and CI scaffolding. Live outside the vault. |
+| `skills/obsidian-knowledgebase-curator/scripts/` | Helper scripts for audit, frontmatter, intake, and note creation. |
+| `.githooks/` | Repository-local Git hooks. | |
 
 ---
 
@@ -335,7 +340,7 @@ The existing implementation supports a manual intake flow.
 Place a raw artifact in:
 
 ```text
-90-inbox/raw/
+knowledge-base/90-inbox/raw/
 ```
 
 The current design treats raw originals as immutable.
@@ -367,7 +372,7 @@ Determine:
 Use:
 
 ```text
-99-templates/intake-record-template.md
+knowledge-base/99-templates/intake-record-template.md
 ```
 
 Capture:
@@ -397,7 +402,7 @@ Current evidence-origin labels:
 
 Record the outcome and archive the processing record.
 
-The current intake lifecycle and tooling contain known inconsistencies and are not intended to become the final multi-agent state model. See [AUDIT.md](AUDIT.md).
+The current intake lifecycle and tooling contain known inconsistencies and are not intended to become the final multi-agent state model. See [AUDIT.md](knowledge-base/AUDIT.md).
 
 ---
 
@@ -461,9 +466,9 @@ The existing script treats that as one literal tag. This is a known defect sched
 
 Current human-facing guidance lives in:
 
-- [00-home/vault-standards.md](00-home/vault-standards.md)
-- [00-home/knowledge-base-guide.md](00-home/knowledge-base-guide.md)
-- [00-home/research-intake-guide.md](00-home/research-intake-guide.md)
+- [00-home/vault-standards.md](knowledge-base/00-home/vault-standards.md)
+- [00-home/knowledge-base-guide.md](knowledge-base/00-home/knowledge-base-guide.md)
+- [00-home/research-intake-guide.md](knowledge-base/00-home/research-intake-guide.md)
 
 Current required frontmatter:
 
@@ -802,7 +807,7 @@ This reduces merge conflicts and makes state reconstructable.
 
 | Surface | Intended authority |
 |---|---|
-| `research.config.yaml` | Authoritative project and research policy. |
+| `knowledge-base/research.config.yaml` | Authoritative project and research policy. |
 | `schemas/` | Authoritative machine contracts. |
 | Agent role manifests | Authoritative role capabilities. |
 | Source records | Authoritative canonical source metadata. |
@@ -1095,7 +1100,6 @@ The current tree is expected to evolve toward something closer to:
 /
 ├── README.md
 ├── AGENTS.md
-├── research.config.yaml
 ├── pyproject.toml
 ├── CHANGELOG.md
 │
@@ -1129,33 +1133,35 @@ The current tree is expected to evolve toward something closer to:
 │   ├── locks/
 │   └── generated/
 │
-├── 00-home/
-├── 01-project/
-├── 02-research/
-│   └── domains/
-├── 03-knowledge/
-│   ├── claims/
-│   ├── entities/
-│   ├── conflicts/
-│   └── gaps/
-├── 04-decisions/
-├── 05-operations/
-│   ├── runs/
-│   ├── experiments/
-│   ├── benchmarks/
-│   ├── maintenance/
-│   ├── evaluations/
-│   ├── audits/
-│   ├── reports/
-│   └── runbooks/
-├── 06-sources/
-│   └── records/
-├── 07-evolution/
-│   ├── proposals/
-│   ├── migrations/
-│   └── changelog.md
-├── 90-inbox/
-└── 99-templates/
+└── knowledge-base/                # Obsidian vault root
+    ├── 00-home/
+    ├── 01-project/
+    ├── 02-research/
+    │   └── domains/
+    ├── 03-knowledge/
+    │   ├── claims/
+    │   ├── entities/
+    │   ├── conflicts/
+    │   └── gaps/
+    ├── 04-decisions/
+    ├── 05-operations/
+    │   ├── runs/
+    │   ├── experiments/
+    │   ├── benchmarks/
+    │   ├── maintenance/
+    │   ├── evaluations/
+    │   ├── audits/
+    │   ├── reports/
+    │   └── runbooks/
+    ├── 06-sources/
+    │   └── records/
+    ├── 07-evolution/
+    │   ├── proposals/
+    │   ├── migrations/
+    │   └── changelog.md
+    ├── 90-inbox/
+    ├── 99-templates/
+    └── research.config.yaml
 ```
 
 The exact numbering is less important than preserving clean authority boundaries.
@@ -1164,7 +1170,7 @@ The exact numbering is less important than preserving clean authority boundaries
 
 # Development order
 
-The detailed roadmap is in [AUDIT.md](AUDIT.md).
+The detailed roadmap is in [AUDIT.md](knowledge-base/AUDIT.md).
 
 The recommended sequence is:
 
@@ -1283,7 +1289,7 @@ Examples:
 - there is no CI/test suite yet;
 - main is currently unprotected.
 
-These are tracked and prioritized in [AUDIT.md](AUDIT.md).
+These are tracked and prioritized in [AUDIT.md](knowledge-base/AUDIT.md).
 
 ---
 
@@ -1303,7 +1309,7 @@ Changes to future control-plane surfaces such as:
 
 - `agents/`;
 - `schemas/`;
-- `research.config.yaml`;
+- `knowledge-base/research.config.yaml`;
 - migrations;
 - source/evidence semantics;
 
@@ -1315,12 +1321,12 @@ should eventually receive stronger review than ordinary research-note additions.
 
 | Document | Purpose |
 |---|---|
-| [AUDIT.md](AUDIT.md) | Canonical audit and implementation specification: current defects, target architecture, dashboard, agent/state model, security, automation, roadmap, and acceptance gates. |
+| [AUDIT.md](knowledge-base/AUDIT.md) | Canonical audit and implementation specification: current defects, target architecture, dashboard, agent/state model, security, automation, roadmap, and acceptance gates. |
 | [AGENTS.md](AGENTS.md) | Current agent-facing repository guidance. |
-| [00-home/knowledge-base-guide.md](00-home/knowledge-base-guide.md) | Current folder and knowledge-base conventions. |
-| [00-home/research-intake-guide.md](00-home/research-intake-guide.md) | Current manual intake workflow. |
-| [00-home/vault-standards.md](00-home/vault-standards.md) | Current note/frontmatter/link conventions. |
-| [index.md](index.md) | Current Obsidian Dataview dashboard. |
+| [00-home/knowledge-base-guide.md](knowledge-base/00-home/knowledge-base-guide.md) | Current folder and knowledge-base conventions. |
+| [00-home/research-intake-guide.md](knowledge-base/00-home/research-intake-guide.md) | Current manual intake workflow. |
+| [00-home/vault-standards.md](knowledge-base/00-home/vault-standards.md) | Current note/frontmatter/link conventions. |
+| [index.md](knowledge-base/index.md) | Current Obsidian Dataview dashboard. |
 
 ---
 
