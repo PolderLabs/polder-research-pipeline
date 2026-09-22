@@ -233,3 +233,11 @@ maintenance:
   broken_link_check_enabled: true
   staleness_check_enabled: true
   health_compute_interval_hours: 24
+  # Maintenance rule evaluation thresholds (AUDIT.md §21). All maintenance
+  # thresholds referenced by code live here — no hard-coded defaults.
+  incremental_interval_days: 30
+  max_unresolved_duplicates: 5
+  max_unresolved_critical_conflicts: 0
+  # Freshness engine: records older than N days are flagged stale in the
+  # maintenance report regardless of their declared source_status.
+  stale_after_days: 180

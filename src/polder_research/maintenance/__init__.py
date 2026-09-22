@@ -6,14 +6,17 @@ mutation.  It only evaluates whether a maintenance pass is due and, if so,
 which structural passes the configuration has authorised.  Builders accept an
 explicit ``repository_root`` so callers can isolate state; when omitted they
 fall back to the canonical module-level path constants.
+
+Thresholds (incremental interval, unresolved duplicate / critical-conflict
+limits, and stale-derivation age) are read from the canonical config rather
+than hard-coded.  Callers that need them can use :func:`thresholds`.
 """
 
 from __future__ import annotations
 
 import json
 from collections import Counter
-from datetime import UTC, datetime
-from pathlib import Path
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import jsonschema
@@ -24,7 +27,13 @@ from ..paths import (
     RESEARCH_RUNS_DIR,
     RESEARCH_TASKS_DIR,
 )
-from ..workflow import _config, _read_records, _root, _schema
+from ..workflow import _config, _read_records, _root, _schema, build_state
+
+
+# Re-exported from the workflow module so callers can address the canonical
+# state builder via ``polder_research.maintenance.build_state`` without
+# importing a second module. Slice-C's bootstrap test exercises this alias.
+build_state = build_state
 
 
 def _now(now: datetime | None) -> datetime:
@@ -83,6 +92,107 @@ def _threshold(section: dict[str, Any], key: str) -> int | None:
     return value
 
 
+# Canonical keys the maintenance code reads from ``config['maintenance']``.
+# Adding a new threshold here is the single place to teach the code about a
+# new tunable; nothing else in the codebase should hard-code it.
+_MAINTENANCE_THRESHOLD_KEYS: tuple[str, ...] = (
+    "incremental_interval_days",
+    "max_unresolved_duplicates",
+    "max_unresolved_critical_conflicts",
+    "stale_after_days",
+)
+
+
+def thresholds(repository_root: str | Path | None = None) -> dict[str, int | None]:
+    """Return the maintenance thresholds read from the canonical config.
+
+    The result maps every key in :data:`_MAINTENANCE_THRESHOLD_KEYS` to its
+    configured value (``int``) or ``None`` if the operator omitted it.
+    Callers MUST NOT hard-code their own defaults — use this helper.
+    """
+    root = _root(repository_root)
+    config = _config(root)
+    maintenance = config.get("maintenance", {})
+    if not isinstance(maintenance, dict):
+        raise ValueError("canonical config 'maintenance' block must be a mapping")
+    return {key: _threshold(maintenance, key) for key in _MAINTENANCE_THRESHOLD_KEYS}
+
+
+def superseded_source_proxy(
+    source: dict[str, Any],
+    *,
+    repository_root: str | Path | None = None,
+) -> str | None:
+    """Return the canonical successor source ID for a superseded source.
+
+    Sources use the ``lineage`` block (relation verb ``supersedes``) to
+    declare successors, per the canonical source schema. This helper walks
+    the source's lineage edges and returns the first ``target`` whose
+    ``relation`` is ``supersedes`` (the canonical successor verb).  Returns
+    ``None`` when no successor edge exists or the successor source record is
+    not present in the evidence collection.
+    """
+    if not isinstance(source, dict):
+        raise TypeError("source must be a mapping")
+    lineage = source.get("lineage") or []
+    if not isinstance(lineage, list):
+        return None
+    successor_id: str | None = None
+    for edge in lineage:
+        if not isinstance(edge, dict):
+            continue
+        if edge.get("relation") != "supersedes":
+            continue
+        target = edge.get("target")
+        if isinstance(target, str) and target.startswith("src_"):
+            successor_id = target
+            break
+    if successor_id is None:
+        return None
+    root = _root(repository_root)
+    for candidate in _evidence_collection(root, "source"):
+        if candidate.get("id") == successor_id:
+            return successor_id
+    return None
+
+
+def derive_stale_records(
+    records: list[dict[str, Any]],
+    *,
+    threshold_days: int | None,
+    now: datetime | None = None,
+) -> list[dict[str, Any]]:
+    """Flag records whose ``updated_at`` exceeds the configured freshness window.
+
+    The maintenance report emits a ``stale_derived`` finding for every record
+    whose ``updated_at`` is older than ``threshold_days`` days from ``now``,
+    regardless of the record's declared status. The cutoff lives in YAML
+    (``maintenance.stale_after_days``); callers pass the value of
+    :func:`thresholds` so the policy is config-driven.
+    """
+    if threshold_days is None:
+        return []
+    cutoff = _now(now) - timedelta(days=threshold_days)
+    findings: list[dict[str, Any]] = []
+    for record in records:
+        if not isinstance(record, dict):
+            continue
+        updated_at = record.get("updated_at")
+        if not isinstance(updated_at, str) or not updated_at:
+            continue
+        try:
+            parsed = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
+        except ValueError:
+            continue
+        if parsed < cutoff:
+            findings.append({
+                "id": record.get("id", ""),
+                "updated_at": updated_at,
+                "age_days": (_now(now) - parsed).days,
+            })
+    return findings
+
+
 def evaluate_maintenance(
     repository_root: str | Path | None = None,
     *,
@@ -111,15 +221,13 @@ def evaluate_maintenance(
     claims = _evidence_collection(root, "claim")
     conflicts = _evidence_collection(root, "conflict")
     superseded_sources = sum(1 for source in sources if source.get("source_status") == "superseded")
+    superseded_proxy_ids = sorted({
+        sid
+        for source in sources
+        if (sid := superseded_source_proxy(source, repository_root=root)) is not None
+    })
 
-    thresholds = {
-        key: _threshold(maintenance, key)
-        for key in (
-            "incremental_interval_days",
-            "max_unresolved_duplicates",
-            "max_unresolved_critical_conflicts",
-        )
-    }
+    maintenance_thresholds = thresholds(root)
 
     fresh_sources = sum(1 for source in sources if source.get("source_status") == "current")
     stale_sources = sum(1 for source in sources if source.get("source_status") == "stale")
@@ -131,15 +239,34 @@ def evaluate_maintenance(
         and str(conflict.get("severity", "medium")) == "critical"
     )
 
+    # Stale derivation: records whose updated_at exceeds the configured
+    # ``stale_after_days`` window, regardless of their declared status.
+    authoritative_records = (
+        list(records["events"])
+        + list(records["tasks"])
+        + list(records["runs"])
+        + list(records["handoffs"])
+        + sources
+        + claims
+        + conflicts
+    )
+    stale_findings = derive_stale_records(
+        authoritative_records,
+        threshold_days=maintenance_thresholds.get("stale_after_days"),
+        now=now,
+    )
+
     inputs = {
         "sources": len(sources),
         "claims": len(claims),
         "open_conflicts": sum(1 for c in conflicts if c.get("status") == "open"),
         "open_critical_conflicts": open_critical_conflicts,
         "superseded_sources": superseded_sources,
+        "superseded_proxies": superseded_proxy_ids,
         "malformed_records": len(malformed_records),
         "fresh_sources": fresh_sources,
         "stale_sources": stale_sources,
+        "stale_derived": stale_findings,
     }
 
     triggers: list[dict[str, str]] = []
@@ -158,7 +285,7 @@ def evaluate_maintenance(
         if last_maintenance_time is not None
         else float("inf")
     )
-    incremental_days = thresholds["incremental_interval_days"]
+    incremental_days = maintenance_thresholds["incremental_interval_days"]
     if incremental_days is not None and days_since_maintenance >= incremental_days:
         triggers.append(
             {
@@ -210,7 +337,7 @@ def evaluate_maintenance(
             }
         )
 
-    max_duplicates = thresholds["max_unresolved_duplicates"]
+    max_duplicates = maintenance_thresholds["max_unresolved_duplicates"]
     if max_duplicates is not None and inputs["superseded_sources"] > max_duplicates:
         triggers.append(
             {
@@ -223,7 +350,7 @@ def evaluate_maintenance(
             }
         )
 
-    max_critical = thresholds["max_unresolved_critical_conflicts"]
+    max_critical = maintenance_thresholds["max_unresolved_critical_conflicts"]
     if max_critical is not None and inputs["open_critical_conflicts"] > max_critical:
         triggers.append(
             {
@@ -247,8 +374,17 @@ def evaluate_maintenance(
             }
         )
 
-    passes = _authorized_passes(config)
+    if stale_findings:
+        triggers.append({
+            "kind": "freshness",
+            "name": "stale_derived",
+            "reason": (
+                f"{len(stale_findings)} authoritative record(s) exceed stale_after_days="
+                f"{maintenance_thresholds.get('stale_after_days')}"
+            ),
+        })
 
+    passes = _authorized_passes(config)
     due = bool(triggers and passes)
     if due:
         reason = triggers[0]["name"]
@@ -263,7 +399,7 @@ def evaluate_maintenance(
         "due": due,
         "reason": reason,
         "passes": passes,
-        "thresholds": thresholds,
+        "thresholds": maintenance_thresholds,
         "inputs": inputs,
         "triggers": triggers,
     }
