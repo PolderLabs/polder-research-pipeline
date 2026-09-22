@@ -26,7 +26,9 @@
 90-inbox/raw/*.ckpt
 90-inbox/raw/*.bin
 
-# Runtime control-plane state (derived/rebuildable; keep directory markers only)
+# Authoritative records under .research/{events,tasks,runs,handoffs,sources,segments,claims,entities,gaps,conflicts,edges} remain ignored.
+# Persisted locally via polder_research.atomic.write_atomic with schema validation.
+# Tracking them is a one-way door — see AUDIT.md "Persistence mode (resolved)".
 .research/state.json
 .research/health.json
 .research/events/*.json

@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-import json
 import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from ..agents import get_code_revision, get_instruction_version
+from ..atomic import write_atomic
 from ..paths import RESEARCH_EVENTS_DIR
 
 
@@ -40,8 +41,8 @@ def write_event(
         "event_type": event_type,
         "actor": actor,
         "timestamp": _now(),
-        "instruction_version": "0.1.0",
-        "code_revision": "HEAD",
+        "instruction_version": get_instruction_version(role) if role else "0.1.0",
+        "code_revision": get_code_revision(),
     }
     if role:
         record["role"] = role
@@ -61,5 +62,5 @@ def write_event(
             "sanitized_message": error_message,
             "category": error_category or "internal",
         }
-    RESEARCH_EVENTS_DIR.joinpath(f"{eid}.json").write_text(json.dumps(record, indent=2))
+    write_atomic(RESEARCH_EVENTS_DIR.joinpath(f"{eid}.json"), record, schema_name="event")
     return eid

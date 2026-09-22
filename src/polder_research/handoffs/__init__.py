@@ -7,6 +7,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from ..atomic import write_atomic
 from ..paths import RESEARCH_HANDOFFS_DIR
 
 
@@ -42,7 +43,7 @@ def write_handoff(
         record["context"] = context
     if artifacts:
         record["artifacts"] = artifacts
-    RESEARCH_HANDOFFS_DIR.joinpath(f"{hid}.json").write_text(json.dumps(record, indent=2))
+    write_atomic(RESEARCH_HANDOFFS_DIR.joinpath(f"{hid}.json"), record, schema_name="handoff")
     return hid
 
 
@@ -51,7 +52,7 @@ def accept_handoff(handoff_id: str) -> None:
     rec = json.loads(p.read_text())
     rec["status"] = "accepted"
     rec["accepted_at"] = _now()
-    p.write_text(json.dumps(rec, indent=2))
+    write_atomic(p, rec, schema_name="handoff")
 
 
 def reject_handoff(handoff_id: str, reason: str) -> None:
@@ -59,4 +60,4 @@ def reject_handoff(handoff_id: str, reason: str) -> None:
     rec = json.loads(p.read_text())
     rec["status"] = "rejected"
     rec["rejection_reason"] = reason
-    p.write_text(json.dumps(rec, indent=2))
+    write_atomic(p, rec, schema_name="handoff")

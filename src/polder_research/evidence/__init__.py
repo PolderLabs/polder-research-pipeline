@@ -69,8 +69,7 @@ def assert_record_exists(
     path = _record_dir(default_dir, repository_root, directory_name) / f"{record_id}.json"
     if not path.is_file():
         raise ValueError(
-            f"parent record does not exist: {record_id!r} "
-            f"(expected under {directory_name}/)"
+            f"parent record does not exist: {record_id!r} (expected under {directory_name}/)"
         )
     record = json.loads(path.read_text(encoding="utf-8"))
     if record.get("id") != record_id:
@@ -391,6 +390,7 @@ EVIDENCE_RELATIONS = frozenset(
         "supersedes",
     }
 )
+
 
 def register_evidence_edge(
     *,

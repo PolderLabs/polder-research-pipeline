@@ -7,6 +7,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+from ..atomic import write_atomic
 from ..paths import RESEARCH_RUNS_DIR
 
 
@@ -32,7 +33,7 @@ def write_run(
         "brief": brief,
         "created_at": _now(),
     }
-    RESEARCH_RUNS_DIR.joinpath(f"{rid}.json").write_text(json.dumps(record, indent=2))
+    write_atomic(RESEARCH_RUNS_DIR.joinpath(f"{rid}.json"), record, schema_name="run")
     return rid
 
 
@@ -45,4 +46,4 @@ def update_run_status(run_id: str, run_status: str) -> None:
         rec["started_at"] = _now()
     if run_status in ("completed", "aborted", "failed"):
         rec["finished_at"] = _now()
-    p.write_text(json.dumps(rec, indent=2))
+    write_atomic(p, rec, schema_name="run")
