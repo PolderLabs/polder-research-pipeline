@@ -4,15 +4,14 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import UTC, datetime
 from typing import Any
 
 from ..paths import RESEARCH_EVENTS_DIR
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def _uuid7(prefix: str) -> str:
@@ -62,7 +61,5 @@ def write_event(
             "sanitized_message": error_message,
             "category": error_category or "internal",
         }
-    RESEARCH_EVENTS_DIR.joinpath(f"{eid}.json").write_text(
-        json.dumps(record, indent=2)
-    )
+    RESEARCH_EVENTS_DIR.joinpath(f"{eid}.json").write_text(json.dumps(record, indent=2))
     return eid

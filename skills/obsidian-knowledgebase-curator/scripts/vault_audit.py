@@ -23,29 +23,29 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
 import sys
-from collections import Counter, defaultdict
+from collections import defaultdict
 from pathlib import Path
 
-# ── shared registry ────────────────────────────────────────────────────────
+import yaml
+
 from polder_research.paths import (
     DOMAIN_TYPE,
     DURABLE_EXCLUDE,
     NO_ORPHAN_CHECK,
-    REQUIRED_FM_KEYS,
-    REPO_ROOT,
     SKIP_PARTS,
     VALID_STATUS,
     VALID_TYPE,
+    VAULT_DIRS,
 )
+from polder_research.paths import (
+    REPO_ROOT as CANONICAL_REPO_ROOT,
+)
+from polder_research.schemas import registry as schema_registry
 
-VAULT_DIRS = (
-    "00-home", "01-project", "02-research", "03-system",
-    "04-decisions", "05-operations", "06-sources",
-    "90-inbox", "99-templates",
-)
+# Retained as the script's default target so existing callers can override it.
+REPO_ROOT = CANONICAL_REPO_ROOT
 
 
 def _is_impl_stub(rel: str) -> bool:
@@ -53,24 +53,15 @@ def _is_impl_stub(rel: str) -> bool:
     return len(parts) == 2 and parts[0] in ("03-system",) and parts[1] == "README.md"
 
 
-def vault_md_files():
-    """All .md files that are part of the vault graph.
-
-    Includes content-domain notes (under VAULT_DIRS) and root durable pages
-    (index.md, README.md, AUDIT.md, etc.). Root pages are included so their
-    outbound wikilinks populate the inlink graph for reachability checks, but
-    they are excluded from orphan checks via DURABLE_EXCLUDE.
-    """
+def vault_md_files(repo_root: Path | str | None = None):
+    """All Markdown files that are part of the vault graph."""
+    root = Path(repo_root) if repo_root is not None else REPO_ROOT
     out = []
-    for p in REPO_ROOT.rglob("*.md"):
-        rel = p.relative_to(REPO_ROOT)
+    for p in root.rglob("*.md"):
+        rel = p.relative_to(root)
         if any(part in SKIP_PARTS for part in rel.parts):
             continue
-        if len(rel.parts) == 1:
-            # root-level .md file (index.md, README.md, AUDIT.md...) —
-            # include it so its outbound links feed the graph.
-            out.append(p)
-        elif rel.parts[0] in VAULT_DIRS:
+        if len(rel.parts) == 1 or rel.parts[0] in VAULT_DIRS:
             out.append(p)
     return sorted(out)
 
@@ -87,38 +78,47 @@ def strip_code(text):
         out.append(re.sub(r"`[^`]*`", "", line))
     return "".join(out)
 
+
 def parse_frontmatter(text):
-    m = re.match(r"^---\n(.*?)\n---", text, re.S)
-    if not m:
+    """Parse a YAML frontmatter mapping.
+
+    ``None`` means the document has no frontmatter. Invalid YAML, a missing
+    closing delimiter, duplicate keys, or a non-mapping document raises
+    ``ValueError`` so the audit can report a blocking issue instead of
+    silently accepting a partial hand-written parse.
+    """
+    if not text.startswith("---\n"):
         return None
-    block = m.group(1)
-    fm: dict = {}
-    cur_key = None
-    for line in block.splitlines():
-        if not line.strip():
-            continue
-        if re.match(r"^\s+-\s+", line):
-            if cur_key and cur_key in fm and isinstance(fm[cur_key], list):
-                fm[cur_key].append(line.strip().lstrip("-").strip())
-            continue
-        if ":" in line:
-            k, _, v = line.partition(":")
-            k = k.strip()
-            v = v.strip()
-            if not v:
-                fm[k] = []
-                cur_key = k
-            elif v == "[]":
-                fm[k] = []
-                cur_key = k
-            elif v.startswith("[") and v.endswith("]"):
-                items = [x.strip().strip("'\"") for x in v[1:-1].split(",") if x.strip()]
-                fm[k] = items
-                cur_key = k
-            else:
-                fm[k] = v.strip('"').strip("'")
-                cur_key = k
-    return fm
+    match = re.match(r"^---\n(.*?)\n---(?:\n|$)", text, re.S)
+    if not match:
+        raise ValueError("frontmatter has no closing delimiter")
+
+    class _UniqueKeyLoader(yaml.SafeLoader):
+        pass
+
+    def _mapping(loader, node, deep=False):
+        mapping = {}
+        for key_node, value_node in node.value:
+            key = loader.construct_object(key_node, deep=deep)
+            if key in mapping:
+                raise ValueError(f"duplicate frontmatter key: {key}")
+            mapping[key] = loader.construct_object(value_node, deep=deep)
+        return mapping
+
+    _UniqueKeyLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, _mapping)
+    try:
+        parsed = yaml.load(match.group(1), Loader=_UniqueKeyLoader)
+    except (yaml.YAMLError, ValueError) as exc:
+        raise ValueError(f"invalid YAML: {exc}") from exc
+    if not isinstance(parsed, dict):
+        raise ValueError("frontmatter must be a mapping")
+    # Frontmatter values are plain data strings, not code: "no" must stay the
+    # string "no" (YAML 1.1 would coerce it to False) and dates must not
+    # become datetime objects.
+    return {
+        key: value if isinstance(value, (str, list, dict, type(None))) else str(value)
+        for key, value in parsed.items()
+    }
 
 
 def resolve_link(raw, by_path, by_stem):
@@ -142,23 +142,18 @@ def resolve_link(raw, by_path, by_stem):
     return None
 
 
-def audit():
-    files = vault_md_files()
-    # Root-level .md files (index.md, README.md, AGENTS.md, AUDIT.md) are
-    # durable but live outside the content domains. Seed by_path/by_stem so
-    # wikilinks like `[[index]]` and `[[AGENTS]]` resolve, even though they
-    # are excluded from the orphan/unreachable content scan.
-    by_path = {str(p.relative_to(REPO_ROOT)) for p in files}
-    by_stem = {p.stem: str(p.relative_to(REPO_ROOT)) for p in files}
-    # Also index root-level durable .md files (e.g. index.md, AGENTS.md) so
-    # their wikilink targets resolve without including them in the orphan
-    # scan (they are excluded by DURABLE_EXCLUDE).
+def audit(repo_root: Path | str | None = None):
+    """Audit one repository vault and return the structured findings."""
+    root = Path(repo_root) if repo_root is not None else REPO_ROOT
+    files = vault_md_files(root)
+    by_path = {str(p.relative_to(root)) for p in files}
+    by_stem = {p.stem: str(p.relative_to(root)) for p in files}
     for name in ("index.md", "README.md", "AGENTS.md", "CLAUDE.md", "AUDIT.md"):
-        if (REPO_ROOT / name).is_file():
+        if (root / name).is_file():
             by_path.add(name)
             by_stem[name[:-3]] = name
 
-    r: dict = {
+    result: dict = {
         "links": {"md_ok": 0, "md_bad": 0, "wiki_ok": 0, "wiki_bad": 0},
         "frontmatter_issues": [],
         "type_mismatches": [],
@@ -172,119 +167,127 @@ def audit():
     inlinks: dict[str, set[str]] = defaultdict(set)
     md_ok = md_bad = wiki_ok = wiki_bad = 0
 
-    for p in files:
-        rel = str(p.relative_to(REPO_ROOT))
-        # 99-templates/ files intentionally contain placeholder wikilink/MD-link
-        # stubs (``[[path/to/source]]``) that demonstrate link syntax to users.
-        # Skip link resolution for them, but still validate frontmatter below.
+    for path in files:
+        rel = str(path.relative_to(root))
         is_template = rel.startswith("99-templates/")
-        text = strip_code(p.read_text(encoding="utf-8", errors="replace"))
-
-        if not is_template:
-            # Markdown links
-            for m in re.finditer(r"\[([^\]]+)\]\(([^)]+)\)", text):
-                target = m.group(2).split("#", 1)[0].strip()
-                if not target or target.startswith(("http://", "https://", "mailto:", "#")):
-                    continue
-                resolved = resolve_link(target, by_path, by_stem)
-                if resolved and resolved != "external":
-                    md_ok += 1
-                elif resolved == "external":
-                    continue
-                else:
-                    md_bad += 1
-                    r["link_issues"].append(f"MD {rel} -> {target}")
-
-            # Wikilinks
-            for m in re.finditer(r"(?<!!)\[\[([^\]]+)\]\]", text):
-                target = m.group(1)
-                resolved = resolve_link(target, by_path, by_stem)
-                if resolved == "external":
-                    continue
-                if resolved:
-                    wiki_ok += 1
-                    inlinks[resolved].add(rel)
-                    graph[rel].add(resolved)
-                else:
-                    wiki_bad += 1
-                    r["link_issues"].append(f"WIKI {rel} -> [[{target}]]")
-
-    r["links"] = {"md_ok": md_ok, "md_bad": md_bad,
-                   "wiki_ok": wiki_ok, "wiki_bad": wiki_bad}
-
-    # frontmatter + type/domain consistency
-    for p in files:
-        rel = str(p.relative_to(REPO_ROOT))
-        fm = parse_frontmatter(p.read_text(encoding="utf-8", errors="replace"))
-        if fm is None:
-            r["frontmatter_issues"].append(f"{rel}: no frontmatter")
+        text = strip_code(path.read_text(encoding="utf-8", errors="replace"))
+        if is_template:
             continue
-        for key in REQUIRED_FM_KEYS:
-            if key not in fm or not fm[key]:
-                r["frontmatter_issues"].append(f"{rel}: missing '{key}'")
-        t = str(fm.get("type", "")).strip().strip('"')
-        if t and t not in VALID_TYPE:
-            r["frontmatter_issues"].append(
-                f"{rel}: type='{t}' not in {sorted(VALID_TYPE)}")
-        s = str(fm.get("status", "")).strip().strip('"')
-        if s and s not in VALID_STATUS:
-            r["frontmatter_issues"].append(
-                f"{rel}: status='{s}' not in {sorted(VALID_STATUS)}")
-        top = rel.split("/")[0]
-        if top in DOMAIN_TYPE and t and t != DOMAIN_TYPE[top]:
-            if not (p.name == "README.md" and t == "moc"):
-                r["type_mismatches"].append(
-                    f"{rel}: type='{t}', {top}/ conventionally '{DOMAIN_TYPE[top]}'")
+        for match in re.finditer(r"\[([^\]]+)\]\(([^)]+)\)", text):
+            target = match.group(2).split("#", 1)[0].strip()
+            if not target or target.startswith(("http://", "https://", "mailto:", "#")):
+                continue
+            resolved = resolve_link(target, by_path, by_stem)
+            if resolved and resolved != "external":
+                md_ok += 1
+                inlinks[resolved].add(rel)
+                graph[rel].add(resolved)
+            elif resolved != "external":
+                md_bad += 1
+                result["link_issues"].append(f"MD {rel} -> {target}")
+        for match in re.finditer(r"(?<!!)\[\[([^\]]+)\]\]", text):
+            target = match.group(1)
+            resolved = resolve_link(target, by_path, by_stem)
+            if resolved == "external":
+                continue
+            if resolved:
+                wiki_ok += 1
+                inlinks[resolved].add(rel)
+                graph[rel].add(resolved)
+            else:
+                wiki_bad += 1
+                result["link_issues"].append(f"WIKI {rel} -> [[{target}]]")
 
-        # tag check
-        tags = fm.get("tags") or []
-        if not isinstance(tags, list):
-            tags = [str(tags)]
-        for tag in tags:
-            tag_str = str(tag).strip()
-            if not re.match(r"^[a-z0-9]+(-[a-z0-9]+)*$", tag_str):
-                r["tag_issues"].append(f"{rel}: bad tag '{tag_str}'")
+    result["links"] = {
+        "md_ok": md_ok,
+        "md_bad": md_bad,
+        "wiki_ok": wiki_ok,
+        "wiki_bad": wiki_bad,
+    }
 
-    # orphans: durable notes with no incoming links
-    for p in files:
-        rel = str(p.relative_to(REPO_ROOT))
-        top = rel.split("/")[0]
-        if top in NO_ORPHAN_CHECK:
+    frontmatter_registry = schema_registry()
+    for path in files:
+        rel = str(path.relative_to(root))
+        try:
+            frontmatter = parse_frontmatter(path.read_text(encoding="utf-8", errors="replace"))
+        except ValueError as exc:
+            result["frontmatter_issues"].append(f"{rel}: {exc}")
             continue
-        if rel in DURABLE_EXCLUDE or _is_impl_stub(rel):
+        if frontmatter is None:
+            result["frontmatter_issues"].append(f"{rel}: no frontmatter")
+            continue
+        try:
+            frontmatter_registry.validate("frontmatter", frontmatter)
+        except Exception as exc:
+            result["frontmatter_issues"].append(
+                f"{rel}: canonical frontmatter schema rejected: {exc}"
+            )
+
+        note_type = frontmatter.get("type")
+        if isinstance(note_type, str) and note_type not in VALID_TYPE:
+            result["frontmatter_issues"].append(
+                f"{rel}: type='{note_type}' not in {sorted(VALID_TYPE)}"
+            )
+        status = frontmatter.get("status")
+        if isinstance(status, str) and status not in VALID_STATUS:
+            result["frontmatter_issues"].append(
+                f"{rel}: status='{status}' not in {sorted(VALID_STATUS)}"
+            )
+
+        top = rel.split("/")[0]
+        if (
+            top in DOMAIN_TYPE
+            and isinstance(note_type, str)
+            and note_type != DOMAIN_TYPE[top]
+            and not (path.name == "README.md" and note_type == "moc")
+        ):
+            result["type_mismatches"].append(
+                f"{rel}: type='{note_type}', {top}/ conventionally '{DOMAIN_TYPE[top]}'"
+            )
+
+        tags = frontmatter.get("tags")
+        if isinstance(tags, list):
+            for tag in tags:
+                if not isinstance(tag, str) or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", tag):
+                    result["tag_issues"].append(f"{rel}: bad tag '{tag}'")
+
+    for path in files:
+        rel = str(path.relative_to(root))
+        top = rel.split("/")[0]
+        if top in NO_ORPHAN_CHECK or rel in DURABLE_EXCLUDE or _is_impl_stub(rel):
             continue
         if not inlinks.get(rel):
-            r["orphans"].append(rel)
+            result["orphans"].append(rel)
 
-    # reachability: seeded BFS from index.md, README.md, and every top-level
-    # .md in the content domains. Anything not reached from a seed is
-    # "unreachable" (AUDIT.md §33).
     seeds = {"index.md", "README.md", "AUDIT.md", "AGENTS.md", "CLAUDE.md"}
-    for d in ("00-home", "01-project", "02-research", "03-system",
-              "04-decisions", "05-operations", "06-sources", "99-templates"):
-        folder = REPO_ROOT / d
+    for directory in (
+        "00-home",
+        "01-project",
+        "02-research",
+        "03-system",
+        "04-decisions",
+        "05-operations",
+        "06-sources",
+        "99-templates",
+    ):
+        folder = root / directory
         if folder.is_dir():
-            for sp in folder.glob("*.md"):
-                seeds.add(str(sp.relative_to(REPO_ROOT)))
+            for seed in folder.glob("*.md"):
+                seeds.add(str(seed.relative_to(root)))
     seen: set[str] = set()
     stack = list(seeds)
     while stack:
-        cur = stack.pop()
-        if cur in seen:
+        current = stack.pop()
+        if current in seen:
             continue
-        seen.add(cur)
-        stack.extend(graph.get(cur, set()) - seen)
-    for p in files:
-        rel = str(p.relative_to(REPO_ROOT))
+        seen.add(current)
+        stack.extend(graph.get(current, set()) - seen)
+    for path in files:
+        rel = str(path.relative_to(root))
         if rel not in seen:
-            r["unreachable"].append(rel)
+            result["unreachable"].append(rel)
 
-    # structure check: required folders present
-    for d in VAULT_DIRS:
-        if not (REPO_ROOT / d).is_dir():
-            r["structure_issues"].append(f"missing vault dir: {d}/")
-
-    return r
+    return result
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -293,20 +296,31 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--quiet", action="store_true", help="exit code only, no output")
     args = ap.parse_args(argv)
     r = audit()
+    # Total blocks CI: frontmatter, tag, link, structure, orphan, unreachable.
+    # Type drift is informational (it's a coverage map, not a defect).
+    blocking = sum(
+        len(r[key])
+        for key in (
+            "frontmatter_issues",
+            "tag_issues",
+            "link_issues",
+            "structure_issues",
+            "orphans",
+            "unreachable",
+        )
+    )
     if args.json:
         print(json.dumps(r, indent=2, ensure_ascii=False))
         return 0
     if args.quiet:
-        blocking = sum(len(r[k]) for k in (
-            "frontmatter_issues", "tag_issues", "link_issues",
-            "structure_issues", "orphans", "unreachable",
-        ))
         return 1 if blocking else 0
     files = vault_md_files()
     n_files = len(files)
     print(f"VAULT AUDIT — {n_files} vault .md files")
-    print(f"Links        : {r['links']['md_ok']} md ok / {r['links']['md_bad']} bad  ·  "
-          f"{r['links']['wiki_ok']} wiki ok / {r['links']['wiki_bad']} bad")
+    print(
+        f"Links        : {r['links']['md_ok']} md ok / {r['links']['md_bad']} bad  ·  "
+        f"{r['links']['wiki_ok']} wiki ok / {r['links']['wiki_bad']} bad"
+    )
     print(f"Orphans      : {len(r['orphans'])}")
     print(f"Unreachable  : {len(r['unreachable'])}")
     print(f"Frontmatter  : {len(r['frontmatter_issues'])} issues")
@@ -342,13 +356,6 @@ def main(argv: list[str] | None = None) -> int:
         print("\nTYPE DRIFT (informational):")
         for x in r["type_mismatches"]:
             print(f"  {x}")
-    # Total blocks CI: frontmatter, tag, link, structure, orphan, unreachable.
-    # Type drift is informational (it's a coverage map, not a defect).
-    blocking = (
-        len(r["frontmatter_issues"]) + len(r["tag_issues"]) +
-        len(r["link_issues"]) + len(r["structure_issues"]) +
-        len(r["orphans"]) + len(r["unreachable"])
-    )
     print(f"\nTOTAL PROBLEMS: {blocking}")
     return 1 if blocking else 0
 

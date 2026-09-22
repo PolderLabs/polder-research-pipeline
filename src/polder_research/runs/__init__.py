@@ -4,15 +4,14 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
-from pathlib import Path
+from datetime import UTC, datetime
 from typing import Any
 
 from ..paths import RESEARCH_RUNS_DIR
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def _uuid7(prefix: str) -> str:
@@ -33,9 +32,7 @@ def write_run(
         "brief": brief,
         "created_at": _now(),
     }
-    RESEARCH_RUNS_DIR.joinpath(f"{rid}.json").write_text(
-        json.dumps(record, indent=2)
-    )
+    RESEARCH_RUNS_DIR.joinpath(f"{rid}.json").write_text(json.dumps(record, indent=2))
     return rid
 
 

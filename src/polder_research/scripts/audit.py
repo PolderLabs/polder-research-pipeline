@@ -9,7 +9,7 @@ from pathlib import Path
 # The standalone script is kept for backwards compatibility. Import its logic.
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
-import importlib.util
+import importlib.util  # noqa: E402  (needs _REPO_ROOT computed from __file__ first)
 
 _spec = importlib.util.spec_from_file_location(
     "_vault_audit",

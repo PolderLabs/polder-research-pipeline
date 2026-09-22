@@ -22,9 +22,7 @@ PYPROJECT_PATH = REPO_ROOT / "pyproject.toml"
 RUFF_PATH = REPO_ROOT / "ruff.toml"
 
 # matches `- uses: owner/repo@<sha> # <comment>`
-USES_PIN_RE = re.compile(
-    r"^\s*-\s*uses:\s+([\w.-]+/[\w.-]+)@([0-9a-f]{40})(?:\s+#\s*(.*))?$"
-)
+USES_PIN_RE = re.compile(r"^\s*-\s*uses:\s+([\w.-]+/[\w.-]+)@([0-9a-f]{40})(?:\s+#\s*(.*))?$")
 
 REQUIRED_JOBS = ("lint", "test", "vault-audit", "schema-validate", "secret-scan")
 
@@ -52,9 +50,7 @@ def test_ci_yaml_parses(ci_yaml: dict) -> None:
 def test_workflow_top_level_permissions_are_minimal(ci_yaml: dict) -> None:
     perms = ci_yaml.get("permissions")
     assert isinstance(perms, dict), "workflow must declare top-level permissions"
-    assert set(perms.keys()) == {"contents"}, (
-        "top-level permissions must be contents: read only"
-    )
+    assert set(perms.keys()) == {"contents"}, "top-level permissions must be contents: read only"
     assert perms["contents"] == "read"
 
 
@@ -67,9 +63,7 @@ def test_jobs_declare_minimum_permissions(ci_yaml: dict) -> None:
         assert set(perms.keys()) == {"contents"}, (
             f"job {name!r} permissions must be contents: read only, got {set(perms)}"
         )
-        assert perms["contents"] == "read", (
-            f"job {name!r} must declare contents: read"
-        )
+        assert perms["contents"] == "read", f"job {name!r} must declare contents: read"
 
 
 def test_concurrency_cancels_stale_runs(ci_yaml: dict) -> None:
@@ -90,9 +84,7 @@ def test_all_actions_pinned_to_full_sha(ci_text: str) -> None:
         m = USES_PIN_RE.match(line)
         assert m is not None, f"action must be pinned to a 40-char SHA: {line!r}"
         sha = m.group(2)
-        assert re.fullmatch(r"[0-9a-f]{40}", sha), (
-            f"invalid SHA pin on line: {line!r}"
-        )
+        assert re.fullmatch(r"[0-9a-f]{40}", sha), f"invalid SHA pin on line: {line!r}"
 
 
 def test_required_jobs_present(ci_yaml: dict) -> None:
@@ -106,25 +98,17 @@ def test_required_job_is_well_formed(ci_yaml: dict, job_name: str) -> None:
     job = ci_yaml["jobs"][job_name]
     assert job.get("runs-on")
     steps = job.get("steps")
-    assert isinstance(steps, list) and steps, (
-        f"job {job_name!r} must declare steps"
-    )
+    assert isinstance(steps, list) and steps, f"job {job_name!r} must declare steps"
 
 
 def test_no_duplicate_editable_install(ci_yaml: dict) -> None:
     """Each job installs the editable package at most once."""
     for name, job in ci_yaml["jobs"].items():
         commands = [
-            step["run"]
-            for step in job.get("steps", [])
-            if isinstance(step, dict) and "run" in step
+            step["run"] for step in job.get("steps", []) if isinstance(step, dict) and "run" in step
         ]
-        install_count = sum(
-            command.count('pip install -e ".[dev]"') for command in commands
-        )
-        assert install_count <= 1, (
-            f"job {name!r} performs duplicate editable package installs"
-        )
+        install_count = sum(command.count('pip install -e ".[dev]"') for command in commands)
+        assert install_count <= 1, f"job {name!r} performs duplicate editable package installs"
 
 
 def test_dependabot_present(dependabot_yaml: dict) -> None:
@@ -155,9 +139,7 @@ def test_pyproject_declares_supported_python() -> None:
     floor = re.match(r"^>=?(\d+)\.(\d+)", spec)
     assert floor is not None, f"unparseable requires-python spec: {spec!r}"
     major, minor = int(floor.group(1)), int(floor.group(2))
-    assert (major, minor) >= (3, 11), (
-        f"requires-python must support >=3.11, got {spec!r}"
-    )
+    assert (major, minor) >= (3, 11), f"requires-python must support >=3.11, got {spec!r}"
 
 
 def test_ruff_targets_supported_python() -> None:
@@ -180,18 +162,12 @@ def test_dev_extras_are_pinned() -> None:
         if not line:
             continue
         # pinned form: name==X.Y.Z
-        assert "==" in line, (
-            f"dev extra must be pinned with == for deterministic install: {line!r}"
-        )
+        assert "==" in line, f"dev extra must be pinned with == for deterministic install: {line!r}"
 
 
 def test_drift_check_present(ci_text: str) -> None:
-    assert "Generated drift" in ci_text, (
-        "workflow must include a generated drift check job step"
-    )
+    assert "Generated drift" in ci_text, "workflow must include a generated drift check job step"
 
 
 def test_schema_validation_step_present(ci_text: str) -> None:
-    assert "Validate JSON schemas" in ci_text, (
-        "workflow must include schema validation"
-    )
+    assert "Validate JSON schemas" in ci_text, "workflow must include schema validation"

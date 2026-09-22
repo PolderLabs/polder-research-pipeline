@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from polder_research.paths import (
+    AGENTS_DIR,
     DOMAIN_TYPE,
     DURABLE_EXCLUDE,
     INTAKE_MANIFEST,
@@ -12,6 +13,7 @@ from polder_research.paths import (
     INTAKE_VALID_KIND,
     INTAKE_VALID_STATUS,
     NO_ORPHAN_CHECK,
+    REPO_ROOT,
     REQUIRED_FM_KEYS,
     RESEARCH_DIR,
     RESEARCH_EVENTS_DIR,
@@ -23,15 +25,12 @@ from polder_research.paths import (
     RESEARCH_RUNS_DIR,
     RESEARCH_STATE,
     RESEARCH_TASKS_DIR,
-    REPO_ROOT,
     SCHEMAS_DIR,
-    AGENTS_DIR,
     SKIP_PARTS,
     TEMPLATES_DIR,
     VALID_STATUS,
     VALID_TYPE,
     VAULT_DIRS,
-    ensure_research_dirs,
 )
 
 
@@ -42,9 +41,15 @@ def test_repo_root_is_absolute_path():
 
 def test_vault_dirs_canonical():
     expected = (
-        "00-home", "01-project", "02-research", "03-system",
-        "04-decisions", "05-operations", "06-sources",
-        "90-inbox", "99-templates",
+        "00-home",
+        "01-project",
+        "02-research",
+        "03-system",
+        "04-decisions",
+        "05-operations",
+        "06-sources",
+        "90-inbox",
+        "99-templates",
     )
     assert VAULT_DIRS == expected
 
@@ -57,9 +62,20 @@ def test_required_frontmatter_keys():
 
 def test_valid_type_contains_all_audit_values():
     # §3 of the audit defines these frontmatter types
-    for t in ("index", "moc", "guide", "template", "inbox",
-              "project", "research", "system", "decision",
-              "operation", "experiment", "source"):
+    for t in (
+        "index",
+        "moc",
+        "guide",
+        "template",
+        "inbox",
+        "project",
+        "research",
+        "system",
+        "decision",
+        "operation",
+        "experiment",
+        "source",
+    ):
         assert t in VALID_TYPE
 
 
@@ -86,6 +102,7 @@ def test_skip_parts_includes_control_plane():
 def test_ensure_research_dirs_idempotent(tmp_path: Path, monkeypatch):
     """ensure_research_dirs() creates the directory tree under REPO_ROOT."""
     from polder_research import paths as paths_mod
+
     # Patch REPO_ROOT so paths computed from it reflect the temp directory
     monkeypatch.setattr(paths_mod, "REPO_ROOT", tmp_path)
     # Patch the RESEARCH_* constants directly — they were bound at import time
@@ -135,7 +152,6 @@ def test_research_dirs_are_under_research_dir():
 def test_state_and_health_paths():
     assert RESEARCH_STATE == RESEARCH_DIR / "state.json"
     assert RESEARCH_HEALTH == RESEARCH_DIR / "health.json"
-
 
 
 def test_durable_exclude_set_is_frozenset():

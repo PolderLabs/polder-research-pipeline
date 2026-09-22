@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
 import datetime
 import re
 import sys
@@ -24,9 +23,18 @@ DOMAIN_TYPE = {
 
 VALID_TYPE = frozenset(
     {
-        "index", "moc", "guide", "template", "inbox",
-        "project", "research", "system", "decision",
-        "operation", "experiment", "source",
+        "index",
+        "moc",
+        "guide",
+        "template",
+        "inbox",
+        "project",
+        "research",
+        "system",
+        "decision",
+        "operation",
+        "experiment",
+        "source",
     }
 )
 VALID_STATUS = frozenset({"current", "draft", "stale", "superseded"})

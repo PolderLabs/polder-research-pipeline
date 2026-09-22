@@ -22,14 +22,18 @@ from polder_research.paths import (
     DOMAIN_TYPE,
     REPO_ROOT,
     SKIP_PARTS,
-    VALID_STATUS,
-    VALID_TYPE,
 )
 
 VAULT_DIRS = (
-    "00-home", "01-project", "02-research", "03-system",
-    "04-decisions", "05-operations", "06-sources",
-    "90-inbox", "99-templates",
+    "00-home",
+    "01-project",
+    "02-research",
+    "03-system",
+    "04-decisions",
+    "05-operations",
+    "06-sources",
+    "90-inbox",
+    "99-templates",
 )
 
 

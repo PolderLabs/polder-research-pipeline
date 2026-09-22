@@ -42,6 +42,7 @@
 .research/segments/*.json
 .research/gaps/*.json
 .research/conflicts/*.json
+.research/edges/*.json
 
 # Editor / OS
 .DS_Store

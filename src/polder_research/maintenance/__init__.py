@@ -1,46 +1,381 @@
-"""Health check builder — derives health snapshot from control-plane records."""
+"""Deterministic maintenance rule evaluation — derived from authoritative
+``.research`` records and the canonical ``research.config.yaml``.
+
+This module deliberately contains no scheduler, no executor, and no state
+mutation.  It only evaluates whether a maintenance pass is due and, if so,
+which structural passes the configuration has authorised.  Builders accept an
+explicit ``repository_root`` so callers can isolate state; when omitted they
+fall back to the canonical module-level path constants.
+"""
 
 from __future__ import annotations
 
 import json
+from collections import Counter
+from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
+
+import jsonschema
 
 from ..paths import (
     RESEARCH_DIR,
     RESEARCH_HEALTH,
-    RESEARCH_TASKS_DIR,
     RESEARCH_RUNS_DIR,
+    RESEARCH_TASKS_DIR,
 )
+from ..workflow import _config, _read_records, _root, _schema
 
 
-def build_health() -> dict:
-    """Build a health snapshot. Returns degraded if any tasks/runs are failed."""
-    tasks = list(RESEARCH_TASKS_DIR.glob("*.json"))
-    runs = list(RESEARCH_RUNS_DIR.glob("*.json"))
+def _now(now: datetime | None) -> datetime:
+    return now if now is not None else datetime.now(UTC)
 
-    failed_tasks = sum(
-        1 for p in tasks
-        if json.loads(p.read_text()).get("status") == "failed"
+
+def _event_time(record: dict[str, Any]) -> datetime | None:
+    timestamp = record.get("timestamp")
+    if not isinstance(timestamp, str):
+        return None
+    try:
+        return datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _evidence_collection(root: Path | None, kind: str) -> list[dict[str, Any]]:
+    validator = jsonschema.Draft202012Validator(_schema(root, kind))
+    research = RESEARCH_DIR if root is None else root / ".research"
+    out: list[dict[str, Any]] = []
+    for path in sorted((research / f"{kind}s").glob("*.json")):
+        try:
+            record = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if validator.is_valid(record):
+            out.append(record)
+    return out
+
+
+def _authorized_passes(config: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return maintenance passes explicitly enabled by the canonical config."""
+    maintenance = config.get("maintenance", {})
+    if not isinstance(maintenance, dict):
+        raise ValueError("canonical config 'maintenance' block must be a mapping")
+
+    flag_to_pass = (
+        ("orphan_check_enabled", "orphan-check"),
+        ("frontmatter_check_enabled", "frontmatter-check"),
+        ("broken_link_check_enabled", "broken-link-check"),
+        ("staleness_check_enabled", "staleness-check"),
     )
-    failed_runs = sum(
-        1 for p in runs
-        if json.loads(p.read_text()).get("run_status") == "failed"
+    passes: list[dict[str, Any]] = []
+    for flag, name in flag_to_pass:
+        if maintenance.get(flag, False):
+            passes.append({"name": name, "enabled_by": flag})
+    return passes
+
+
+def _threshold(section: dict[str, Any], key: str) -> int | None:
+    value = section.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, int) or value < 0:
+        raise ValueError(f"maintenance threshold '{key}' must be a non-negative int")
+    return value
+
+
+def evaluate_maintenance(
+    repository_root: str | Path | None = None,
+    *,
+    now: datetime | None = None,
+) -> dict[str, Any]:
+    """Evaluate maintenance due without mutating any authoritative record.
+
+    Returns a deterministic snapshot describing:
+
+    - ``due``: whether a maintenance pass is recommended now;
+    - ``reason``: the first configured trigger that fired;
+    - ``passes``: the structural checks enabled by canonical config;
+    - ``thresholds``: numeric limits the operator configured;
+    - ``inputs``: counts of authoritative records consulted;
+    - ``triggers``: every fired trigger, in fixed evaluation order.
+    """
+    root = _root(repository_root)
+    config = _config(root)
+    maintenance = config.get("maintenance", {})
+    if not isinstance(maintenance, dict):
+        raise ValueError("canonical config 'maintenance' block must be a mapping")
+
+    now = _now(now)
+    records, malformed_records = _read_records(root)
+    sources = _evidence_collection(root, "source")
+    claims = _evidence_collection(root, "claim")
+    conflicts = _evidence_collection(root, "conflict")
+    superseded_sources = sum(1 for source in sources if source.get("source_status") == "superseded")
+
+    thresholds = {
+        key: _threshold(maintenance, key)
+        for key in (
+            "incremental_interval_days",
+            "max_unresolved_duplicates",
+            "max_unresolved_critical_conflicts",
+        )
+    }
+
+    fresh_sources = sum(1 for source in sources if source.get("source_status") == "current")
+    stale_sources = sum(1 for source in sources if source.get("source_status") == "stale")
+
+    open_critical_conflicts = sum(
+        1
+        for conflict in conflicts
+        if conflict.get("status") == "open"
+        and str(conflict.get("severity", "medium")) == "critical"
     )
+
+    inputs = {
+        "sources": len(sources),
+        "claims": len(claims),
+        "open_conflicts": sum(1 for c in conflicts if c.get("status") == "open"),
+        "open_critical_conflicts": open_critical_conflicts,
+        "superseded_sources": superseded_sources,
+        "malformed_records": len(malformed_records),
+        "fresh_sources": fresh_sources,
+        "stale_sources": stale_sources,
+    }
+
+    triggers: list[dict[str, str]] = []
+
+    last_maintenance_time = max(
+        (
+            time
+            for event in records["events"]
+            if event.get("event_type") == "maintenance.completed"
+            and (time := _event_time(event)) is not None
+        ),
+        default=None,
+    )
+    days_since_maintenance = (
+        (now - last_maintenance_time).total_seconds() / 86_400
+        if last_maintenance_time is not None
+        else float("inf")
+    )
+    incremental_days = thresholds["incremental_interval_days"]
+    if incremental_days is not None and days_since_maintenance >= incremental_days:
+        triggers.append(
+            {
+                "kind": "interval",
+                "name": "incremental_interval",
+                "reason": (
+                    "no maintenance.completed event"
+                    if last_maintenance_time is None
+                    else f"{days_since_maintenance:.1f}d since last maintenance.completed "
+                    f"exceeds interval {incremental_days}d"
+                ),
+            }
+        )
+
+    interval_hours = maintenance.get("health_compute_interval_hours")
+    if isinstance(interval_hours, (int, float)) and interval_hours > 0:
+        last_health = max(
+            (
+                time
+                for event in records["events"]
+                if event.get("event_type") == "health.computed"
+                and (time := _event_time(event)) is not None
+            ),
+            default=None,
+        )
+        hours_since = (
+            (now - last_health).total_seconds() / 3600 if last_health is not None else float("inf")
+        )
+        if hours_since > interval_hours:
+            triggers.append(
+                {
+                    "kind": "interval",
+                    "name": "health_check_interval",
+                    "reason": (
+                        "no health.computed event"
+                        if last_health is None
+                        else f"{hours_since:.1f}h since last health.computed "
+                        f"exceeds interval {interval_hours}h"
+                    ),
+                }
+            )
+
+    if inputs["stale_sources"] > 0:
+        triggers.append(
+            {
+                "kind": "freshness",
+                "name": "stale_sources",
+                "reason": f"{inputs['stale_sources']} source(s) are not current",
+            }
+        )
+
+    max_duplicates = thresholds["max_unresolved_duplicates"]
+    if max_duplicates is not None and inputs["superseded_sources"] > max_duplicates:
+        triggers.append(
+            {
+                "kind": "threshold",
+                "name": "unresolved_duplicates",
+                "reason": (
+                    f"{inputs['superseded_sources']} superseded source(s) exceeds "
+                    f"limit {max_duplicates}"
+                ),
+            }
+        )
+
+    max_critical = thresholds["max_unresolved_critical_conflicts"]
+    if max_critical is not None and inputs["open_critical_conflicts"] > max_critical:
+        triggers.append(
+            {
+                "kind": "threshold",
+                "name": "unresolved_critical_conflicts",
+                "reason": (
+                    f"{inputs['open_critical_conflicts']} open critical conflict(s) "
+                    f"exceeds limit {max_critical}"
+                ),
+            }
+        )
+
+    if inputs["malformed_records"] > 0:
+        triggers.append(
+            {
+                "kind": "anomaly",
+                "name": "malformed_records",
+                "reason": (
+                    f"{inputs['malformed_records']} authoritative record(s) failed validation"
+                ),
+            }
+        )
+
+    passes = _authorized_passes(config)
+
+    due = bool(triggers and passes)
+    if due:
+        reason = triggers[0]["name"]
+    elif triggers:
+        reason = "triggered but no maintenance pass is enabled"
+    else:
+        reason = "no configured trigger fired"
+
+    return {
+        "schema_version": 1,
+        "evaluated_at": now.isoformat(),
+        "due": due,
+        "reason": reason,
+        "passes": passes,
+        "thresholds": thresholds,
+        "inputs": inputs,
+        "triggers": triggers,
+    }
+
+
+def build_health(repository_root: str | Path | None = None) -> dict[str, Any]:
+    """Derive a health snapshot without mutating authoritative records."""
+    root = _root(repository_root)
+    config = _config(root)
+    valid_tasks = set(config.get("task", {}).get("valid_status", []))
+    valid_runs = set(config.get("run", {}).get("valid_status", []))
+
+    _, malformed = _read_records(root)
+    malformed_ids = {item["path"] for item in malformed}
+
+    tasks_dir = RESEARCH_TASKS_DIR if root is None else root / ".research" / "tasks"
+    runs_dir = RESEARCH_RUNS_DIR if root is None else root / ".research" / "runs"
+
+    task_counts: Counter[str] = Counter()
+    run_counts: Counter[str] = Counter()
+    failed_tasks: list[str] = []
+    failed_runs: list[str] = []
+    blocked_tasks: list[str] = []
+
+    def _load(path: Path) -> dict[str, Any] | None:
+        rel = f".research/{path.parent.name}/{path.name}"
+        if rel in malformed_ids:
+            return None
+        try:
+            record = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            return None
+        return record if isinstance(record, dict) else None
+
+    for record_path in sorted(tasks_dir.glob("*.json")):
+        record = _load(record_path)
+        if record is None:
+            continue
+        status = str(record.get("status", "unknown"))
+        task_counts[status] += 1
+        if status == "failed":
+            failed_tasks.append(str(record.get("id", record_path.stem)))
+        elif status == "blocked":
+            blocked_tasks.append(str(record.get("id", record_path.stem)))
+    for record_path in sorted(runs_dir.glob("*.json")):
+        record = _load(record_path)
+        if record is None:
+            continue
+        status = str(record.get("run_status", "unknown"))
+        run_counts[status] += 1
+        if status == "failed":
+            failed_runs.append(str(record.get("id", record_path.stem)))
 
     issues: list[str] = []
     if failed_tasks:
-        issues.append(f"{failed_tasks} failed task(s)")
+        issues.append(f"failed_tasks={len(failed_tasks)}")
     if failed_runs:
-        issues.append(f"{failed_runs} failed run(s)")
+        issues.append(f"failed_runs={len(failed_runs)}")
+    if blocked_tasks:
+        issues.append(f"blocked_tasks={len(blocked_tasks)}")
+    if malformed:
+        issues.append(f"malformed_records={len(malformed)}")
+    unknown_tasks = sorted(
+        status for status in task_counts if valid_tasks and status not in valid_tasks
+    )
+    unknown_runs = sorted(
+        status for status in run_counts if valid_runs and status not in valid_runs
+    )
+    if unknown_tasks:
+        issues.append(f"unknown_task_statuses={','.join(unknown_tasks)}")
+    if unknown_runs:
+        issues.append(f"unknown_run_statuses={','.join(unknown_runs)}")
 
     return {
         "schema_version": 1,
         "overall": "degraded" if issues else "ok",
         "issues": issues,
+        "tasks": {
+            "by_status": dict(sorted(task_counts.items())),
+            "failed_ids": failed_tasks,
+            "blocked_ids": blocked_tasks,
+        },
+        "runs": {
+            "by_status": dict(sorted(run_counts.items())),
+            "failed_ids": failed_runs,
+        },
+        "malformed_records": [{"path": item["path"], "error": item["error"]} for item in malformed],
     }
 
 
-def save_health() -> None:
-    """Write the current health snapshot to .research/health.json."""
-    RESEARCH_DIR.mkdir(parents=True, exist_ok=True)
-    RESEARCH_HEALTH.write_text(json.dumps(build_health(), indent=2))
+def save_health(
+    health: dict[str, Any] | None = None,
+    repository_root: str | Path | None = None,
+) -> Path:
+    """Persist a derived health snapshot and return its path."""
+    root = _root(repository_root)
+    path = RESEARCH_HEALTH if root is None else root / ".research" / "health.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    snapshot = health if health is not None else build_health(root)
+    path.write_text(json.dumps(snapshot, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return path
+
+
+def save_maintenance(
+    snapshot: dict[str, Any] | None = None,
+    repository_root: str | Path | None = None,
+) -> Path:
+    """Persist a derived maintenance snapshot — diagnostic, not authoritative."""
+    root = _root(repository_root)
+    research = RESEARCH_DIR if root is None else root / ".research"
+    path = research / "maintenance" / "decision.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    snap = snapshot if snapshot is not None else evaluate_maintenance(root)
+    path.write_text(json.dumps(snap, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return path

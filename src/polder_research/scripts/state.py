@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-from ..workflow import build_state, save_state
 from ..maintenance import build_health, save_health
+from ..workflow import build_state, save_state
 
 
 def cmd_build_state() -> int:
     state = build_state()
     save_state(state)
-    print(f"state.json written — {state['events']['total']} events, "
-          f"{state['tasks']['total']} tasks, {state['runs']['total']} runs")
+    print(
+        f"state.json written — {state['events']['total']} events, "
+        f"{state['tasks']['total']} tasks, {state['runs']['total']} runs"
+    )
     return 0
 
 

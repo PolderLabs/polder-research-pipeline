@@ -1,4 +1,4 @@
-"""intake-register command — P0-corrected version (AUDIT.md §3.5-3.9)."""
+"""Register raw intake items in the manifest and canonical source registry."""
 
 from __future__ import annotations
 
@@ -7,19 +7,54 @@ import re
 import sys
 from pathlib import Path
 
+from ..evidence import compute_content_hash, find_duplicate_source, register_source
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MANIFEST = REPO_ROOT / "90-inbox" / "manifest.md"
 
-# Canonical vocabulary — aligned with research.config.yaml
 VALID_STATUS = frozenset(
     {"new", "triaged", "processing", "distilled", "filed", "rejected", "blocked"}
 )
 VALID_KIND = frozenset(
     {
-        "pdf", "repository", "article", "paper", "log", "transcript",
-        "media", "url-list", "documentation", "webpage", "dataset",
-        "benchmark", "video", "audio", "book", "standard", "issue",
-        "discussion", "other",
+        "pdf",
+        "repository",
+        "article",
+        "paper",
+        "log",
+        "transcript",
+        "media",
+        "url-list",
+        "documentation",
+        "webpage",
+        "dataset",
+        "benchmark",
+        "video",
+        "audio",
+        "book",
+        "standard",
+        "issue",
+        "discussion",
+        "other",
+    }
+)
+_CANONICAL_SOURCE_TYPES = frozenset(
+    {
+        "paper",
+        "documentation",
+        "repository",
+        "webpage",
+        "article",
+        "dataset",
+        "benchmark",
+        "video",
+        "audio",
+        "transcript",
+        "book",
+        "standard",
+        "issue",
+        "discussion",
+        "other",
     }
 )
 
@@ -31,10 +66,9 @@ def parse_rows(text: str) -> list[list[str]]:
         if not line.startswith("|"):
             continue
         stripped = line.strip()
-        # Separator rows: every non-pipe, non-whitespace char is a dash
         if re.match(r"^\|(?:\|?[-: ]+)+\|$", stripped):
             continue
-        cells = [c.strip() for c in line.strip("|").split("|")]
+        cells = [cell.strip() for cell in line.strip("|").split("|")]
         if cells and cells[0] not in ("Item", "Column"):
             rows.append(cells)
     return rows
@@ -42,10 +76,101 @@ def parse_rows(text: str) -> list[list[str]]:
 
 def _find_row(rows: list[list[str]], filename: str) -> tuple[int, list[str]] | None:
     """Find a row by exact Item column match (not substring — §3.7)."""
-    for i, cells in enumerate(rows):
+    for index, cells in enumerate(rows):
         if cells and cells[0] == filename:
-            return i, cells
+            return index, cells
     return None
+
+
+def _kind_to_source_type(kind: str) -> tuple[str, str]:
+    """Map intake kind to canonical source_type and media_type."""
+    if kind in {"pdf", "article", "paper", "book"}:
+        media_type = "pdf"
+    elif kind in {"video", "audio"}:
+        media_type = kind
+    elif kind == "transcript":
+        media_type = "text"
+    elif kind == "repository":
+        media_type = "git"
+    elif kind in {"dataset", "benchmark", "log"}:
+        media_type = "json"
+    elif kind in {"documentation", "webpage"}:
+        media_type = "html"
+    elif kind == "media":
+        media_type = "image"
+    elif kind in {"url-list", "issue", "discussion", "standard"}:
+        media_type = "markdown"
+    else:
+        media_type = "other"
+    return (kind if kind in _CANONICAL_SOURCE_TYPES else "other"), media_type
+
+
+def canonical_source_for_raw(
+    filename: str,
+    *,
+    kind: str,
+    repository_root: Path | None = None,
+) -> str:
+    """Create or resolve the canonical source for an existing immutable raw item."""
+    repo = Path(repository_root) if repository_root is not None else REPO_ROOT
+    raw_dir = (repo / "90-inbox" / "raw").resolve()
+    raw_file = (raw_dir / filename).resolve()
+    try:
+        raw_file.relative_to(raw_dir)
+    except ValueError as exc:
+        raise ValueError(f"raw item is outside raw directory: {filename}") from exc
+    if not raw_file.is_file():
+        raise ValueError(f"raw item not found: {filename}")
+
+    raw_bytes = raw_file.read_bytes()
+    content_sha256 = compute_content_hash(raw_bytes)
+    raw_location = str(raw_file.relative_to(repo))
+    duplicate = find_duplicate_source(
+        content_sha256=content_sha256,
+        raw_location=raw_location,
+        repository_root=repo,
+    )
+    if duplicate:
+        return duplicate
+
+    source_type, media_type = _kind_to_source_type(kind)
+    return register_source(
+        title=filename,
+        source_type=source_type,
+        media_type=media_type,
+        raw_bytes=raw_bytes,
+        content_sha256=content_sha256,
+        raw_location=raw_location,
+        byte_size=len(raw_bytes),
+        repository_root=repo,
+    )
+
+
+def _append_row(text: str, row: str) -> str:
+    """Insert row after the last Queue data row, retaining the Queue table."""
+    lines = text.splitlines(True)
+    last_data = -1
+    seen_data = False
+    for index, line in enumerate(lines):
+        if (
+            line.startswith("|")
+            and not re.match(r"^\|[\s\-]+\|$", line)
+            and not line.startswith("| Item |")
+        ):
+            seen_data = True
+            last_data = index
+        elif seen_data:
+            break
+
+    if last_data >= 0:
+        lines.insert(last_data + 1, row)
+        return "".join(lines)
+
+    for index, line in enumerate(lines):
+        if re.match(r"^##\s+", line) and index > 0:
+            lines.insert(index, row)
+            return "".join(lines)
+    return text + row
 
 
 def cmd_intake_register(
@@ -56,22 +181,24 @@ def cmd_intake_register(
     outcome: str = "—",
     set_file: str | None = None,
     list_: bool = False,
+    repository_root: Path | None = None,
 ) -> int:
-    if not MANIFEST.exists():
-        print(f"error: manifest not found at {MANIFEST}", file=sys.stderr)
+    repo = Path(repository_root) if repository_root is not None else REPO_ROOT
+    manifest_path = repo / "90-inbox" / "manifest.md"
+    if not manifest_path.exists():
+        print(f"error: manifest not found at {manifest_path}", file=sys.stderr)
         return 2
 
-    text = MANIFEST.read_text(encoding="utf-8")
-
+    text = manifest_path.read_text(encoding="utf-8")
     if list_:
         rows = parse_rows(text)
         if not rows:
             print("queue is empty")
             return 0
         print(f"{'Item':<40} {'Kind':<14} {'Status':<12} {'Owner':<12} Outcome")
-        for r in rows:
-            if len(r) >= 6:
-                print(f"{r[0]:<40} {r[1]:<14} {r[3]:<12} {r[4]:<12} {r[5]}")
+        for row in rows:
+            if len(row) >= 6:
+                print(f"{row[0]:<40} {row[1]:<14} {row[3]:<12} {row[4]:<12} {row[5]}")
         return 0
 
     if set_file:
@@ -79,81 +206,68 @@ def cmd_intake_register(
             print(f"error: invalid status '{status}'", file=sys.stderr)
             return 2
         rows = parse_rows(text)
-        found_idx = _find_row(rows, set_file)
-        if found_idx is None:
+        found = _find_row(rows, set_file)
+        if found is None:
             print(f"error: no manifest row for '{set_file}'", file=sys.stderr)
             return 2
-
-        idx, cells = found_idx
+        data_index, cells = found
         while len(cells) < 6:
             cells.append("—")
         cells[3] = status
         if outcome != "—":
             cells[5] = outcome
 
-        # Rebuild: find line numbers and replace exactly
         lines = text.splitlines(True)
-        data_line_num = -1
         data_count = 0
-        for i, line in enumerate(lines):
-            if line.startswith("|") and not re.match(r"^\|[\s\-]+\|$", line) \
-                    and not line.startswith("| Item |"):
-                if data_count == idx:
-                    data_line_num = i
-                    break
+        for index, line in enumerate(lines):
+            if (
+                line.startswith("|")
+                and not re.match(r"^\|[\s\-]+\|$", line)
+                and not line.startswith("| Item |")
+            ):
+                if data_count == data_index:
+                    lines[index] = "| " + " | ".join(cells) + " |\n"
+                    manifest_path.write_text("".join(lines), encoding="utf-8")
+                    print(f"updated {set_file} -> status={status}")
+                    return 0
                 data_count += 1
-
-        if data_line_num < 0:
-            print(f"error: could not locate row for '{set_file}'", file=sys.stderr)
-            return 2
-
-        lines[data_line_num] = "| " + " | ".join(cells) + " |\n"
-        MANIFEST.write_text("".join(lines), encoding="utf-8")
-        print(f"updated {set_file} -> status={status}")
-        return 0
+        print(f"error: could not locate row for '{set_file}'", file=sys.stderr)
+        return 2
 
     if not file:
         print("error: --file required (or use --list / --set)", file=sys.stderr)
         return 2
-
     if kind not in VALID_KIND:
         print(f"error: invalid kind '{kind}'; valid: {sorted(VALID_KIND)}", file=sys.stderr)
         return 2
-
     if status not in VALID_STATUS:
         print(f"error: invalid status '{status}'", file=sys.stderr)
         return 2
 
+    try:
+        source_id = canonical_source_for_raw(file, kind=kind, repository_root=repo)
+    except Exception as exc:  # Source registration must precede manifest projection.
+        print(f"error: source registration failed: {exc}", file=sys.stderr)
+        return 2
+
+    if _find_row(parse_rows(text), file) is not None:
+        print(f"registered (idempotent): {file} [source={source_id}]")
+        return 0
+
     today = datetime.date.today().isoformat()
-    row = f"| {file} | {kind} | {today} | {status} | {owner} | {outcome} |\n"
-
-    lines = text.splitlines(True)
-    # Find last data row — scan past header+separator into actual rows
-    last_data = -1
-    seen_data = False
-    for i, line in enumerate(lines):
-        if line.startswith("|") and not re.match(r"^\|[\s\-]+\|$", line) \
-                and not line.startswith("| Item |"):
-            seen_data = True
-            last_data = i
-        elif seen_data and line.startswith("|"):
-            # separator after data — stop
-            break
-        elif seen_data and not line.startswith("|"):
-            break
-
-    if last_data >= 0:
-        lines.insert(last_data + 1, row)
-    else:
-        # No data rows — find the closing "##" or "---" after the Queue table header
-        # and insert before it
-        for i, line in enumerate(lines):
-            if re.match(r"^##\s+", line) and i > 0:
-                lines.insert(i, row)
-                break
-        else:
-            lines.append(row)
-
-    MANIFEST.write_text("".join(lines), encoding="utf-8")
-    print(f"registered: {file} [{kind}] {status} by {owner}")
+    manifest_path.write_text(
+        _append_row(text, f"| {file} | {kind} | {today} | {status} | {owner} | {outcome} |\n"),
+        encoding="utf-8",
+    )
+    print(f"registered: {file} [source={source_id}] [{kind}] {status} by {owner}")
     return 0
+
+
+__all__ = [
+    "MANIFEST",
+    "VALID_KIND",
+    "VALID_STATUS",
+    "canonical_source_for_raw",
+    "cmd_intake_register",
+    "parse_rows",
+]

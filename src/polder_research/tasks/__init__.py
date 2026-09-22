@@ -4,15 +4,14 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone, timedelta
-from pathlib import Path
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from ..paths import RESEARCH_TASKS_DIR, RESEARCH_LOCKS_DIR
+from ..paths import RESEARCH_LOCKS_DIR, RESEARCH_TASKS_DIR
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def _uuid7(prefix: str) -> str:
@@ -70,7 +69,7 @@ def acquire_lease(task_id: str, leaser: str, ttl_seconds: int) -> str:
     RESEARCH_LOCKS_DIR.mkdir(parents=True, exist_ok=True)
     rec = _read(task_id)
     lid = _uuid7("lse")
-    expires = datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)
+    expires = datetime.now(UTC) + timedelta(seconds=ttl_seconds)
     rec["status"] = "leased"
     rec["lease"] = {
         "id": lid,

@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from ..paths import RESEARCH_HANDOFFS_DIR
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def _uuid7(prefix: str) -> str:
@@ -42,9 +42,7 @@ def write_handoff(
         record["context"] = context
     if artifacts:
         record["artifacts"] = artifacts
-    RESEARCH_HANDOFFS_DIR.joinpath(f"{hid}.json").write_text(
-        json.dumps(record, indent=2)
-    )
+    RESEARCH_HANDOFFS_DIR.joinpath(f"{hid}.json").write_text(json.dumps(record, indent=2))
     return hid
 
 

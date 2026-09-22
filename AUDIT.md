@@ -36,6 +36,29 @@ The long-term goal is a reusable research operating system that can start from a
 
 ---
 
+
+# 0. Implementation status (as of 2026-09-22)
+
+Status against the P0–P5 roadmap. This section is a point-in-time snapshot; the priority items in §45 remain the authoritative contract.
+
+## Completed (P0–P3 + P4 core)
+
+- **P0:** frontmatter type drift fixed in root and inbox docs; exact-match manifest identity; first intake row placement; vault audit covers root durable notes, seeded reachability (index, README, AUDIT, AGENTS, CLAUDE, all domain MOCs), template-placeholder links, orphans, unreachable, and blocking totals; audit hook invokes `vault_audit.py` with `--quiet` and correct `PYTHONPATH`; hard-coded local path removed; tracked bytecode removed.
+- **P1:** `.editorconfig`, `.gitattributes`; naming conventions, glossary, provenance model, evidence model; root `schemas/` as the only canonical schema location (13 schemas incl. `evidence.schema.json` and `frontmatter.schema.json`); `polder_research.schemas.SchemaRegistry` loading from a repository root; `polder_research.templates.TemplateRegistry` with deterministic lookup; vault frontmatter validated through the canonical registry, not a parallel enum.
+- **P2:** `research.config.yaml` central vocabularies/policies; role docs + manifests for 11 agents; events, tasks, runs, handoffs writers; `build_state()` / `build_health()` derived from authoritative `.research` records without mutation; deterministic `evaluate_maintenance()` with config-driven triggers and thresholds; no autonomous scheduler.
+- **P3:** `pyproject.toml`, `ruff.toml`, `.gitleaks.toml`, Dependabot, `.github/workflows/ci.yml` (least-privilege Ruff, pytest, vault-audit, schema-validation, generated-drift, secret-scanning, action SHAs verified against official tags).
+- **P4 (core):** evidence primitives — source records with SHA-256 dedup, segments with exact locators, claims, entities, gaps, conflicts, evidence edges (`evd_<uuidv7>`) with typed record resolution and locator validation; intake registers the canonical source before the manifest row; idempotent re-registration.
+
+## Pending
+
+- **P4 (expansion):** source adapters, automated contradiction detection, source-change impact propagation, freshness and lineage views.
+- **P5:** dashboard rebuild on structured state; research briefs and adaptive plans.
+- **P6:** knowledge-query agent (exact/lexical/graph retrieval, provenance-validated answers).
+- **P7:** autonomous research workers.
+- **P8:** controlled self-evolution.
+
+Validation at this revision: `142 passed` pytest, vault audit `TOTAL PROBLEMS: 0` / exit 0, `ruff check` and `ruff format --check` clean.
+
 # 1. Audit-of-the-audit
 
 The previous audit file was useful for exploration but had become unsuitable as an implementation contract.

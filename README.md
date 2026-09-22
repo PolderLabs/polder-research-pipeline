@@ -26,59 +26,46 @@ The goal is a reusable research operating system that can be initialized for an 
 - decide when maintenance or re-research is necessary;
 - evolve tags, relationships, search strategies, schemas, and workflow rules in a controlled and auditable way.
 
-The repository currently contains the **initial knowledge-base and research-intake scaffold**. The deeper agent control plane, structured research state, evidence graph, maintenance engine, query agent, and autonomous research workflow are specified in [AUDIT.md](AUDIT.md) but are not implemented yet.
+The repository contains the **canonical vault, control plane, evidence primitives, schemas, agents, and CI/security foundation** described in [AUDIT.md](AUDIT.md). P0–P3 of the priority roadmap are implemented and validated by the test suite, the vault audit, and the CI workflow. P4 evidence primitives are wired into intake and supported by focused tests. P5 dashboard rebuild and the autonomous-research layers (P6–P7) remain pending.
 
 ## Current status
 
-This repository is still in the architecture/foundation stage.
+This repository is past the foundation stage.
 
-Implemented today:
+Implemented:
 
-- Obsidian-compatible Markdown knowledge base;
-- numbered project/research domains;
-- raw research inbox;
-- Markdown intake manifest;
-- note templates;
-- frontmatter conventions;
-- link/frontmatter/orphan/tag audit script;
-- frontmatter repair helper;
-- intake registration helper;
-- note scaffolding helper;
-- local pre-commit audit hook;
-- Dataview-based Obsidian dashboard;
-- evidence-origin convention:
-  - Observed
-  - Source-reported
-  - Inference
-- conflict-note concept;
-- experiment and decision templates;
-- detailed structural/agent architecture audit.
+- Obsidian-compatible Markdown knowledge base with numbered project/research domains;
+- canonical frontmatter, link, wikilink, orphan, tag, structure, and type-drift audit (`vault_audit.py`) — exit 0 required;
+- frontmatter repair helper (`frontmatter_fix.py`);
+- intake registration helper (`intake_register.py`) with exact-match filename and idempotent manifest rows;
+- note scaffolding helper (`new_note.py`) and template registry (`polder_research.templates`);
+- local pre-commit audit hook (`.githooks/pre-commit`);
+- Dataview-based Obsidian dashboard (`index.md`);
+- evidence-origin convention: Observed, Source-reported, Inference;
+- conflict-note, experiment, decision, source-entry, research-note, and intake-record templates;
+- canonical audit and priority roadmap (`AUDIT.md`);
+- canonical schema registry under root `schemas/` (claim, conflict, decision, entity, event, evidence, frontmatter, gap, handoff, run, segment, source, task);
+- canonical Python path/vocabulary registry (`polder_research.paths`);
+- canonical pipeline configuration (`research.config.yaml`) with centralized enums;
+- agent role contracts: orchestrator, acquisition, research, classification, synthesis, verification, sorting-cleanup, pipeline-processing, knowledge-query, knowledge-maintenance, evolution (`agents/`, `agents/roles/*.yaml`);
+- control plane primitives: events, tasks, runs, handoffs, workflow, maintenance (`polder_research.events/tasks/runs/handoffs/workflow/maintenance`);
+- evidence primitives: source records (SHA-256 dedup), segments, claims, entities, gaps, conflicts, evidence edges (`polder_research.evidence`, `schemas/evidence.schema.json`);
+- canonical source registration on intake with idempotent re-registration;
+- buildable state and health projections (`scripts.state`, `polder_research.workflow.build_state`/`build_health`);
+- deterministic maintenance evaluation (`evaluate_maintenance`) from `research.config.yaml`;
+- pyproject, Ruff, EditorConfig, gitattributes, CODEOWNERS;
+- GitHub Actions CI: Ruff, pytest, vault-audit, schema-validation, generated-drift, secret-scanning, Dependabot.
 
 Designed but not yet implemented:
 
-- generic project initialization and `research.config.yaml`;
-- research briefs and adaptive research plans;
-- specialized agent roles;
-- knowledge-base query/answer agent;
-- machine-readable role capability manifests;
-- structured tasks, runs, leases, retries, and handoffs;
-- immutable action/event history;
-- stable source, claim, entity, gap, and decision IDs;
-- canonical source records;
-- source fingerprinting and deduplication;
-- source segmentation with exact locators;
-- claim/evidence graph;
-- entity resolution and ontology registry;
-- verification/critic workflow;
-- automated contradiction detection;
-- first-class research gaps;
-- source-change impact propagation;
-- maintenance scheduling and deterministic triggers;
-- schema registry and migrations;
-- source adapters;
-- autonomous multi-agent orchestration;
-- controlled self-evolution;
-- CI and conformance fixtures.
+- autonomous research workers (P7);
+- knowledge-query agent with vector retrieval (P6);
+- schema migrations and versioned ontology (P5+);
+- first-class research briefs and adaptive research plans (P5+);
+- dashboard rebuild for the new structured state (P5);
+- source adapters for heterogeneous inputs (P4 expansion);
+- automated contradiction detection (P4 expansion);
+- controlled self-evolution (P8).
 
 For the complete audit, confirmed defects, target architecture, implementation order, and acceptance gates, see [AUDIT.md](AUDIT.md).
 

@@ -4,13 +4,11 @@ from __future__ import annotations
 
 import re
 
-import pytest
-
 from polder_research.scripts.intake import (
-    _find_row,
-    parse_rows,
     VALID_KIND,
     VALID_STATUS,
+    _find_row,
+    parse_rows,
 )
 
 

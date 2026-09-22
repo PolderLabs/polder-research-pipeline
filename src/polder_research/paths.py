@@ -58,9 +58,7 @@ VALID_TYPE: frozenset[str] = frozenset(
     }
 )
 
-VALID_STATUS: frozenset[str] = frozenset(
-    {"current", "draft", "stale", "superseded"}
-)
+VALID_STATUS: frozenset[str] = frozenset({"current", "draft", "stale", "superseded"})
 
 # --- control-plane scan scope (P0 / §3.16) --------------------------------
 # All tools must use this registry so that adding a ``SKILL.md`` to a future
@@ -171,6 +169,7 @@ EVIDENCE_ENTITIES_DIR: Path = RESEARCH_DIR / "entities"
 EVIDENCE_SEGMENTS_DIR: Path = RESEARCH_DIR / "segments"
 EVIDENCE_GAPS_DIR: Path = RESEARCH_DIR / "gaps"
 EVIDENCE_CONFLICTS_DIR: Path = RESEARCH_DIR / "conflicts"
+EVIDENCE_EDGES_DIR: Path = RESEARCH_DIR / "edges"
 RESEARCH_GENERATED_DIR: Path = RESEARCH_DIR / "generated"
 SCHEMAS_DIR: Path = REPO_ROOT / "schemas"
 AGENTS_DIR: Path = REPO_ROOT / "agents"
@@ -192,5 +191,12 @@ def ensure_research_dirs() -> None:
         RESEARCH_MAINTENANCE_DIR,
         RESEARCH_LOCKS_DIR,
         RESEARCH_GENERATED_DIR,
+        EVIDENCE_SOURCES_DIR,
+        EVIDENCE_CLAIMS_DIR,
+        EVIDENCE_ENTITIES_DIR,
+        EVIDENCE_SEGMENTS_DIR,
+        EVIDENCE_GAPS_DIR,
+        EVIDENCE_CONFLICTS_DIR,
+        EVIDENCE_EDGES_DIR,
     ):
         d.mkdir(parents=True, exist_ok=True)

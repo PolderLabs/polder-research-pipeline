@@ -4,9 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
-
 _HOME = Path(__file__).resolve().parents[1] / "00-home"
 
 
@@ -27,8 +24,16 @@ def test_docs_have_frontmatter():
 def test_glossary_canonical_terms():
     text = (_HOME / "glossary.md").read_text()
     # Each canonical term from §AUDIT.md §9 should appear
-    for term in ("claim", "source", "evidence", "hypothesis", "entity",
-                 "verification", "provenance", "freshness"):
+    for term in (
+        "claim",
+        "source",
+        "evidence",
+        "hypothesis",
+        "entity",
+        "verification",
+        "provenance",
+        "freshness",
+    ):
         assert term.lower() in text.lower(), f"glossary missing term: {term}"
 
 

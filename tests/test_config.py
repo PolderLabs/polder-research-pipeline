@@ -4,9 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
 import yaml
-
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -27,9 +25,13 @@ def test_research_config_yaml_parses():
 def test_research_config_enums_aligned_with_paths():
     """P1 exit criterion: no important vocabulary is hard-coded twice."""
     import sys
+
     sys.path.insert(0, str(_REPO_ROOT / "src"))
     from polder_research.paths import (
-        VALID_TYPE, VALID_STATUS, INTAKE_VALID_STATUS, INTAKE_VALID_KIND,
+        INTAKE_VALID_KIND,
+        INTAKE_VALID_STATUS,
+        VALID_STATUS,
+        VALID_TYPE,
     )
 
     with open(_REPO_ROOT / "research.config.yaml") as f:

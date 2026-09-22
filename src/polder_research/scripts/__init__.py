@@ -11,15 +11,13 @@ The CLI here is the user-facing surface for:
 from __future__ import annotations
 
 import argparse
-import json
 import sys
-from pathlib import Path
 
 from .audit import cmd_vault_audit
 from .frontmatter import cmd_frontmatter_fix
 from .intake import cmd_intake_register
 from .new_note import cmd_new_note
-from .state import cmd_build_state, cmd_build_health
+from .state import cmd_build_health, cmd_build_state
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -7,19 +7,19 @@ from pathlib import Path
 
 import pytest
 
+from polder_research import evidence as _evidence_mod
+from polder_research import paths as _paths_mod
 from polder_research.evidence import (
+    compute_content_hash,
+    ensure_evidence_dirs,
+    find_duplicate_source,
     register_claim,
     register_conflict,
     register_entity,
     register_gap,
     register_segment,
     register_source,
-    compute_content_hash,
-    ensure_evidence_dirs,
-    find_duplicate_source,
 )
-from polder_research import paths as _paths_mod
-from polder_research import evidence as _evidence_mod
 
 
 @pytest.fixture(autouse=True)
@@ -86,7 +86,10 @@ class TestRegisterSource:
         assert src_path.is_file()
         rec = json.loads(src_path.read_text())
         assert rec["title"] == "Test Paper"
-        assert rec["content_sha256"] == "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
+        assert (
+            rec["content_sha256"]
+            == "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9"
+        )
 
     def test_find_duplicate_by_doi(self):
         ensure_evidence_dirs()
@@ -102,7 +105,7 @@ class TestRegisterSource:
 
     def test_find_duplicate_by_sha256_no_match(self):
         ensure_evidence_dirs()
-        sid1 = register_source(
+        register_source(
             title="Paper A",
             source_type="paper",
             media_type="pdf",

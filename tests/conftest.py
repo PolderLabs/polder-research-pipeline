@@ -22,10 +22,17 @@ def repo_root() -> Path:
 def tmp_vault(tmp_path: Path) -> Path:
     """Create a minimal vault skeleton in a temp directory."""
     for d in (
-        "00-home", "01-project", "02-research", "03-system",
-        "04-decisions", "05-operations", "06-sources",
-        "90-inbox/raw", "90-inbox/processing",
-        "90-inbox/archive/filed", "90-inbox/archive/rejected",
+        "00-home",
+        "01-project",
+        "02-research",
+        "03-system",
+        "04-decisions",
+        "05-operations",
+        "06-sources",
+        "90-inbox/raw",
+        "90-inbox/processing",
+        "90-inbox/archive/filed",
+        "90-inbox/archive/rejected",
         "99-templates",
     ):
         (tmp_path / d).mkdir(parents=True, exist_ok=True)
