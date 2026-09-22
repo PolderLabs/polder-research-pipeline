@@ -65,3 +65,6 @@ htmlcov/
 # Local dev / agent tooling (not part of the project)
 .claude/
 .wolf/
+
+# Local Obsidian editor state (machine-local)
+.obsidian/
