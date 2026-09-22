@@ -29,11 +29,11 @@ jobs:
         with:
           python-version: "3.14"
           cache: "pip"
-          cache-dependency-path: "pyproject.toml"
+          cache-dependency-path: "requirements-ci.txt"
       - name: Upgrade pip
         run: python -m pip install -U pip
-      - name: Install ruff
-        run: python -m pip install "ruff>=0.1"
+      - name: Install pinned CI toolchain
+        run: python -m pip install -r requirements-ci.txt
       - name: Ruff check
         run: ruff check .
       - name: Ruff format check
@@ -50,14 +50,13 @@ jobs:
         with:
           python-version: "3.14"
           cache: "pip"
-          cache-dependency-path: "pyproject.toml"
+          cache-dependency-path: "requirements-ci.txt"
       - name: Upgrade pip
         run: python -m pip install -U pip
-      - name: Install package with dev extras
-        # Single editable install: `pip install -e .` followed by
-        # `pip install -e ".[dev]"` is redundant; the extras form installs
-        # the package exactly once with the dev tooling included.
-        run: python -m pip install -e ".[dev]"
+      - name: Install pinned CI toolchain
+        run: python -m pip install -r requirements-ci.txt
+      - name: Install package editable
+        run: python -m pip install -e .
       - name: Run pytest
         env:
           PYTHONPATH: src
@@ -74,11 +73,13 @@ jobs:
         with:
           python-version: "3.14"
           cache: "pip"
-          cache-dependency-path: "pyproject.toml"
+          cache-dependency-path: "requirements-ci.txt"
       - name: Upgrade pip
         run: python -m pip install -U pip
-      - name: Install package with dev extras
-        run: python -m pip install -e ".[dev]"
+      - name: Install pinned CI toolchain
+        run: python -m pip install -r requirements-ci.txt
+      - name: Install package editable
+        run: python -m pip install -e .
       - name: Vault audit
         env:
           PYTHONPATH: src
@@ -97,11 +98,13 @@ jobs:
         with:
           python-version: "3.14"
           cache: "pip"
-          cache-dependency-path: "pyproject.toml"
+          cache-dependency-path: "requirements-ci.txt"
       - name: Upgrade pip
         run: python -m pip install -U pip
-      - name: Install package with dev extras
-        run: python -m pip install -e ".[dev]"
+      - name: Install pinned CI toolchain
+        run: python -m pip install -r requirements-ci.txt
+      - name: Install package editable
+        run: python -m pip install -e .
       - name: Validate role manifests
         run: |
           python3 -c "

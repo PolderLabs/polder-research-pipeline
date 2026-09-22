@@ -175,6 +175,32 @@ def test_dev_extras_are_pinned() -> None:
         # pinned form: name==X.Y.Z
         assert "==" in line, f"dev extra must be pinned with == for deterministic install: {line!r}"
 
+REQUIREMENTS_CI_PATH = REPO_ROOT / "requirements-ci.txt"
+
+
+def test_requirements_ci_present_and_pinned() -> None:
+    """CI must consume a fully-pinned requirements-ci.txt — no floating pins."""
+    assert REQUIREMENTS_CI_PATH.is_file(), "requirements-ci.txt must exist"
+    for raw in REQUIREMENTS_CI_PATH.read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        # Pinned form: name==X.Y.Z (no extras, no env markers after the pin)
+        assert "==" in line and ">" not in line and "<" not in line, (
+            f"requirements-ci.txt entry must be exactly pinned (==X.Y.Z): {line!r}"
+        )
+
+
+def test_ci_installs_from_requirements_ci(ci_text: str) -> None:
+    """Every CI install step must pull from requirements-ci.txt, not float."""
+    assert "pip install -r requirements-ci.txt" in ci_text, (
+        "CI must install pinned toolchain via requirements-ci.txt"
+    )
+    # The pre-lockfile floating ruff install must be gone.
+    assert "ruff>=0.1" not in ci_text, (
+        "CI must not perform a floating ruff install"
+    )
+
 
 def test_drift_check_present(ci_text: str) -> None:
     assert "Generated drift" in ci_text, "workflow must include a generated drift check job step"
