@@ -52,7 +52,7 @@ def isolate_research(monkeypatch, tmp_path: Path):
 
 @pytest.fixture
 def inbox(tmp_path: Path) -> Path:
-    inbox_dir = tmp_path / "90-inbox"
+    inbox_dir = tmp_path / "knowledge-base" / "90-inbox"
     raw_dir = inbox_dir / "raw"
     raw_dir.mkdir(parents=True)
     (raw_dir / "first.pdf").write_bytes(b"first-content")
@@ -273,7 +273,7 @@ class TestIntakeCanonicalSource:
             repository_root=repository_root,
         )
         assert rc == 0
-        rows = parse_rows((repository_root / "90-inbox/manifest.md").read_text())
+        rows = parse_rows((repository_root / "knowledge-base/90-inbox/manifest.md").read_text())
         assert len(rows) == 1
         assert rows[0][0] == "first.pdf"
 
@@ -307,12 +307,12 @@ class TestIntakeCanonicalSource:
         assert first == second
         sources = list(_paths_mod.EVIDENCE_SOURCES_DIR.glob("src_*.json"))
         assert len(sources) == 1
-        rows = parse_rows((repository_root / "90-inbox/manifest.md").read_text())
+        rows = parse_rows((repository_root / "knowledge-base/90-inbox/manifest.md").read_text())
         assert len(rows) == 1
 
     def test_missing_raw_file_does_not_register(self, tmp_path):
-        (tmp_path / "90-inbox" / "raw").mkdir(parents=True)
-        (tmp_path / "90-inbox" / "manifest.md").write_text(
+        (tmp_path / "knowledge-base" / "90-inbox" / "raw").mkdir(parents=True)
+        (tmp_path / "knowledge-base" / "90-inbox" / "manifest.md").write_text(
             "| Item | Kind | Added | Status | Owner | Outcome |\n|---|---|---|---|---|---|\n",
             encoding="utf-8",
         )
@@ -322,14 +322,14 @@ class TestIntakeCanonicalSource:
                 kind="pdf",
                 repository_root=tmp_path,
             )
-        rows = parse_rows((tmp_path / "90-inbox/manifest.md").read_text())
+        rows = parse_rows((tmp_path / "knowledge-base/90-inbox/manifest.md").read_text())
         assert rows == []
         sources = list(_paths_mod.EVIDENCE_SOURCES_DIR.glob("src_*.json"))
         assert sources == []
 
     def test_source_registration_failure_leaves_no_manifest_row(self, tmp_path):
-        (tmp_path / "90-inbox" / "raw").mkdir(parents=True)
-        (tmp_path / "90-inbox" / "manifest.md").write_text(
+        (tmp_path / "knowledge-base" / "90-inbox" / "raw").mkdir(parents=True)
+        (tmp_path / "knowledge-base" / "90-inbox" / "manifest.md").write_text(
             "| Item | Kind | Added | Status | Owner | Outcome |\n|---|---|---|---|---|---|\n",
             encoding="utf-8",
         )
@@ -339,7 +339,7 @@ class TestIntakeCanonicalSource:
             repository_root=tmp_path,
         )
         assert rc == 2
-        rows = parse_rows((tmp_path / "90-inbox/manifest.md").read_text())
+        rows = parse_rows((tmp_path / "knowledge-base/90-inbox/manifest.md").read_text())
         assert rows == []
 
     def test_kind_drives_source_type(self, inbox, tmp_path):

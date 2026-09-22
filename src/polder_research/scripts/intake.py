@@ -10,14 +10,17 @@ from pathlib import Path
 from ..atomic import write_atomic
 from ..evidence import compute_content_hash, find_duplicate_source, register_source
 from ..paths import (
+    INTAKE_MANIFEST,
+    INTAKE_RAW_DIR,
+    REPO_ROOT,
+    RESEARCH_INTAKE_DIR,
+    VAULT_ROOT,
+)
+from ..paths import (
     INTAKE_VALID_KIND as VALID_KIND,
 )
 from ..paths import (
     INTAKE_VALID_STATUS as VALID_STATUS,
-)
-from ..paths import (
-    REPO_ROOT,
-    RESEARCH_INTAKE_DIR,
 )
 
 _CANONICAL_SOURCE_TYPES = frozenset(
@@ -144,7 +147,8 @@ def _canonical_source_for_raw(
     re-reading or re-hashing the raw item.
     """
     repo = Path(repository_root) if repository_root is not None else REPO_ROOT
-    raw_dir = (repo / "90-inbox" / "raw").resolve()
+    vault = repo if repo.name == "knowledge-base" else repo / "knowledge-base"
+    raw_dir = (vault / INTAKE_RAW_DIR.relative_to(VAULT_ROOT)).resolve()
     raw_file = (raw_dir / filename).resolve()
     try:
         raw_file.relative_to(raw_dir)
@@ -155,7 +159,7 @@ def _canonical_source_for_raw(
 
     raw_bytes = raw_file.read_bytes()
     content_sha256 = compute_content_hash(raw_bytes)
-    raw_location = str(raw_file.relative_to(repo))
+    raw_location = str(raw_file.relative_to(vault))
     duplicate = find_duplicate_source(
         content_sha256=content_sha256,
         raw_location=raw_location,
@@ -229,7 +233,8 @@ def cmd_intake_register(
     repository_root: Path | None = None,
 ) -> int:
     repo = Path(repository_root) if repository_root is not None else REPO_ROOT
-    manifest_path = repo / "90-inbox" / "manifest.md"
+    vault = repo if repo.name == "knowledge-base" else repo / "knowledge-base"
+    manifest_path = vault / INTAKE_MANIFEST.relative_to(VAULT_ROOT)
     if not manifest_path.exists():
         print(f"error: manifest not found at {manifest_path}", file=sys.stderr)
         return 2
