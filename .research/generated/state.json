@@ -1,0 +1,78 @@
+{
+  "authoritative_root": ".research",
+  "collections": {
+    "claims": {
+      "count": 0,
+      "last_updated": null,
+      "malformed": 0,
+      "schema_version": null
+    },
+    "conflicts": {
+      "count": 0,
+      "last_updated": null,
+      "malformed": 0,
+      "schema_version": null
+    },
+    "edges": {
+      "count": 0,
+      "last_updated": null,
+      "malformed": 0,
+      "schema_version": null
+    },
+    "entities": {
+      "count": 0,
+      "last_updated": null,
+      "malformed": 0,
+      "schema_version": null
+    },
+    "events": {
+      "count": 0,
+      "last_updated": null,
+      "malformed": 0,
+      "schema_version": null
+    },
+    "gaps": {
+      "count": 0,
+      "last_updated": null,
+      "malformed": 0,
+      "schema_version": null
+    },
+    "handoffs": {
+      "count": 0,
+      "last_updated": null,
+      "malformed": 0,
+      "schema_version": null
+    },
+    "runs": {
+      "count": 0,
+      "last_updated": null,
+      "malformed": 0,
+      "schema_version": null
+    },
+    "segments": {
+      "count": 0,
+      "last_updated": null,
+      "malformed": 0,
+      "schema_version": null
+    },
+    "sources": {
+      "count": 0,
+      "last_updated": null,
+      "malformed": 0,
+      "schema_version": null
+    },
+    "tasks": {
+      "count": 0,
+      "last_updated": null,
+      "malformed": 0,
+      "schema_version": null
+    }
+  },
+  "generated_at": null,
+  "schema_version": 1,
+  "totals": {
+    "collections_with_records": 0,
+    "malformed": 0,
+    "records": 0
+  }
+}

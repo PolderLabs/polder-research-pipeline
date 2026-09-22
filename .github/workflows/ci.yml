@@ -137,21 +137,19 @@ jobs:
           print('All schemas valid JSON')
           "
       - name: Generated drift check
-        # AUDIT.md §41.4 — run generators and require a clean git diff.
-        # The repository does not yet publish a public generator entry
-        # point; until one exists this step enforces the policy that any
-        # tracked file under .research/generated/ must not drift from the
-        # committed copy. When a generator lands, invoke it here before
-        # the diff so the check proves regeneration is clean.
+        # AUDIT.md §24 — generate tracked derived artifacts, then require a
+        # clean git diff. scripts/generate_derived.py derives
+        # .research/generated/{state,health}.json purely from record
+        # content (no mtimes, no wall-clock), so regeneration in CI must be
+        # byte-identical to the committed snapshot; otherwise the snapshot
+        # is stale and CI fails until it is re-committed.
         run: |
           set -euo pipefail
-          if [ -d .research/generated ]; then
-            if ! git diff --exit-code -- .research/generated; then
-              echo '::error::Generated drift detected under .research/generated' >&2
-              exit 1
-            fi
-          else
-            echo 'No .research/generated/ directory present; drift check is a no-op.'
+          python3 scripts/generate_derived.py
+          if ! git diff --exit-code -- .research/generated; then
+            echo '::error::Generated drift detected under .research/generated' >&2
+            echo 'Run: python3 scripts/generate_derived.py && git add -f .research/generated/' >&2
+            exit 1
           fi
 
   secret-scan:
