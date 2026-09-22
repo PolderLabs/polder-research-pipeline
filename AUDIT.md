@@ -11,7 +11,7 @@ tags:
 # Polder Research Pipeline — Canonical Audit
 
 Audit date: 2026-09-22  
-Inspected repository revision: `e186e407227ac24c64752e43194673e1bbd4656e`  
+Inspected repository revision: `a309f7d8db443fa423fa12ca69bfdeb738984840`  
 Canonical audit file: `AUDIT.md`  
 Repository: `PolderLabs/polder-research-pipeline`
 
@@ -37,27 +37,82 @@ The long-term goal is a reusable research operating system that can start from a
 ---
 
 
-# 0. Implementation status (as of 2026-09-22)
+# 0. Implementation status — eight-round re-audit (2026-09-22)
 
-Status against the P0–P5 roadmap. This section is a point-in-time snapshot; the priority items in §45 remain the authoritative contract.
+This status replaces the earlier implementation snapshot. It is based on direct inspection of `main` at `a309f7d8db443fa423fa12ca69bfdeb738984840`, the current repository tree, schemas, agent contracts, Python implementation, dashboard, CI configuration, and the actual GitHub Actions result for that revision.
 
-## Completed (P0–P3 + P4 core)
+The repository has advanced substantially since the original scaffold, but the foundation is **not yet at the exit criteria previously claimed for P0–P4**.
 
-- **P0:** frontmatter type drift fixed in root and inbox docs; exact-match manifest identity; first intake row placement; vault audit covers root durable notes, seeded reachability (index, README, AUDIT, AGENTS, CLAUDE, all domain MOCs), template-placeholder links, orphans, unreachable, and blocking totals; audit hook invokes `vault_audit.py` with `--quiet` and correct `PYTHONPATH`; hard-coded local path removed; tracked bytecode removed.
-- **P1:** `.editorconfig`, `.gitattributes`; naming conventions, glossary, provenance model, evidence model; root `schemas/` as the only canonical schema location (13 schemas incl. `evidence.schema.json` and `frontmatter.schema.json`); `polder_research.schemas.SchemaRegistry` loading from a repository root; `polder_research.templates.TemplateRegistry` with deterministic lookup; vault frontmatter validated through the canonical registry, not a parallel enum.
-- **P2:** `research.config.yaml` central vocabularies/policies; role docs + manifests for 11 agents; events, tasks, runs, handoffs writers; `build_state()` / `build_health()` derived from authoritative `.research` records without mutation; deterministic `evaluate_maintenance()` with config-driven triggers and thresholds; no autonomous scheduler.
-- **P3:** `pyproject.toml`, `ruff.toml`, `.gitleaks.toml`, Dependabot, `.github/workflows/ci.yml` (least-privilege Ruff, pytest, vault-audit, schema-validation, generated-drift, secret-scanning, action SHAs verified against official tags).
-- **P4 (core):** evidence primitives — source records with SHA-256 dedup, segments with exact locators, claims, entities, gaps, conflicts, evidence edges (`evd_<uuidv7>`) with typed record resolution and locator validation; intake registers the canonical source before the manifest row; idempotent re-registration.
+## 0.1 What is genuinely implemented
 
-## Pending
+- A packaged Python control-plane foundation under `src/polder_research/`.
+- Canonical JSON Schemas for tasks, runs, events, handoffs, sources, segments, claims, evidence edges, entities, gaps, conflicts, decisions, and frontmatter.
+- Agent role documentation and YAML capability manifests for 11 roles.
+- Event, task, run, handoff, state, health, maintenance, source, segment, claim, entity, gap, conflict, and evidence-edge modules.
+- Canonical source registration during local-file intake with SHA-256-based duplicate detection.
+- `research.config.yaml`, `.editorconfig`, `.gitattributes`, `pyproject.toml`, Ruff configuration, CODEOWNERS, Dependabot, CI, and Gitleaks configuration.
+- Previously missing curator/OpenWolf/template/source-catalog files now exist.
+- Several original P0 defects were fixed: first intake row placement, exact filename matching, hard-coded local raw path, tracked bytecode, and broader vault-audit coverage.
 
-- **P4 (expansion):** source adapters, automated contradiction detection, source-change impact propagation, freshness and lineage views.
-- **P5:** dashboard rebuild on structured state; research briefs and adaptive plans.
-- **P6:** knowledge-query agent (exact/lexical/graph retrieval, provenance-validated answers).
-- **P7:** autonomous research workers.
-- **P8:** controlled self-evolution.
+## 0.2 Current validation state
 
-Validation at this revision: `142 passed` pytest, vault audit `TOTAL PROBLEMS: 0` / exit 0, `ruff check` and `ruff format --check` clean.
+The canonical audit previously stated that pytest, Ruff, vault audit, schema validation, and secret scanning were clean. That is no longer a valid statement for the inspected revision.
+
+GitHub Actions run:
+
+`https://github.com/PolderLabs/polder-research-pipeline/actions/runs/35717236745`
+
+on `a309f7d8db443fa423fa12ca69bfdeb738984840` completed with **failure**.
+
+Confirmed failed jobs:
+
+- Test (pytest);
+- Lint (Ruff);
+- Vault audit;
+- Schema validation and generated drift;
+- Secret scan (Gitleaks).
+
+Dependabot configuration checks succeeded.
+
+The connector exposed job conclusions but not usable job logs, so this audit distinguishes **confirmed red CI** from **inferred root causes**. The source-level defects below independently justify the failed-readiness assessment.
+
+## 0.3 Roadmap status after re-audit
+
+### P0 — partially complete
+
+Many original scaffold defects are fixed, but the exit gate is not met because CI is red, dashboard correctness defects remain, status documentation overstates validation, intake still uses filename/table identity, and some writers emit records that violate canonical schemas.
+
+### P1 — partially complete
+
+Conventions, schemas, a glossary, and registries now exist, but important vocabulary is still duplicated across `research.config.yaml`, JSON Schemas, `polder_research.paths`, and intake/new-note scripts.
+
+### P2 — structurally present, reliability incomplete
+
+Tasks, runs, events, handoffs, state, health, and maintenance exist, but idempotency, lease safety, atomic writes, concurrency, execution-envelope provenance, runtime capability enforcement, and durable authoritative-state persistence remain incomplete.
+
+### P3 — CI/security scaffolding present, exit gate not met
+
+CI/security configuration exists, but CI is red, Python metadata conflicts with runtime code, dependencies are not fully locked, runtime ingestion security controls are missing, and main remains unprotected.
+
+### P4 — evidence primitives present, correctness incomplete
+
+Source, segment, claim, entity, gap, conflict, and evidence-edge primitives exist, but writer/schema mismatches, referential-integrity gaps, and incomplete evidence tests remain.
+
+### P5–P8
+
+Still pending in the intended sense: state-driven professional dashboard/research planning, executable knowledge-query agent, bounded autonomous research workers, and controlled maintenance/self-evolution.
+
+## 0.4 Immediate stabilization principle
+
+Do not add broader autonomy until:
+
+1. every authoritative writer produces schema-valid records;
+2. authoritative records are durably persisted and recoverable;
+3. GitHub CI is green on the declared supported runtime.
+
+The next implementation batch should be stabilization work, not feature expansion.
+
+---
 
 # 1. Audit-of-the-audit
 
@@ -166,262 +221,213 @@ That distinction is central because workflow state, freshness, source identity, 
 
 ---
 
-# 3. Current repository defects
+# 3. Current repository defects after the eight-round re-audit
 
-The items below are confirmed defects or contract mismatches in the current scaffold.
+This section replaces the original scaffold-defect inventory. Fixed original findings are listed at the end as regression requirements rather than open defects.
 
-## 3.1 Missing documented files
+## 3.1 CI is red while audit/README claim validation is clean — critical
 
-Current guidance references files that do not exist, including:
+The latest inspected `main` commit has failing GitHub Actions jobs for pytest, Ruff, vault audit, schema/drift validation, and Gitleaks. Status documentation currently overstates validation.
 
-- `skills/obsidian-knowledgebase-curator/SKILL.md`;
-- `skills/obsidian-knowledgebase-curator/README.md`;
-- `99-templates/research-note-template.md`;
-- `06-sources/reference-catalog.md`;
-- `.wolf/cerebrum.md`;
-- `.wolf/anatomy.md`.
+Required: restore green CI and derive release/readiness claims from current integration evidence.
 
-These are P0 because they make documented operating paths false.
+## 3.2 Declared Python support conflicts with implementation — critical
 
-## 3.2 Source/research template confusion
+`pyproject.toml` declares Python `>=3.11` and CI uses 3.12, while core modules call `uuid.uuid7()` directly. Standard-library `uuid.uuid7()` is a Python 3.14 addition.
 
-`99-templates/source-entry-template.md` is structurally a research note, not a canonical source-record template.
+Choose one explicit contract:
 
-Fix:
+- support 3.11–3.13 through a compatible UUIDv7 implementation; or
+- raise the supported Python floor to 3.14.
 
-- create `research-note-template.md`;
-- create a true `source-record-template.md`;
-- register template type -> schema -> generator mapping;
-- fail audit when template filename, frontmatter type, and schema disagree.
+Test the declared range in CI.
 
-## 3.3 Intake lifecycle disagreement
+## 3.3 Authoritative state is ignored as if it were derived — critical
 
-Documentation and `intake_register.py` define different states.
+The audit and agent contract define events, tasks, runs, handoffs, sources, claims, entities, segments, gaps, conflicts, and evidence edges as authoritative. Current `.gitignore` ignores all of those records and labels the runtime control plane derived/rebuildable.
 
-The system needs one machine-readable state machine.
+Only snapshots/indexes/caches and ephemeral locks are inherently rebuildable.
 
-Recommended intake flow:
+Resolve explicitly with either:
 
-`new -> triaged -> acquiring -> processing -> extracted -> verified -> distilled -> filed`
+- repository-backed authoritative records tracked by Git; or
+- a configured durable external authoritative backend.
 
-Additional states:
+Do not leave authoritative state local-only without a persistence contract.
 
-- `blocked`;
-- `rejected`.
+## 3.4 Record writers and canonical schemas disagree — critical
 
-Transitions must be validated.
+Confirmed examples:
 
-## 3.4 Source-kind disagreement
+- `register_segment()` writes `created_at`, but `segment.schema.json` forbids that property.
+- `acquire_lease()` writes `lease.id`, while the task schema expects fields such as `lease_token` and does not allow `id`.
+- `register_gap()` defaults to `priority="moderate"`, while the gap schema allows `low|medium|high|critical`.
+- `register_source()` can persist an empty `content_sha256`, while the source schema requires 64 lowercase hex characters.
 
-Documentation and code use different vocabularies.
+Every authoritative writer must validate the complete record against the canonical schema before the write succeeds.
 
-Separate:
+## 3.5 Validation happens too late
 
-`source_type`:
-- paper;
-- documentation;
-- repository;
-- webpage;
-- article;
-- dataset;
-- benchmark;
-- video;
-- audio;
-- transcript;
-- book;
-- standard;
-- issue;
-- discussion;
-- other.
+State readers detect malformed records, but writers do not consistently prevent them.
 
-`media_type`:
-- pdf;
-- html;
-- markdown;
-- text;
-- json;
-- csv;
-- image;
-- audio;
-- video;
-- git;
-- api;
-- other.
+Required write path:
 
-## 3.5 Intake tags are accepted but not stored
+`construct -> schema validate -> semantic/reference validate -> permission/concurrency validate -> atomic write -> event`
 
-`intake_register.py --tags` currently accepts values without persisting them.
+## 3.6 Writes are non-atomic and lack optimistic concurrency
 
-Fix or remove the option.
+Core modules use direct `write_text()` without expected-revision checks.
 
-## 3.6 First intake row placement bug
+Implement atomic replace and revision/hash based optimistic concurrency for mutable authoritative records.
 
-When the queue contains no existing data rows, the first row can be appended after the explanatory sections rather than inside the Queue table.
+## 3.7 Lease semantics do not prevent collisions
 
-This is a correctness bug.
+`acquire_lease()` does not reject an existing unexpired lease. Heartbeat, token-checked release, expiry reclamation, lock cleanup, and atomic compare-and-set are missing.
 
-## 3.7 Manifest updates use substring matching
+## 3.8 Task idempotency is promised but not enforced
 
-Item updates can match a filename occurring anywhere in a row.
+The common contract says every task has an idempotency key, but the schema makes it optional and `write_task()` does not require/generate one or reuse equivalent completed work.
 
-Use stable intake IDs and exact record identity.
+## 3.9 Execution-envelope provenance is placeholder data
 
-## 3.8 Duplicate intake is not prevented
+Events hard-code `instruction_version: "0.1.0"` and `code_revision: "HEAD"`.
 
-Canonical deduplication should consider, in order:
+Record exact instruction/manifest/config/schema/code/runtime/model/toolset identity where relevant.
 
-1. DOI/standard identifier;
-2. repository URL + commit/tag;
-3. canonical URL;
-4. SHA-256;
-5. normalized title + author/date;
-6. semantic near-duplicate detection.
+## 3.10 Event contract conflicts with common agent instructions
 
-## 3.9 Markdown table state is unsafe for concurrent agents
+The common contract requires `tool.called` and `tool.failed`, but the event schema does not allow them. It also documents timestamp/actor/type filenames while code writes `evt_<uuidv7>.json`.
 
-A single Markdown table should not be authoritative multi-agent workflow state.
+Docs, schema, and implementation must agree.
 
-Use one structured record per item. Generate the Markdown manifest as a human view.
+## 3.11 Error taxonomy is narrower than the canonical reliability model
 
-## 3.10 Table injection risk
+Unify event/config/code taxonomy for transient, validation, policy, permission, conflict, dependency, source-unavailable, source-malformed, budget, timeout, rate-limit, internal, and unknown errors.
 
-Unescaped pipe characters in manifest fields can corrupt the table.
+## 3.12 Agent capability manifests are not runtime-enforced
 
-Structured records remove this issue.
+Role YAML manifests exist, but no runtime authorization layer was found for tool calls, path writes, network access, code execution, or destructive actions.
 
-## 3.11 Raw source immutability is not verifiable
+## 3.13 Role responsibilities and permissions conflict
 
-Raw ignored files can be modified or disappear.
+Examples:
 
-Register:
+- Orchestrator and research-agent both claim end-to-end coordination.
+- Acquisition promises raw storage but lacks raw-store write scope.
+- Classification assigns evidence relations but cannot write `.research/edges/**`.
+- Verification cannot read evidence edges.
+- Knowledge-query cannot read evidence edges despite requiring exact provenance.
+- Synthesis lacks edge/segment reads despite promising full provenance.
+- Evolution reads nonexistent `.research/schemas/**` instead of root `schemas/**`.
+- Sorting/cleanup advertises safe fixes but its manifest largely permits reporting only.
 
-- content hash;
-- byte size;
-- MIME;
-- original filename;
-- source URI;
-- retrieval timestamp;
-- storage pointer.
+Add cross-contract tests for docs, manifests, tools, schemas, and runtime enforcement.
 
-## 3.12 Raw-file ignore policy is overly broad
+## 3.14 Common agent bootstrap rule is incomplete
 
-Root `.gitignore` ignores several binary extensions globally.
+“No agent operates outside a task” conflicts with the orchestrator creating the first task/run. Define a bootstrap/admin operation or initial orchestration task.
 
-Prefer path-scoped storage rules under raw storage instead of blocking legitimate artifacts anywhere in the repo.
+## 3.15 Evidence relationships have two competing authorities
 
-## 3.13 Frontmatter root-type inconsistency
+Both standalone evidence-edge records and embedded `claim.evidence[]` represent the same relationship data.
 
-Current standards say `index` is for `index.md` and `moc` for domain README files, but root files do not consistently follow that contract.
+Use one authority. Recommended: standalone evidence edges are authoritative; claim views reference or derive them.
 
-Use path-aware schemas.
+## 3.16 Referential integrity is incomplete
 
-## 3.14 Frontmatter parser is a partial YAML implementation
+Generic writers do not consistently prove referenced sources/claims/entities exist. Segment, claim, conflict, and other reference-bearing writers need endpoint validation.
 
-Either:
+## 3.17 Evidence writers do not universally schema-validate
 
-- formally support a strict subset; or
-- use a proper YAML parser and validate with schemas.
+Source/segment/claim/entity/gap/conflict writers should round-trip through canonical schemas before persistence, as should evidence edges.
 
-Do not claim arbitrary YAML compatibility if unsupported.
+## 3.18 Evidence-edge tests contain uncollected nested tests
 
-## 3.15 Frontmatter fixer overstates its behavior
+Several intended tests in `tests/test_evidence_edge.py` are indented inside the `inbox` fixture after its `return`, so pytest does not collect them normally.
 
-It says it normalizes values but primarily fills missing fields.
+Fix structure and assert these test cases are collected.
 
-Rename or implement safe normalization with dry-run diffs.
+## 3.19 Source deduplication is fragile around malformed records
 
-## 3.16 Future skill corruption risk
+`find_duplicate_source()` directly JSON-loads source files. One malformed source can break lookup. Reuse validated-record loading and later normalize DOI/URL identity.
 
-`vault_audit.py` excludes `skills/`, while `frontmatter_fix.py` does not share exactly the same scan universe.
+## 3.20 Intake still duplicates vocabularies and lacks stable intake identity
 
-Adding SKILL.md could cause a vault frontmatter fixer to mutate a skill file.
+The intake script hard-codes statuses/kinds/source mappings. Manifest identity is filename-based. Stable intake IDs, source IDs in projection, table escaping, structured intake records, concurrency safety, and atomic writes remain missing.
 
-All tools must use one registry of content-plane/control-plane scan scopes.
+## 3.21 New-note implementation still bypasses canonical authorities
 
-## 3.17 Archive excluded from integrity validation
+The new-note script hard-codes domain/type/status vocabularies, uses ASCII-only slugging, and constructs note content directly instead of rendering through `TemplateRegistry`.
 
-Archived intake records remain provenance.
+## 3.22 Maintenance implementation is narrower than its contract
 
-They may be excluded from orphan rules but not from schema/link/ID validation.
+Current evaluation is a useful start, but:
 
-## 3.18 Hard-coded developer path
+- code references thresholds absent from config;
+- superseded sources are used as a duplicate proxy;
+- no general freshness engine computes stale state;
+- research triggers map poorly to structural passes;
+- maintenance classes are not represented explicitly;
+- health omits several research/repository signals.
 
-Repository-relative instructions are required.
+## 3.23 Dashboard P0 correctness defects remain
 
-No user-specific absolute paths should exist in template documentation.
+Current `index.md` still uses asynchronous `app.vault.read()` synchronously, treats drafts as gaps, mtime as knowledge freshness, localStorage as project-title authority, and source-folder page count as source count.
 
-## 3.19 Note generator bypasses templates
+## 3.24 Dashboard visual/accessibility debt remains
 
-`new_note.py` generates its own body instead of using canonical templates.
+Current CSS still uses remote fonts, `transition: all`, lacks `:focus-visible` and reduced-motion handling, retains legacy product naming, and keeps the older decorative layout.
 
-This creates a second template system.
+## 3.25 Security foundation is incomplete
 
-Fix:
+CI/security scaffolding exists, but network/SSRF controls, ingestion quarantine, archive safety, parser sandboxing, sensitivity-aware routing, and robust sensitive-log redaction are not implemented.
 
-- template registry is canonical;
-- generator selects template;
-- script fills fields/placeholders;
-- generated note validates against schema.
+## 3.26 Gitleaks job is currently failing
 
-## 3.20 Tag syntax mismatch
+The Gitleaks GitHub Actions job fails. The workflow references `GITLEAKS_LICENSE`; exact failure cause was not available through the connector and must be confirmed in Actions logs before changing the gate.
 
-Documentation previously demonstrated comma-separated tags while argparse treats them as one token.
+## 3.27 Dependency reproducibility is incomplete
 
-Define one syntax and validate it.
+No full dependency lock is committed. CI performs floating operations including pip upgrade and a broad Ruff install in the lint job.
 
-Recommended canonical tag regex for ASCII tags:
+## 3.28 Generated drift check is mostly a placeholder
 
-`^[a-z0-9]+(?:-[a-z0-9]+)*$`
+The CI step does not run a canonical generator and can no-op when `.research/generated` is absent/ignored.
 
-If Unicode tags are desired, specify that deliberately.
+## 3.29 Main remains unprotected
 
-## 3.21 Non-Latin title slugging
+CODEOWNERS exists, but `main` is currently unprotected. Required checks/review policy are not enforced.
 
-Current slug logic strips many Unicode scripts.
+## 3.30 Repository metadata remains domain-specific
 
-Stable IDs should be authoritative; filenames may remain Unicode-safe readable slugs.
+The GitHub repository description still says it is for realtime AI-driven visual platform research, conflicting with the generic template goal.
 
-## 3.22 Duplicated schema constants
+## 3.31 Guidance conflicts about source authority
 
-Types/statuses/domain mappings are hard-coded independently in multiple scripts.
+`.wolf/anatomy.md` calls `06-sources/reference-catalog.md` canonical, while the source-of-truth model makes structured source records authoritative and the catalog a human projection.
 
-Centralize them in schemas/config.
+## 3.32 Fresh clones cannot assume state.json exists
 
-## 3.23 Committed Python bytecode
+Startup guidance says to read `.research/state.json`, but that derived file may not exist. Rebuild/validate it first when missing or stale.
 
-Remove `__pycache__` and `*.py[cod]`.
+## 3.33 Audit and README overstate completion
 
-Ignore them globally.
+Earlier status claims are inconsistent with current CI and source inspection. Treat readiness/status as a verifiable release claim.
 
-## 3.24 No atomic state writes
+## 3.34 Fixed original defects
 
-Future state-bearing files should use temporary write + atomic rename + schema verification.
+These original findings are now resolved or materially improved and should be regression-tested rather than listed as open:
 
-## 3.25 No CI/test suite
-
-The current local hook is insufficient and opt-in.
-
-CI must be authoritative.
-
-## 3.26 Local hook requires manual activation
-
-`core.hooksPath` is not set by cloning.
-
-A bootstrap command should configure local hooks.
-
-## 3.27 Main branch is unprotected
-
-Before autonomous control-plane writes, require CI/status checks and stronger policy for sensitive paths.
-
-## 3.28 Legacy product terminology
-
-Older files still refer to “Polder Video Pipeline” or realtime-video-specific assumptions.
-
-Canonical product name:
-
-`Polder Research Pipeline`
-
-Audit deprecated terminology.
+- missing curator SKILL/README;
+- missing research-note template;
+- missing reference catalog;
+- missing OpenWolf anatomy/cerebrum;
+- hard-coded raw-directory developer path;
+- tracked Python bytecode;
+- first intake row placement;
+- exact filename matching;
+- broader YAML frontmatter parsing;
+- basic CI/Dependabot/CODEOWNERS scaffolding.
 
 ---
 
@@ -626,18 +632,19 @@ CLI: `research`
 
 ## 7.3 Stable IDs
 
-Recommended prefixes:
+Canonical prefixes:
 
 - run: `run_`;
-- task: `task_`;
+- task: `tsk_`;
 - event: `evt_`;
 - source: `src_`;
 - segment: `seg_`;
 - claim: `clm_`;
+- evidence edge: `evd_`;
 - entity: `ent_`;
 - question: `qst_`;
 - gap: `gap_`;
-- conflict: `cnf_`;
+- conflict: `cfl_`;
 - decision: `dec_`;
 - experiment: `exp_`;
 - benchmark: `bnch_`;
@@ -645,6 +652,8 @@ Recommended prefixes:
 - evolution: `evo_`;
 - handoff: `hnd_`;
 - note: `note_`.
+
+The three-letter task/conflict prefixes match the current structured-record implementation and are now canonical.
 
 Use UUIDv7 for new durable IDs.
 
@@ -2504,282 +2513,248 @@ Agents should never manually edit derived files as if they were authority.
 
 # 45. Priority roadmap
 
-This is the single canonical implementation order.
+This is the single canonical implementation order after the eight-round re-audit.
 
-## P0 — make current repository truthful
+## P0 — stabilize the implemented foundation
 
-- fix missing referenced files;
-- fix first intake row;
-- fix manifest exact identity;
-- fix tag behavior;
-- fix dashboard async read;
-- fix root frontmatter contracts;
-- remove hard-coded local path;
-- remove bytecode;
-- remove legacy naming;
-- fix hook/bootstrap guidance;
-- make audit include control/operator paths;
-- test existing documented commands.
+- restore all GitHub Actions jobs to green;
+- make declared Python support match the UUID implementation;
+- fix every writer/schema mismatch;
+- enforce schema validation before every authoritative write;
+- repair uncollected evidence-edge tests;
+- define durable persistence for authoritative `.research` records;
+- fix remaining dashboard P0 correctness defects;
+- correct audit/README completion claims;
+- keep fixed original defects covered by regression tests.
 
 Exit criterion:
 
-> Every currently documented path/command works as documented, and the repository cannot report clean when an operating path is broken.
+> Current `main` is green in CI, every public writer round-trips through its canonical schema, and authoritative records survive/reconstruct correctly under the documented persistence model.
 
-## P1 — conventions and schema authority
+## P1 — finish authority and contract unification
 
-- naming conventions;
-- glossary;
-- stable IDs;
-- timestamp rules;
-- typed statuses;
-- schema registry;
-- migrations;
-- template registry;
-- .editorconfig;
-- .gitattributes;
-- path-scoped storage ignores.
+- derive/configure shared enums from one authority rather than duplicating them;
+- make config, schemas, paths, scripts, docs, and tests agree;
+- make TemplateRegistry the actual note-generator authority;
+- make Unicode-safe note identity/filenames;
+- make evidence edges the single authoritative evidence relation;
+- align event types, filenames, error taxonomy, and agent instructions;
+- add schema/config contract tests for every duplicated vocabulary.
 
 Exit criterion:
 
-> No important vocabulary/state rule is independently hard-coded in multiple tools.
+> A concept such as task status, source type, evidence relation, event type, or template type has one canonical definition and all other surfaces consume or validate against it.
 
-## P2 — control plane
+## P2 — make the control plane concurrency-safe and enforceable
 
-- research.config.yaml;
-- common agent contract;
-- role docs;
-- role manifests;
-- event records;
-- task records;
-- run records;
-- typed handoffs;
-- leases;
-- idempotency;
-- state builder;
-- health builder;
-- maintenance rules.
+- require/derive task idempotency keys;
+- enforce legal task/run/handoff transitions;
+- implement collision-safe leases, heartbeat, expiry, and reclamation;
+- use atomic writes;
+- add record revisions and optimistic concurrency;
+- implement typed handoffs;
+- record exact execution envelope;
+- enforce role manifests at runtime;
+- fix role read/write/tool scopes;
+- define orchestration bootstrap semantics;
+- build/rebuild stale snapshots deterministically.
 
 Exit criterion:
 
-> A new agent can determine what it may do, what has been done, what is pending, what is blocked, and which state is authoritative.
+> Multiple agents can operate concurrently without silent overwrite, duplicate side effects, or unauthorized mutation, and every state transition is attributable and recoverable.
 
-## P3 — CI and security foundation
+## P3 — finish CI, security, and repository governance
 
-- pyproject;
-- deterministic dependencies;
-- Ruff/pytest;
-- docs tests;
-- fixtures;
-- GitHub CI;
-- generated drift;
-- secret scanning;
-- minimum workflow permissions;
-- parser quarantine/sandbox;
-- network/SSRF policy;
-- sensitivity routing.
+- deterministic dependency locking;
+- supported Python-version CI matrix;
+- green secret scanning in the organization repository;
+- real generated-artifact drift generation/check;
+- branch protection/ruleset for main where supported;
+- network/SSRF policy before remote source adapters;
+- ingestion quarantine and archive safety;
+- parser sandbox/resource limits;
+- sensitivity-aware provider routing;
+- secret/sensitive-log redaction.
 
 Exit criterion:
 
-> Autonomous output cannot enter trusted state without deterministic validation and permission checks.
+> Autonomous output cannot enter trusted state without deterministic validation, permission checks, and the security controls relevant to the enabled capabilities.
 
-## P4 — evidence primitives
+## P4 — complete evidence integrity and source intelligence
 
-- source records;
-- source deduplication;
-- segments;
-- exact locators;
-- claims;
-- evidence edges;
-- entities;
-- aliases;
-- conflicts;
-- gaps;
-- provenance graph;
-- freshness;
+- enforce referential integrity for all writers;
+- source canonicalization and resilient deduplication;
+- source/segment/claim/evidence graph consistency;
+- entity aliases and duplicate resolution;
+- freshness engine;
 - source lineage;
-- impact analysis.
-
-Exit criterion:
-
-> Every trusted claim can answer “why do we believe this, from exactly where, under which version/scope?”
-
-## P5 — dashboard rebuild
-
-First implement a truthful scaffold dashboard.
-
-Then, after structured state exists:
-
-- Ask KB;
-- attention queue;
-- research coverage;
-- active work;
-- semantic activity;
-- source health;
+- changed-source impact propagation;
+- automated contradiction candidates;
 - decision impact;
-- maintenance state.
+- source adapters after security controls exist.
 
 Exit criterion:
 
-> Dashboard values come only from documented authoritative state and prioritize what needs attention.
+> Every trusted claim can answer “why do we believe this, from exactly where, under which version/scope, and what changes if the source changes?”
 
-## P6 — knowledge-query agent
+## P5 — rebuild the dashboard on structured state
 
-- exact retrieval;
-- lexical retrieval;
-- graph expansion;
-- optional vector layer;
-- provenance validation;
-- stale/conflict warnings;
-- gap creation;
-- feedback loop.
+Implement a truthful scaffold dashboard first, then add Ask/Search, attention queue, research coverage, active work, semantic activity, source health, decision impact, and maintenance health.
 
 Exit criterion:
 
-> It answers only what the KB establishes and cites exact evidence.
+> Dashboard values come only from documented authoritative/derived state, distinguish zero/unknown/error, and prioritize what needs attention.
 
-## P7 — autonomous research workers
+## P6 — implement the executable knowledge-query agent
 
-- discovery adapters;
-- acquisition;
-- processing;
-- classification;
-- verification;
-- distillation;
-- synthesis;
-- bounded orchestrator loops;
-- budgets/retries/circuit breakers.
+Implement exact/entity retrieval, lexical retrieval, graph/evidence expansion, optional vector acceleration, provenance validation, stale/conflict/scope warnings, gap/task proposal, feedback, and runtime role enforcement.
 
 Exit criterion:
 
-> A complete research brief can execute end-to-end with resumable, auditable state.
+> It answers only what the KB establishes, cites exact evidence, and explicitly reports insufficient or conflicting knowledge.
 
-## P8 — maintenance and self-evolution
+## P7 — implement bounded autonomous research workers
 
-- scheduled health;
-- source refresh;
-- query-learning;
-- ontology proposals;
-- evolution proposals;
-- safe auto-apply classes;
-- evaluation history.
+Implement secure discovery adapters, acquisition, parsing, classification, verification, distillation, synthesis, adaptive planning, budgets/retries/circuit breakers, and resumable runs/handoffs.
 
 Exit criterion:
 
-> Repeated use improves the system without silent changes to authoritative meaning.
+> A complete research brief executes end-to-end with bounded, resumable, auditable state and no bypass around evidence/provenance rules.
+
+## P8 — maintenance and controlled self-evolution
+
+Implement scheduled health reporting, source refresh, query-learning, ontology/evolution proposals, safe low-risk auto-apply classes, migration/evaluation history, rollback, and review gates.
+
+Exit criterion:
+
+> Repeated use improves organization and research coverage without silently changing authoritative meaning or policy.
 
 ---
 
 # 46. Acceptance criteria
 
-## 46.1 Guidance
+## 46.1 Current foundation
+
+- latest `main` CI is green;
+- supported Python versions are explicit and tested;
+- public writers emit schema-valid records;
+- invalid records cannot enter authority through normal APIs;
+- authoritative persistence is documented and durable;
+- no status documentation claims a clean state when CI is red.
+
+## 46.2 Guidance
 
 - one precedence model;
 - no broken operator references;
-- no deprecated terminology;
-- docs examples tested;
-- role/instruction versions recorded.
+- no deprecated product terminology outside explicit history;
+- documentation examples tested;
+- role/instruction versions recorded;
+- agent docs, manifests, schemas, and runtime behavior agree.
 
-## 46.2 Structure
+## 46.3 Structure
 
 - control and content planes separated;
-- template and project lifecycle separated;
-- profile-specific domains not hard-coded into kernel;
+- template/project lifecycle separated;
+- profile-specific domains are not long-term kernel assumptions;
 - generated files rebuildable;
-- archived provenance still valid.
+- authoritative records not mislabeled as generated;
+- archived provenance resolvable.
 
-## 46.3 Conventions
+## 46.4 Conventions
 
-- filenames conform;
-- IDs conform;
-- timestamps conform;
-- event grammar conforms;
+- filenames and canonical prefixes conform;
+- timestamps/event grammar conform;
 - status fields typed;
-- templates match schemas.
+- templates match schemas;
+- config/schema vocabularies do not drift.
 
-## 46.4 State
+## 46.5 State and concurrency
 
 - tasks idempotent;
-- leases expire/recover;
+- leases collision-safe and recoverable;
 - retries traceable;
-- events immutable;
+- writes atomic;
+- revisions/concurrency checked;
 - snapshots advertise freshness;
 - handoffs typed;
-- execution envelope recorded.
+- exact execution envelope recorded.
 
-## 46.5 Research quality
+## 46.6 Research quality
 
-- claims have provenance;
+- claims have exact provenance;
+- evidence relations have one authority;
+- references resolve;
 - important claims verified;
 - conflicts visible;
 - source independence modeled;
 - gaps first-class;
-- negative findings scoped;
-- freshness policy-driven.
+- freshness policy-driven;
+- source changes propagate to dependent knowledge.
 
-## 46.6 Security
+## 46.7 Security
 
-- role permissions enforceable;
+- role permissions runtime-enforced;
 - model output schema-validated;
 - source content cannot alter policy;
 - fetching protects internal networks;
-- parsing is sandboxed/quarantined;
+- parsing sandboxed/quarantined when enabled;
 - sensitive data obeys routing/logging policy;
-- secrets blocked.
+- secret scanning green;
+- control-plane changes governed.
 
-## 46.7 Dashboard
+## 46.8 Dashboard
 
 - no semantically false metric;
-- zero vs unknown distinguishable;
+- zero vs unknown/unavailable/error distinguishable;
+- async reads correct;
+- project identity comes from shared config;
 - first viewport shows attention/current work;
 - metrics drill down;
-- admin content secondary;
-- semantic colors;
-- light/dark;
-- reduced motion;
-- visible focus;
-- responsive narrow layout;
+- semantic colors, light/dark, reduced motion, visible focus, responsive layout;
 - no mandatory external fonts.
 
-## 46.8 Automation
+## 46.9 Automation
 
 - fresh clone bootstrap deterministic;
-- PR CI complete;
-- generated drift blocks;
-- schemas tested;
-- dependencies locked;
+- PR/main CI complete;
+- generated drift check actually regenerates/checks tracked derived artifacts;
+- schema/meta-contract tests exist;
+- dependencies reproducible;
 - workflows least-privilege;
 - third-party actions SHA-pinned;
-- scheduled jobs do not silently rewrite research.
+- scheduled jobs do not silently rewrite trusted research.
 
-## 46.9 Reusability
+## 46.10 Reusability
 
 - works for non-software topics;
+- repository metadata generic;
 - Obsidian optional;
 - Unicode titles safe;
-- storage configurable;
-- sensitivity configurable;
+- storage/sensitivity configurable;
 - upgrades use migrations.
 
 ---
 
 # 47. Immediate implementation batch
 
-The first implementation batch should be deliberately small and foundational:
+The next batch should stabilize what already exists before P5–P8 feature expansion.
 
-1. add canonical naming/glossary docs;
-2. fix all currently broken references;
-3. create the missing curator skill/readme or remove references;
-4. split research-note and source-record templates;
-5. fix intake first-row/update/tag bugs;
-6. fix dashboard async read and remove misleading metrics;
-7. remove committed bytecode and tighten ignores;
-8. add .editorconfig/.gitattributes;
-9. centralize schema constants;
-10. add pyproject + tests;
-11. add CI;
-12. only after that start building .research state.
+1. Restore green GitHub Actions and inspect every failed job log.
+2. Resolve Python UUIDv7/runtime support.
+3. Fix segment/task-lease/gap/source writer-schema mismatches.
+4. Validate every authoritative writer before persistence.
+5. Fix evidence-edge test collection and add writer round-trip tests.
+6. Implement the durable persistence model for authoritative `.research` records.
+7. Add atomic writes and basic optimistic concurrency.
+8. Require task idempotency and make leases collision-safe.
+9. Align agent instructions, event schema, manifests, tool scopes, and runtime enforcement.
+10. Make standalone evidence edges the single evidence-relationship authority.
+11. Remove duplicated new-note/intake vocabularies and wire TemplateRegistry into note creation.
+12. Fix remaining dashboard P0 correctness defects.
+13. Update README/readiness claims only after CI is verified green.
+14. Protect main / enforce required checks where supported.
 
-Do not begin broad autonomous research before this batch is stable.
+Do not expand into autonomous browsing/parsing before this batch is stable.
 
 ---
 
@@ -2789,6 +2764,8 @@ Architecture/provenance:
 
 - W3C PROV Primer: https://www.w3.org/TR/prov-primer/
 - RFC 9562 UUIDs: https://www.rfc-editor.org/rfc/rfc9562.html
+- Python 3.14 uuid documentation: https://docs.python.org/3.14/library/uuid.html
+- Python 3.12 uuid documentation: https://docs.python.org/3.12/library/uuid.html
 - JSON Schema: https://json-schema.org/specification
 
 Agent/research architecture:
@@ -2811,6 +2788,7 @@ Engineering/governance:
 - GitHub workflow syntax/concurrency: https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax
 - GitHub protected branches: https://docs.github.com/en/repositories/configuring-branches-and-merges/managing-protected-branches/about-protected-branches
 - GitHub Dependabot for Actions: https://docs.github.com/en/code-security/how-tos/secure-your-supply-chain/secure-your-dependencies/auto-update-actions
+- Gitleaks Action organization-license documentation: https://github.com/gitleaks/gitleaks-action
 - Conventional Commits: https://www.conventionalcommits.org/en/v1.0.0/
 - Semantic Versioning: https://semver.org/
 
@@ -2834,3 +2812,44 @@ Future audits must follow these rules:
 10. Audit this file for duplicate headings, stale filenames, broken internal references, and contradictory state vocabularies as part of CI.
 
 The audit should remain a usable implementation contract, not a chronological transcript of every audit pass.
+
+---
+
+# 50. Eight-round re-audit verification record
+
+This section records the scope/result of the 2026-09-22 eight-pass audit. Normative changes are integrated into Sections 0, 3, and 45–47 rather than duplicated here.
+
+| Pass | Scope | Result |
+|---|---|---|
+| 1 | Implementation completeness and previous-audit claims | Substantial progress confirmed, but previous completion/validation claims were too strong; current CI is red. |
+| 2 | Schemas, state, IDs, authority boundaries | Found Python UUID support mismatch, authoritative-state persistence contradiction, duplicated vocabularies, incomplete snapshot/concurrency guarantees. |
+| 3 | Agent instructions, manifests, tool contracts | Roles exist but enforcement is absent; several manifests cannot perform documented responsibilities; coordinator roles overlap. |
+| 4 | Sources, segments, claims, evidence, intake, tests | Found writer/schema mismatches, missing referential validation, dual evidence authority, unstable intake identity, and uncollected evidence-edge tests. |
+| 5 | Maintenance, CI, automation, packaging | Maintenance is an early evaluator; CI is red; dependency reproducibility and generated-drift enforcement are incomplete. |
+| 6 | Dashboard UI/UX/data semantics | Previously identified P0 data-correctness and accessibility issues remain; state-driven redesign is pending. |
+| 7 | Security, reliability, concurrency | Permissions are policy-only; atomic writes, optimistic concurrency, robust leases, quarantine/sandbox/SSRF/sensitivity controls remain incomplete. |
+| 8 | Documentation, audit consistency, governance | Audit/README status drifted from reality; repository description is domain-specific; main is unprotected; source-authority guidance conflicts remain. |
+
+## 50.1 Positive progress verified
+
+The repository has moved materially forward: schemas/registries, package/tests, role manifests, CI/Dependabot/Gitleaks configuration, curator/OpenWolf files, evidence primitives, canonical local source registration, and state/health/maintenance builders now exist.
+
+The current phase is best described as **integration hardening**, not missing foundation.
+
+## 50.2 Evidence limitations
+
+GitHub confirmed job-level failures for the latest CI run but the connector did not expose usable job logs in this audit session. Therefore job failure state is confirmed, source-level defects above are confirmed by code inspection, and exact attribution of each CI failure must be verified from Actions logs during implementation.
+
+Do not weaken or disable gates merely to make CI green.
+
+## 50.3 Next full-audit trigger
+
+Run another full audit after the stabilization batch when:
+
+- latest main CI is green;
+- writer/schema round-trip tests exist;
+- authoritative persistence policy is implemented;
+- role/tool contracts are synchronized;
+- dashboard P0 correctness defects are fixed.
+
+Until then, Sections 3 and 47 are the immediate defect backlog.
