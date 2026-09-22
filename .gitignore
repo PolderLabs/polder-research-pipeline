@@ -61,3 +61,7 @@ htmlcov/
 
 # Misc generated logs
 *.log
+
+# Local dev / agent tooling (not part of the project)
+.claude/
+.wolf/

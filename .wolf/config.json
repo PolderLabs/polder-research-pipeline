@@ -1,7 +1,0 @@
-{
-  "version": "1.0",
-  "agent": {
-    "name": "polder-research-pipeline",
-    "description": "Self-evolving knowledge base for realtime AI-driven visual platform research"
-  }
-}
