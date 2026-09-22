@@ -25,9 +25,7 @@ from polder_research.paths import (
     VAULT_DIRS,
 )
 
-VAULT_DOMAIN_DIRS: tuple[str, ...] = tuple(
-    d.split("/", 1)[1] for d in VAULT_DIRS
-)
+VAULT_DOMAIN_DIRS: tuple[str, ...] = tuple(d.split("/", 1)[1] for d in VAULT_DIRS)
 
 
 def parse_frontmatter(text):
