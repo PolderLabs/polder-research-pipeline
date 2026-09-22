@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import uuid
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from ..atomic import write_atomic
 from ..paths import (
     EVIDENCE_CLAIMS_DIR,
     EVIDENCE_CONFLICTS_DIR,
@@ -20,6 +22,19 @@ from ..paths import (
     EVIDENCE_SOURCES_DIR,
 )
 
+_SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+
+
+def _persist(
+    target: Path,
+    record: dict[str, Any],
+    *,
+    schema_name: str,
+    registry_factory: Any = None,
+) -> None:
+    """Persist one canonical evidence record atomically with schema validation."""
+    write_atomic(target, record, schema_name=schema_name)
+
 
 def _now() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
@@ -27,6 +42,42 @@ def _now() -> str:
 
 def _uuid7(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid7()}"
+
+
+def assert_record_exists(
+    record_id: str,
+    *,
+    prefix: str,
+    default_dir: Path,
+    directory_name: str,
+    repository_root: Path | None = None,
+) -> dict[str, Any]:
+    """Verify that a parent record exists on disk and matches its id.
+
+    Writers that take a foreign key (segment.source_id, claim.source_ids,
+    conflict.claim_ids, evidence_edge.claim_id/source_id, tasks.acquire_lease)
+    call this BEFORE persisting the child. Per AUDIT.md §16: every parent_id
+    reference must resolve before the child is written.
+
+    Returns the parsed record so callers can perform additional checks
+    (e.g. segment-membership for evidence edges).
+    """
+    if not record_id or not isinstance(record_id, str):
+        raise ValueError(f"record id must be a non-empty string, got {record_id!r}")
+    if not record_id.startswith(f"{prefix}_"):
+        raise ValueError(f"expected {prefix}_ record id, got {record_id!r}")
+    path = _record_dir(default_dir, repository_root, directory_name) / f"{record_id}.json"
+    if not path.is_file():
+        raise ValueError(
+            f"parent record does not exist: {record_id!r} "
+            f"(expected under {directory_name}/)"
+        )
+    record = json.loads(path.read_text(encoding="utf-8"))
+    if record.get("id") != record_id:
+        raise ValueError(
+            f"parent record identity mismatch: {record_id!r} (file contains {record.get('id')!r})"
+        )
+    return record
 
 
 def _record_dir(default: Path, repository_root: Path | None, name: str) -> Path:
@@ -70,11 +121,23 @@ def register_source(
     mime_type: str | None = None,
     repository_root: Path | None = None,
 ) -> str:
-    """Register a new source record, compute content hash if raw_bytes provided."""
+    """Register a new source record. The content SHA-256 is required (computed
+    from ``raw_bytes`` when supplied, otherwise the caller must provide it).
+    Persisting an empty hash is forbidden because the canonical schema requires
+    a 64-character lowercase SHA-256 (AUDIT.md §32)."""
     ensure_evidence_dirs(repository_root=repository_root)
     sid = _uuid7("src")
     if raw_bytes is not None:
         content_sha256 = compute_content_hash(raw_bytes)
+    if not content_sha256 or not isinstance(content_sha256, str):
+        raise ValueError(
+            "register_source requires a content_sha256 (compute from raw_bytes "
+            "or supply it explicitly)"
+        )
+    if not _SHA256_PATTERN.match(content_sha256):
+        raise ValueError(
+            f"content_sha256 must be a 64-char lowercase hex string; got {content_sha256!r}"
+        )
     record: dict[str, Any] = {
         "id": sid,
         "schema_version": 1,
@@ -83,7 +146,7 @@ def register_source(
         "media_type": media_type,
         "title": title,
         "retrieved_at": _now(),
-        "content_sha256": content_sha256 or "",
+        "content_sha256": content_sha256,
     }
     if doi:
         record["doi"] = doi
@@ -95,9 +158,11 @@ def register_source(
         record["byte_size"] = byte_size
     if mime_type:
         record["mime_type"] = mime_type
-    _record_dir(EVIDENCE_SOURCES_DIR, repository_root, "sources").joinpath(
-        f"{sid}.json"
-    ).write_text(json.dumps(record, indent=2), encoding="utf-8")
+    _persist(
+        _record_dir(EVIDENCE_SOURCES_DIR, repository_root, "sources").joinpath(f"{sid}.json"),
+        record,
+        schema_name="source",
+    )
     return sid
 
 
@@ -137,6 +202,13 @@ def register_segment(
     end: str | None = None,
     repository_root: Path | None = None,
 ) -> str:
+    assert_record_exists(
+        source_id,
+        prefix="src",
+        default_dir=EVIDENCE_SOURCES_DIR,
+        directory_name="sources",
+        repository_root=repository_root,
+    )
     ensure_evidence_dirs(repository_root=repository_root)
     seg_id = _uuid7("seg")
     record: dict[str, Any] = {
@@ -145,7 +217,7 @@ def register_segment(
         "source_id": source_id,
         "text": text,
         "locator": {"scheme": locator_scheme},
-        "created_at": _now(),
+        "extracted_at": _now(),
     }
     if locator_value is not None:
         record["locator"]["value"] = locator_value
@@ -153,9 +225,11 @@ def register_segment(
         record["locator"]["start"] = start
     if end is not None:
         record["locator"]["end"] = end
-    _record_dir(EVIDENCE_SEGMENTS_DIR, repository_root, "segments").joinpath(
-        f"{seg_id}.json"
-    ).write_text(json.dumps(record, indent=2), encoding="utf-8")
+    _persist(
+        _record_dir(EVIDENCE_SEGMENTS_DIR, repository_root, "segments").joinpath(f"{seg_id}.json"),
+        record,
+        schema_name="segment",
+    )
     return seg_id
 
 
@@ -167,6 +241,18 @@ def register_claim(
     claim_kind: str | None = None,
     repository_root: Path | None = None,
 ) -> str:
+    """Register a claim. Every source_id must resolve to an existing source
+    record (AUDIT.md §16) before the claim is persisted."""
+    if not source_ids:
+        raise ValueError("register_claim: source_ids must be a non-empty list")
+    for sid in source_ids:
+        assert_record_exists(
+            sid,
+            prefix="src",
+            default_dir=EVIDENCE_SOURCES_DIR,
+            directory_name="sources",
+            repository_root=repository_root,
+        )
     ensure_evidence_dirs(repository_root=repository_root)
     clm_id = _uuid7("clm")
     record: dict[str, Any] = {
@@ -175,13 +261,15 @@ def register_claim(
         "statement": statement,
         "claim_status": claim_status,
         "created_at": _now(),
-        "source_ids": source_ids,
+        "source_ids": list(source_ids),
     }
     if claim_kind:
         record["claim_kind"] = claim_kind
-    _record_dir(EVIDENCE_CLAIMS_DIR, repository_root, "claims").joinpath(
-        f"{clm_id}.json"
-    ).write_text(json.dumps(record, indent=2), encoding="utf-8")
+    _persist(
+        _record_dir(EVIDENCE_CLAIMS_DIR, repository_root, "claims").joinpath(f"{clm_id}.json"),
+        record,
+        schema_name="claim",
+    )
     return clm_id
 
 
@@ -206,19 +294,34 @@ def register_entity(
         record["aliases"] = aliases
     if description:
         record["description"] = description
-    _record_dir(EVIDENCE_ENTITIES_DIR, repository_root, "entities").joinpath(
-        f"{ent_id}.json"
-    ).write_text(json.dumps(record, indent=2), encoding="utf-8")
+    _persist(
+        _record_dir(EVIDENCE_ENTITIES_DIR, repository_root, "entities").joinpath(f"{ent_id}.json"),
+        record,
+        schema_name="entity",
+    )
     return ent_id
 
 
 def register_gap(
     *,
     description: str,
-    priority: str = "moderate",
+    priority: str = "medium",
     status: str = "open",
     repository_root: Path | None = None,
 ) -> str:
+    """Create a gap record. Priority defaults to ``medium`` (canonical)."""
+    canonical_priorities = ("low", "medium", "high", "critical")
+    status_values = (
+        "open",
+        "investigating",
+        "filled",
+        "deferred",
+        "wontfix",
+    )
+    if priority not in canonical_priorities:
+        raise ValueError(f"gap priority {priority!r} is not one of {canonical_priorities!r}")
+    if status not in status_values:
+        raise ValueError(f"gap status {status!r} is not one of {status_values!r}")
     ensure_evidence_dirs(repository_root=repository_root)
     gap_id = _uuid7("gap")
     record: dict[str, Any] = {
@@ -242,6 +345,21 @@ def register_conflict(
     status: str = "open",
     repository_root: Path | None = None,
 ) -> str:
+    """Register a conflict. Every claim_id must resolve to an existing claim
+    record (AUDIT.md §16) before the conflict is persisted. Conflicts must
+    contain at least two distinct claims."""
+    if len(claim_ids) < 2:
+        raise ValueError("register_conflict: claim_ids must reference at least two claims")
+    if len(set(claim_ids)) != len(claim_ids):
+        raise ValueError("register_conflict: claim_ids must be unique")
+    for cid in claim_ids:
+        assert_record_exists(
+            cid,
+            prefix="clm",
+            default_dir=EVIDENCE_CLAIMS_DIR,
+            directory_name="claims",
+            repository_root=repository_root,
+        )
     ensure_evidence_dirs(repository_root=repository_root)
     cfl_id = _uuid7("cfl")
     record: dict[str, Any] = {
@@ -252,9 +370,13 @@ def register_conflict(
         "status": status,
         "created_at": _now(),
     }
-    _record_dir(EVIDENCE_CONFLICTS_DIR, repository_root, "conflicts").joinpath(
-        f"{cfl_id}.json"
-    ).write_text(json.dumps(record, indent=2), encoding="utf-8")
+    _persist(
+        _record_dir(EVIDENCE_CONFLICTS_DIR, repository_root, "conflicts").joinpath(
+            f"{cfl_id}.json"
+        ),
+        record,
+        schema_name="conflict",
+    )
     return cfl_id
 
 
@@ -269,26 +391,6 @@ EVIDENCE_RELATIONS = frozenset(
         "supersedes",
     }
 )
-
-
-def _require_record(
-    record_id: str,
-    *,
-    prefix: str,
-    default_dir: Path,
-    directory_name: str,
-    repository_root: Path | None,
-) -> dict[str, Any]:
-    if not record_id.startswith(f"{prefix}_"):
-        raise ValueError(f"expected {prefix}_ record id, got {record_id!r}")
-    path = _record_dir(default_dir, repository_root, directory_name) / f"{record_id}.json"
-    if not path.is_file():
-        raise ValueError(f"record does not exist: {record_id}")
-    record = json.loads(path.read_text(encoding="utf-8"))
-    if record.get("id") != record_id:
-        raise ValueError(f"record identity mismatch: {record_id}")
-    return record
-
 
 def register_evidence_edge(
     *,
@@ -314,14 +416,14 @@ def register_evidence_edge(
     if confidence not in {"high", "medium", "low"}:
         raise ValueError(f"invalid evidence confidence: {confidence!r}")
 
-    _require_record(
+    assert_record_exists(
         claim_id,
         prefix="clm",
         default_dir=EVIDENCE_CLAIMS_DIR,
         directory_name="claims",
         repository_root=repository_root,
     )
-    _require_record(
+    assert_record_exists(
         source_id,
         prefix="src",
         default_dir=EVIDENCE_SOURCES_DIR,
@@ -331,7 +433,7 @@ def register_evidence_edge(
 
     edge_locator: dict[str, str]
     if segment_id is not None:
-        segment = _require_record(
+        segment = assert_record_exists(
             segment_id,
             prefix="seg",
             default_dir=EVIDENCE_SEGMENTS_DIR,
@@ -358,7 +460,6 @@ def register_evidence_edge(
         "sha256",
     }:
         raise ValueError("evidence locator requires a valid scheme")
-
     ensure_evidence_dirs(repository_root=repository_root)
     edge_id = _uuid7("evd")
     record: dict[str, Any] = {
@@ -374,7 +475,9 @@ def register_evidence_edge(
     }
     if segment_id is not None:
         record["segment_id"] = segment_id
-    _record_dir(EVIDENCE_EDGES_DIR, repository_root, "edges").joinpath(
-        f"{edge_id}.json"
-    ).write_text(json.dumps(record, indent=2), encoding="utf-8")
+    _persist(
+        _record_dir(EVIDENCE_EDGES_DIR, repository_root, "edges").joinpath(f"{edge_id}.json"),
+        record,
+        schema_name="evidence",
+    )
     return edge_id
