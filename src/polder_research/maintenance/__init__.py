@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 from collections import Counter
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import jsonschema
@@ -28,7 +29,6 @@ from ..paths import (
     RESEARCH_TASKS_DIR,
 )
 from ..workflow import _config, _read_records, _root, _schema, build_state
-
 
 # Re-exported from the workflow module so callers can address the canonical
 # state builder via ``polder_research.maintenance.build_state`` without
@@ -57,7 +57,7 @@ def _evidence_collection(root: Path | None, kind: str) -> list[dict[str, Any]]:
     for path in sorted((research / f"{kind}s").glob("*.json")):
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+        except OSError, json.JSONDecodeError:
             continue
         if validator.is_valid(record):
             out.append(record)
@@ -185,11 +185,13 @@ def derive_stale_records(
         except ValueError:
             continue
         if parsed < cutoff:
-            findings.append({
-                "id": record.get("id", ""),
-                "updated_at": updated_at,
-                "age_days": (_now(now) - parsed).days,
-            })
+            findings.append(
+                {
+                    "id": record.get("id", ""),
+                    "updated_at": updated_at,
+                    "age_days": (_now(now) - parsed).days,
+                }
+            )
     return findings
 
 
@@ -221,11 +223,13 @@ def evaluate_maintenance(
     claims = _evidence_collection(root, "claim")
     conflicts = _evidence_collection(root, "conflict")
     superseded_sources = sum(1 for source in sources if source.get("source_status") == "superseded")
-    superseded_proxy_ids = sorted({
-        sid
-        for source in sources
-        if (sid := superseded_source_proxy(source, repository_root=root)) is not None
-    })
+    superseded_proxy_ids = sorted(
+        {
+            sid
+            for source in sources
+            if (sid := superseded_source_proxy(source, repository_root=root)) is not None
+        }
+    )
 
     maintenance_thresholds = thresholds(root)
 
@@ -375,14 +379,16 @@ def evaluate_maintenance(
         )
 
     if stale_findings:
-        triggers.append({
-            "kind": "freshness",
-            "name": "stale_derived",
-            "reason": (
-                f"{len(stale_findings)} authoritative record(s) exceed stale_after_days="
-                f"{maintenance_thresholds.get('stale_after_days')}"
-            ),
-        })
+        triggers.append(
+            {
+                "kind": "freshness",
+                "name": "stale_derived",
+                "reason": (
+                    f"{len(stale_findings)} authoritative record(s) exceed stale_after_days="
+                    f"{maintenance_thresholds.get('stale_after_days')}"
+                ),
+            }
+        )
 
     passes = _authorized_passes(config)
     due = bool(triggers and passes)
@@ -430,7 +436,7 @@ def build_health(repository_root: str | Path | None = None) -> dict[str, Any]:
             return None
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
+        except OSError, json.JSONDecodeError:
             return None
         return record if isinstance(record, dict) else None
 

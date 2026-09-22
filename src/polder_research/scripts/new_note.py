@@ -6,7 +6,6 @@ import datetime
 import re
 import sys
 import unicodedata
-from pathlib import Path
 
 from ..paths import DOMAIN_TYPE, REPO_ROOT, VALID_STATUS, VALID_TYPE
 from ..templates import TemplateRegistry, registry

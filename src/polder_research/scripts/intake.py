@@ -11,7 +11,11 @@ from ..atomic import write_atomic
 from ..evidence import compute_content_hash, find_duplicate_source, register_source
 from ..paths import (
     INTAKE_VALID_KIND as VALID_KIND,
+)
+from ..paths import (
     INTAKE_VALID_STATUS as VALID_STATUS,
+)
+from ..paths import (
     RESEARCH_INTAKE_DIR,
 )
 
