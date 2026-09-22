@@ -76,3 +76,25 @@ class TestVocabularies:
         assert "documentation" in VALID_KIND
         assert "dataset" in VALID_KIND
         assert "benchmark" in VALID_KIND
+
+
+class TestIntakeId:
+    def test_id_is_stable_across_filenames(self):
+        """Stable ID survives absolute-path moves and filename renames."""
+        from polder_research.scripts.intake import intake_id
+
+        sha = "a" * 64
+        first = intake_id(content_sha256=sha, kind="paper")
+        second = intake_id(content_sha256=sha, kind="paper")
+        assert first == second
+        assert first.startswith("int_")
+        assert first.endswith("_paper")
+
+    def test_id_changes_when_kind_changes(self):
+        """Same content but different kind yields a different intake ID."""
+        from polder_research.scripts.intake import intake_id
+
+        sha = "b" * 64
+        assert intake_id(content_sha256=sha, kind="paper") != intake_id(
+            content_sha256=sha, kind="dataset"
+        )

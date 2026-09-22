@@ -160,6 +160,7 @@ RESEARCH_EVENTS_DIR: Path = RESEARCH_DIR / "events"
 RESEARCH_TASKS_DIR: Path = RESEARCH_DIR / "tasks"
 RESEARCH_RUNS_DIR: Path = RESEARCH_DIR / "runs"
 RESEARCH_HANDOFFS_DIR: Path = RESEARCH_DIR / "handoffs"
+RESEARCH_INTAKE_DIR: Path = RESEARCH_DIR / "intake"
 RESEARCH_MAINTENANCE_DIR: Path = RESEARCH_DIR / "maintenance"
 RESEARCH_LOCKS_DIR: Path = RESEARCH_DIR / "locks"
 # Evidence records (authoritative structured state per AUDIT.md §11-14)
@@ -188,6 +189,7 @@ def ensure_research_dirs() -> None:
         RESEARCH_TASKS_DIR,
         RESEARCH_RUNS_DIR,
         RESEARCH_HANDOFFS_DIR,
+        RESEARCH_INTAKE_DIR,
         RESEARCH_MAINTENANCE_DIR,
         RESEARCH_LOCKS_DIR,
         RESEARCH_GENERATED_DIR,

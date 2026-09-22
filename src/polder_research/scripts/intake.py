@@ -7,37 +7,17 @@ import re
 import sys
 from pathlib import Path
 
+from ..atomic import write_atomic
 from ..evidence import compute_content_hash, find_duplicate_source, register_source
+from ..paths import (
+    INTAKE_VALID_KIND as VALID_KIND,
+    INTAKE_VALID_STATUS as VALID_STATUS,
+    RESEARCH_INTAKE_DIR,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MANIFEST = REPO_ROOT / "90-inbox" / "manifest.md"
 
-VALID_STATUS = frozenset(
-    {"new", "triaged", "processing", "distilled", "filed", "rejected", "blocked"}
-)
-VALID_KIND = frozenset(
-    {
-        "pdf",
-        "repository",
-        "article",
-        "paper",
-        "log",
-        "transcript",
-        "media",
-        "url-list",
-        "documentation",
-        "webpage",
-        "dataset",
-        "benchmark",
-        "video",
-        "audio",
-        "book",
-        "standard",
-        "issue",
-        "discussion",
-        "other",
-    }
-)
 _CANONICAL_SOURCE_TYPES = frozenset(
     {
         "paper",
@@ -105,13 +85,62 @@ def _kind_to_source_type(kind: str) -> tuple[str, str]:
     return (kind if kind in _CANONICAL_SOURCE_TYPES else "other"), media_type
 
 
-def canonical_source_for_raw(
+def intake_id(*, content_sha256: str, kind: str) -> str:
+    """Return the stable intake ID derived from content hash + kind.
+
+    IDs are intentionally stable across absolute-path moves and filename
+    renames: only the immutable raw bytes (SHA-256) and the declared intake
+    kind participate. The canonical intake record can therefore follow the
+    raw item even when ``90-inbox/raw/`` is reorganised.
+    """
+    return f"int_{content_sha256[:16]}_{kind}"
+
+
+def _intake_record_path(intake_dir: Path, item_id: str) -> Path:
+    """Return the canonical intake record path for ``item_id``."""
+    return intake_dir / f"{item_id}.json"
+
+
+def _build_intake_record(
+    *,
+    item_id: str,
+    filename: str,
+    raw_location: str,
+    content_sha256: str,
+    kind: str,
+    source_id: str,
+    owner: str,
+    status: str,
+    outcome: str,
+    added_on: str,
+) -> dict[str, object]:
+    """Build the canonical structured intake document for ``write_atomic``."""
+    return {
+        "id": item_id,
+        "schema_version": 1,
+        "filename": filename,
+        "raw_location": raw_location,
+        "content_sha256": content_sha256,
+        "kind": kind,
+        "source_id": source_id,
+        "owner": owner,
+        "status": status,
+        "outcome": outcome,
+        "added_on": added_on,
+    }
+
+
+def _canonical_source_for_raw(
     filename: str,
     *,
     kind: str,
     repository_root: Path | None = None,
-) -> str:
-    """Create or resolve the canonical source for an existing immutable raw item."""
+) -> tuple[str, str, str]:
+    """Create or resolve the canonical source; return ``(source_id, content_sha256, raw_location)``.
+
+    The auxiliary values power the stable intake ID derivation without
+    re-reading or re-hashing the raw item.
+    """
     repo = Path(repository_root) if repository_root is not None else REPO_ROOT
     raw_dir = (repo / "90-inbox" / "raw").resolve()
     raw_file = (raw_dir / filename).resolve()
@@ -131,10 +160,10 @@ def canonical_source_for_raw(
         repository_root=repo,
     )
     if duplicate:
-        return duplicate
+        return duplicate, content_sha256, raw_location
 
     source_type, media_type = _kind_to_source_type(kind)
-    return register_source(
+    source_id = register_source(
         title=filename,
         source_type=source_type,
         media_type=media_type,
@@ -144,6 +173,20 @@ def canonical_source_for_raw(
         byte_size=len(raw_bytes),
         repository_root=repo,
     )
+    return source_id, content_sha256, raw_location
+
+
+def canonical_source_for_raw(
+    filename: str,
+    *,
+    kind: str,
+    repository_root: Path | None = None,
+) -> str:
+    """Create or resolve the canonical source for an existing immutable raw item."""
+    source_id, _, _ = _canonical_source_for_raw(
+        filename, kind=kind, repository_root=repository_root
+    )
+    return source_id
 
 
 def _append_row(text: str, row: str) -> str:
@@ -245,13 +288,37 @@ def cmd_intake_register(
         return 2
 
     try:
-        source_id = canonical_source_for_raw(file, kind=kind, repository_root=repo)
+        source_id, content_sha256, raw_location = _canonical_source_for_raw(
+            file, kind=kind, repository_root=repo
+        )
     except Exception as exc:  # Source registration must precede manifest projection.
         print(f"error: source registration failed: {exc}", file=sys.stderr)
         return 2
 
+    intake_dir = repo / RESEARCH_INTAKE_DIR.relative_to(REPO_ROOT)
+    item_id = intake_id(content_sha256=content_sha256, kind=kind)
+    record_path = _intake_record_path(intake_dir, item_id)
+    already_registered = record_path.exists()
+    if not already_registered:
+        write_atomic(
+            record_path,
+            _build_intake_record(
+                item_id=item_id,
+                filename=file,
+                raw_location=raw_location,
+                content_sha256=content_sha256,
+                kind=kind,
+                source_id=source_id,
+                owner=owner,
+                status=status,
+                outcome=outcome,
+                added_on=datetime.date.today().isoformat(),
+            ),
+        )
+
     if _find_row(parse_rows(text), file) is not None:
-        print(f"registered (idempotent): {file} [source={source_id}]")
+        # Manifest already lists this item; the canonical record may still be new.
+        print(f"registered (idempotent): {file} [id={item_id}] [source={source_id}]")
         return 0
 
     today = datetime.date.today().isoformat()
@@ -259,7 +326,7 @@ def cmd_intake_register(
         _append_row(text, f"| {file} | {kind} | {today} | {status} | {owner} | {outcome} |\n"),
         encoding="utf-8",
     )
-    print(f"registered: {file} [source={source_id}] [{kind}] {status} by {owner}")
+    print(f"registered: {file} [id={item_id}] [source={source_id}] [{kind}] {status} by {owner}")
     return 0
 
 
@@ -269,5 +336,6 @@ __all__ = [
     "VALID_STATUS",
     "canonical_source_for_raw",
     "cmd_intake_register",
+    "intake_id",
     "parse_rows",
 ]
