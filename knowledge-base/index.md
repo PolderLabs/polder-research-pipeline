@@ -458,8 +458,9 @@ implDirs.forEach(([label, path, desc]) => {
 });
 
 const agentFiles = [
-  ["Agent protocol",     "AGENTS",        "OpenWolf lifecycle, intake process, validators."],
-  ["Claude protocol",    "CLAUDE",        "Simplified protocol for Claude sessions."],
+  ["Agent protocol",     "AGENTS",        "Research modes, local state, intake, validators."],
+  ["Claude protocol",    "CLAUDE",        "Repository guidance for Claude sessions."],
+  ["Research methods",   "00-home/research-methods", "Protocol-first systematic evidence review."],
   ["Curator skill",      "skills/obsidian-knowledgebase-curator/SKILL",   "Intake, distillation, evidence labels."],
   ["Curator readme",     "skills/obsidian-knowledgebase-curator/README",  "Curator entry point."],
   ["Inbox rules",        "90-inbox/README","Drop zones, manifests, immutability rules."],
@@ -496,7 +497,7 @@ footer.createDiv({
 
 ## Operating rules
 
-- The repo IS the Obsidian vault. The dashboard at `index.md` is the single documentation entry point. New durable notes go into `01-project`, `02-research`, `03-system`, `04-decisions`, `05-operations`, or `06-sources`. Raw material lands in `90-inbox/raw` and is processed by the intake guide.
+- `knowledge-base/` is the Obsidian vault; repository code, schemas, tests, and role manifests live beside it. The dashboard at `index.md` is the vault entry point. New durable notes go into `01-project`, `02-research`, `03-system`, `04-decisions`, `05-operations`, or `06-sources`. Raw material lands in `90-inbox/raw` and is processed by the intake guide.
 - All in-vault links are wikilinks (`[[path|alias]]`). Cross-tree references use plain Markdown links.
 - Required frontmatter: `type`, `status`, `tags`. Optional: `topic`, `created`, `updated`. See [[00-home/knowledge-base-guide|Knowledge base guide]] for the full contract.
 - See [[00-home/research-intake-guide|Research intake guide]] for the lifecycle from raw material to durable note.
@@ -511,7 +512,7 @@ Everything in this repository is part of the vault. The dashboard above renders 
 
 ### Standards
 
-[[00-home/naming-conventions|naming conventions]] · [[00-home/glossary|glossary]] · [[00-home/evidence-model|evidence model]] · [[00-home/provenance-model|provenance model]] · [[01-project/brief|project brief]]
+[[00-home/naming-conventions|naming conventions]] · [[00-home/glossary|glossary]] · [[00-home/evidence-model|evidence model]] · [[00-home/provenance-model|provenance model]] · [[00-home/research-methods|research methods]] · [[01-project/brief|project brief]]
 
 ### Operator
 

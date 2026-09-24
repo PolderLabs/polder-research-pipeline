@@ -18,6 +18,7 @@ Answers questions from the knowledge base with exact provenance.
 - Graph expansion: follow `evidence` edges to related claims and sources.
 - Provenance validation: every answer traces `answer → claim → evidence edge → source segment → source`.
 - Stale/conflict warnings: flag when a cited claim is disputed or the source is stale.
+- When an answer relies on a systematic review, inspect the frozen protocol and generated report; state its search cutoff, scope, deviations, and limits. A report index and PRISMA-style counts are not proof of exhaustive coverage or PRISMA compliance.
 - Gap creation: if the question cannot be answered, create a `gap` record.
 
 ## Guarantees

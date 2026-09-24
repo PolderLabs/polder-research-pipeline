@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>Polder | Research control panel</title>
+  <link rel="stylesheet" href="/app.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div class="app-shell">
+    <aside class="rail" aria-label="Primary navigation">
+      <a class="brand" href="#overview" aria-label="Polder research home">
+        <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+        <span><strong>polder</strong><small>RESEARCH PIPELINE</small></span>
+      </a>
+      <div class="workspace-label">WORKSPACE</div>
+      <nav class="nav-list">
+        <a class="nav-link active" href="#overview" data-view="overview"><span class="nav-glyph">◫</span><span>Overview</span><span class="nav-line"></span></a>
+        <a class="nav-link" href="#research" data-view="research"><span class="nav-glyph">⌕</span><span>Research data</span><span class="nav-line"></span></a>
+        <a class="nav-link" href="#health" data-view="health"><span class="nav-glyph">◎</span><span>System health</span><span class="nav-line"></span></a>
+        <a class="nav-link" href="#settings" data-view="settings"><span class="nav-glyph">⚙</span><span>Configuration</span><span class="nav-line"></span></a>
+      </nav>
+      <div class="rail-bottom">
+        <div class="local-only"><span class="local-dot"></span><span>Local control plane</span></div>
+        <div class="repo-path" id="repository-path">Loading repository…</div>
+        <div class="rail-version">Polder Research · local</div>
+      </div>
+    </aside>
+
+    <main id="main" class="main-area" tabindex="-1">
+      <header class="topbar">
+        <div class="breadcrumb"><span>Workspace</span><span class="crumb-sep">/</span><strong id="current-section">Overview</strong></div>
+        <div class="top-actions">
+          <span class="refresh-label" id="last-updated">Waiting for first refresh</span>
+          <button class="icon-button" id="refresh-button" type="button" aria-label="Refresh dashboard data" title="Refresh data">⟳</button>
+        </div>
+      </header>
+
+      <div id="page-loading" class="loading-state" role="status">Loading local research records…</div>
+      <div id="page-error" class="error-banner" role="alert" hidden></div>
+
+      <section class="view active" id="view-overview" aria-labelledby="overview-title">
+        <div class="page-intro overview-intro">
+          <div>
+            <div class="eyebrow">RESEARCH OPERATIONS <span class="eyebrow-rule"></span> LIVE LOCAL DATA</div>
+            <h1 id="overview-title">Research control room</h1>
+            <p class="intro-copy">A current view of your evidence base, review workflow, and pipeline health.</p>
+          </div>
+          <div class="health-pill" id="overview-health"><span class="status-dot"></span><span>Checking health</span></div>
+        </div>
+        <div class="metric-row" id="overview-metrics" aria-live="polite"></div>
+        <div class="overview-grid">
+          <article class="panel activity-panel">
+            <div class="panel-heading">
+              <div><span class="section-kicker">COLLECTION ACTIVITY</span><h2>Research added</h2></div>
+              <span class="period-label">Last 30 days</span>
+            </div>
+            <div id="activity-chart" class="chart-wrap"></div>
+            <div class="chart-legend"><span><i class="legend-source"></i>Sources</span><span><i class="legend-classification"></i>Classifications</span></div>
+          </article>
+          <article class="panel provider-panel">
+            <div class="panel-heading"><div><span class="section-kicker">CLASSIFICATION</span><h2>Provider status</h2></div><a href="#settings" class="text-link">Configure <span aria-hidden="true">→</span></a></div>
+            <div id="provider-summary"></div>
+          </article>
+          <article class="panel coverage-panel">
+            <div class="panel-heading"><div><span class="section-kicker">TAXONOMY COVERAGE</span><h2>Topics in the corpus</h2></div><a href="#research" class="text-link">Explore data <span aria-hidden="true">→</span></a></div>
+            <div id="topic-coverage"></div>
+          </article>
+          <article class="panel workflow-panel">
+            <div class="panel-heading"><div><span class="section-kicker">EVIDENCE REVIEW</span><h2>Method record counts</h2></div><span class="quiet-tag">Records, not completion claims</span></div>
+            <div id="review-funnel"></div>
+          </article>
+        </div>
+        <div class="notice-line" id="overview-notice"></div>
+      </section>
+
+      <section class="view" id="view-research" aria-labelledby="research-title">
+        <div class="page-intro">
+          <div><div class="eyebrow">EVIDENCE AND CLASSIFICATION <span class="eyebrow-rule"></span> LIVE COUNTS</div><h1 id="research-title">Research data</h1><p class="intro-copy">Coverage and classification signals derived from validated local records.</p></div>
+        </div>
+        <div class="metric-row" id="research-metrics"></div>
+        <div class="research-grid">
+          <article class="panel"><div class="panel-heading"><div><span class="section-kicker">SOURCE CATALOG</span><h2>Source types</h2></div></div><div id="source-types"></div></article>
+          <article class="panel"><div class="panel-heading"><div><span class="section-kicker">CLASSIFICATION AUDIT</span><h2>Decisions and review queue</h2></div></div><div id="classification-breakdown"></div></article>
+          <article class="panel wide-panel"><div class="panel-heading"><div><span class="section-kicker">RESEARCH ORGANIZATION</span><h2>Tags and topics</h2></div></div><div class="distribution-columns"><div><h3>Topics</h3><div id="topic-list"></div></div><div><h3>Tags</h3><div id="tag-list"></div></div></div></article>
+          <article class="panel wide-panel"><div class="panel-heading"><div><span class="section-kicker">REVIEW WORKFLOW</span><h2>Structured method records</h2></div><span class="quiet-tag">Counts only</span></div><div id="method-counts"></div><p class="panel-footnote">Record volume does not establish search completeness, independent review, or methodological quality.</p></article>
+        </div>
+        <div class="notice-line">Classification labels are organizational metadata. Review evidence and source records before relying on a research claim.</div>
+      </section>
+
+      <section class="view" id="view-health" aria-labelledby="health-title">
+        <div class="page-intro">
+          <div><div class="eyebrow">PIPELINE OPERATIONS <span class="eyebrow-rule"></span> DIAGNOSTICS</div><h1 id="health-title">System health</h1><p class="intro-copy">Operational checks, local provider readiness, and actionable exceptions.</p></div>
+          <button class="button button-secondary" id="health-refresh" type="button">Recompute checks</button>
+        </div>
+        <div id="health-summary" class="health-summary"></div>
+        <div class="health-grid">
+          <article class="panel"><div class="panel-heading"><div><span class="section-kicker">RUNTIME</span><h2>Local system</h2></div></div><div id="runtime-details"></div></article>
+          <article class="panel"><div class="panel-heading"><div><span class="section-kicker">PROVIDERS</span><h2>Readiness</h2></div></div><div id="health-providers"></div></article>
+          <article class="panel wide-panel"><div class="panel-heading"><div><span class="section-kicker">EXCEPTIONS</span><h2>Records needing attention</h2></div></div><div id="health-issues"></div></article>
+          <article class="panel wide-panel"><div class="panel-heading"><div><span class="section-kicker">MAINTENANCE POLICY</span><h2>Configured checks</h2></div></div><div id="maintenance-details"></div></article>
+        </div>
+      </section>
+
+      <section class="view" id="view-settings" aria-labelledby="settings-title">
+        <div class="page-intro">
+          <div><div class="eyebrow">PIPELINE CONTROLS <span class="eyebrow-rule"></span> LOCAL CONFIGURATION</div><h1 id="settings-title">Configuration</h1><p class="intro-copy">Manage classification, provider credentials, model setup, and the complete research policy.</p></div>
+        </div>
+        <div class="settings-layout">
+          <div class="settings-main">
+            <article class="panel settings-panel">
+              <div class="panel-heading"><div><span class="section-kicker">CLASSIFICATION BASICS</span><h2>Choose how records are classified</h2></div><span id="settings-saved" class="save-state">Saved configuration</span></div>
+              <div class="settings-form">
+                <label class="toggle-field"><input id="classification-enabled" type="checkbox"><span><strong>Automatic classification</strong><small>Apply the selected provider when new evidence records are registered.</small></span></label>
+                <label class="field"><span>Classification provider</span><select id="provider-select"><option value="rules">Built-in rules · local</option><option value="jev">Jev · TypeSafe API</option><option value="laya">Laya · local model</option></select><small id="provider-description">Deterministic keyword rules. No data leaves this machine.</small></label>
+                <div class="field-grid"><label class="field"><span>Minimum confidence</span><div class="input-suffix"><input id="confidence-input" type="number" min="0" max="1" step="0.01"><span>0–1</span></div><small>Below threshold, decisions remain in review.</small></label><label class="field"><span>Maximum input length</span><div class="input-suffix"><input id="input-limit" type="number" min="1" max="500000" step="500"><span>chars</span></div><small>Longer content is clipped before classification.</small></label></div>
+                <div class="field-grid provider-specific" id="jev-settings"><label class="field"><span>TypeSafe model</span><input id="jev-model" type="text" spellcheck="false"><small>Jev API model identifier.</small></label><label class="field"><span>Request timeout</span><div class="input-suffix"><input id="jev-timeout" type="number" min="1" max="120"><span>sec</span></div><small>Timeout for a single System One request.</small></label></div>
+                <div class="field-grid provider-specific" id="laya-settings"><label class="field"><span>Local checkpoint</span><select id="laya-model"><option value="english">English</option><option value="multilingual">Multilingual</option><option value="typed-decisions">Typed decisions</option></select><small>Inference runs inside this process. No Laya server is used.</small></label><label class="field"><span>Compute device</span><select id="laya-device"><option value="auto">Automatic</option><option value="cpu">CPU</option><option value="cuda">CUDA</option><option value="mps">Apple Metal</option></select><small>Automatic lets Laya select an available device.</small></label></div>
+                <div class="form-actions"><button class="button button-primary" id="save-basics" type="button">Apply basic settings</button><span class="form-message" id="basics-message" role="status"></span></div>
+              </div>
+            </article>
+
+            <article class="panel settings-panel" id="typesafe-card">
+              <div class="panel-heading"><div><span class="section-kicker">HOSTED CLASSIFIER</span><h2>TypeSafe API credential</h2></div><span class="credential-status" id="credential-status"></span></div>
+              <p class="body-copy">Jev sends up to the configured input length to TypeSafe’s hosted API. The key is stored in a local-only file with owner-only permissions and is never returned to the browser.</p>
+              <div class="secret-row"><label class="field secret-field"><span>API key</span><input id="typesafe-key" type="password" autocomplete="new-password" placeholder="Paste a key to save or replace it"><small id="credential-source">The key value is never displayed after saving.</small></label><div class="secret-actions"><button class="button button-primary" id="save-key" type="button">Save key</button><button class="button button-quiet" id="remove-key" type="button">Remove saved key</button></div></div>
+              <div class="endpoint-row"><span>Official endpoint</span><code>https://api.typesafe.ai/v1/systemone</code><button class="button button-secondary" id="test-jev" type="button">Test API connection</button></div>
+            </article>
+
+            <article class="panel settings-panel" id="laya-card">
+              <div class="panel-heading"><div><span class="section-kicker">ON-DEVICE CLASSIFIER</span><h2>Laya model setup</h2></div><span class="credential-status" id="laya-status-pill"></span></div>
+              <p class="body-copy">Model weights are downloaded from Hugging Face, then inference runs locally. Downloading also loads the checkpoint into this server process; it can use substantial RAM or GPU memory.</p>
+              <div id="laya-model-status" class="model-status"></div>
+              <p id="laya-message" class="model-message"></p>
+              <div class="model-actions"><button class="button button-primary" id="download-laya" type="button">Download and load model</button><button class="button button-secondary" id="test-laya" type="button">Test local inference</button></div>
+              <div id="download-progress" class="download-progress" hidden role="status" aria-live="polite"></div>
+            </article>
+
+            <article class="panel settings-panel yaml-panel">
+              <div class="panel-heading"><div><span class="section-kicker">ADVANCED SETTINGS</span><h2>Complete configuration</h2></div><button class="button button-quiet" id="reload-config" type="button">Discard edits</button></div>
+              <p class="body-copy">Edit the full <code>research.config.yaml</code> here, including taxonomy, frontmatter, research methods, maintenance thresholds, and workflow vocabularies. Validated before save; formatting and comments are preserved.</p>
+              <label class="sr-only" for="config-editor">Complete research.config.yaml configuration</label><textarea id="config-editor" spellcheck="false" autocomplete="off" aria-describedby="config-help"></textarea><div class="editor-footer"><span id="config-help">YAML · local repository configuration</span><div><span class="form-message" id="config-message" role="status"></span><button class="button button-primary" id="save-config" type="button">Save complete configuration</button></div></div>
+            </article>
+          </div>
+          <aside class="settings-aside">
+            <div class="aside-note"><div class="aside-index">01</div><h3>Provider privacy</h3><p id="privacy-note">Rules run locally. Jev sends configured input text to the TypeSafe API. Laya uses a downloaded local model.</p></div>
+            <div class="aside-note"><div class="aside-index">02</div><h3>Taxonomy is versioned</h3><p id="taxonomy-summary">Taxonomy details load from the complete configuration.</p><a href="#research" class="text-link">View current coverage <span aria-hidden="true">→</span></a></div>
+            <div class="aside-note"><div class="aside-index">03</div><h3>Changes are audited</h3><p>Classification decisions retain the input hash, taxonomy snapshot, questions, model, confidence, and review disposition.</p></div>
+          </aside>
+        </div>
+      </section>
+
+      <footer class="page-footer"><span>Evidence first. Methods visible. Decisions traceable.</span><span id="footer-time">Polder Research Pipeline</span></footer>
+    </main>
+  </div>
+  <div class="toast-region" id="toasts" aria-live="polite" aria-atomic="true"></div>
+</body>
+</html>

@@ -26,7 +26,7 @@ knowledge-base/90-inbox/raw/*.onnx
 knowledge-base/90-inbox/raw/*.ckpt
 knowledge-base/90-inbox/raw/*.bin
 
-# Authoritative records under .research/{events,tasks,runs,handoffs,sources,segments,claims,entities,gaps,conflicts,edges} remain ignored.
+# Authoritative records under .research/{events,tasks,runs,handoffs,sources,segments,claims,entities,gaps,conflicts,edges,classifications} remain ignored.
 # Persisted locally via polder_research.atomic.write_atomic with schema validation.
 # Tracking them is a one-way door — see AUDIT.md "Persistence mode (resolved)".
 .research/state.json
@@ -42,6 +42,8 @@ knowledge-base/90-inbox/raw/*.bin
 .research/claims/*.json
 .research/entities/*.json
 .research/segments/*.json
+.research/classifications/*.json
+.research/web-secrets.json
 .research/gaps/*.json
 .research/conflicts/*.json
 .research/edges/*.json

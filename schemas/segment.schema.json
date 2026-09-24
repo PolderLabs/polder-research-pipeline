@@ -37,6 +37,9 @@
         "enum": ["ocr-low-confidence", "translation-required",
                  "redacted", "partial", "unverified"]
       }
-    }
+    },
+    "topic": {"type": "string"},
+    "tags": {"type": "array", "items": {"type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"}},
+    "classification_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^cls_"}}
   }
 }

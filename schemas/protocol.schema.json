@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://polder.dev/schemas/protocol.schema.json",
+  "title": "Research protocol",
+  "type": "object",
+  "required": ["id", "schema_version", "run_id", "research_method", "status", "question", "objectives", "questions", "framework", "eligibility", "search_plan", "screening_plan", "extraction_plan", "appraisal_plan", "synthesis_plan", "created_at", "created_by"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {"type": "string", "pattern": "^prm_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+    "schema_version": {"type": "integer", "const": 1},
+    "run_id": {"type": "string", "pattern": "^run_"},
+    "research_method": {"const": "systematic_evidence_review"},
+    "status": {"enum": ["draft", "frozen"]},
+    "question": {"type": "string", "minLength": 1},
+    "objectives": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "questions": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "framework": {"enum": ["PICO", "PECO", "PCC", "SPIDER", "custom"]},
+    "eligibility": {
+      "type": "object", "required": ["inclusion", "exclusion"], "additionalProperties": false,
+      "properties": {
+        "inclusion": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "exclusion": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "languages": {"type": "array", "items": {"type": "string"}},
+        "date_from": {"type": "string"}, "date_to": {"type": "string"},
+        "publication_types": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "search_plan": {
+      "type": "object", "required": ["cutoff_at", "queries"], "additionalProperties": false,
+      "properties": {
+        "cutoff_at": {"type": "string", "format": "date-time"},
+        "queries": {"type": "array", "minItems": 1, "items": {
+          "type": "object", "required": ["id", "database", "platform", "query"], "additionalProperties": false,
+          "properties": {
+            "id": {"type": "string", "minLength": 1}, "database": {"type": "string", "minLength": 1},
+            "platform": {"type": "string", "minLength": 1}, "query": {"type": "string", "minLength": 1},
+            "date_from": {"type": "string"}, "date_to": {"type": "string"},
+            "language": {"type": "string"}, "limits": {"type": "array", "items": {"type": "string"}}
+          }
+        }}
+      }
+    },
+    "screening_plan": {
+      "type": "object", "required": ["reviewers", "adjudicator", "adjudication_rule", "exclusion_reasons"], "additionalProperties": false,
+      "properties": {
+        "reviewers": {"type": "array", "minItems": 2, "items": {
+          "type": "object", "required": ["id", "kind", "independence_group"], "additionalProperties": false,
+          "properties": {
+            "id": {"type": "string", "minLength": 1}, "kind": {"enum": ["human", "agent"]},
+            "independence_group": {"type": "string", "minLength": 1}
+          }
+        }},
+        "adjudicator": {"type": "object", "required": ["id", "kind"], "additionalProperties": false, "properties": {"id": {"type": "string", "minLength": 1}, "kind": {"const": "human"}}},
+        "adjudication_rule": {"type": "string", "minLength": 1},
+        "exclusion_reasons": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "extraction_plan": {"type": "object", "required": ["fields", "duplicate_review"], "additionalProperties": false,
+      "properties": {"fields": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}, "duplicate_review": {"const": true}}},
+    "appraisal_plan": {"type": "object", "required": ["required", "instrument", "instrument_version", "instrument_reference", "rationale"], "additionalProperties": false,
+      "properties": {"required": {"type": "boolean"}, "instrument": {"type": "string", "minLength": 1}, "instrument_version": {"type": "string", "minLength": 1}, "instrument_reference": {"type": "string", "minLength": 1}, "rationale": {"type": "string", "minLength": 1}}},
+    "synthesis_plan": {"type": "object", "required": ["method", "grouping", "heterogeneity", "sensitivity_analysis"], "additionalProperties": false,
+      "properties": {"method": {"enum": ["narrative", "thematic", "quantitative", "meta_analysis"]}, "grouping": {"type": "string", "minLength": 1}, "heterogeneity": {"type": "string", "minLength": 1}, "sensitivity_analysis": {"type": "string", "minLength": 1}, "certainty_framework": {"type": "string"}}},
+    "created_at": {"type": "string", "format": "date-time"}, "created_by": {"type": "string", "minLength": 1},
+    "frozen_at": {"type": "string", "format": "date-time"}, "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "allOf": [{"if": {"properties": {"status": {"const": "frozen"}}}, "then": {"required": ["frozen_at", "content_sha256"]}}]
+}

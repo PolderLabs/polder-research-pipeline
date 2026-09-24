@@ -18,9 +18,16 @@ import yaml
 
 from ..paths import (
     REPO_ROOT,
+    RESEARCH_APPRAISALS_DIR,
+    RESEARCH_CANDIDATES_DIR,
+    RESEARCH_CLASSIFICATIONS_DIR,
     RESEARCH_EVENTS_DIR,
+    RESEARCH_EXTRACTIONS_DIR,
     RESEARCH_HANDOFFS_DIR,
+    RESEARCH_PROTOCOLS_DIR,
     RESEARCH_RUNS_DIR,
+    RESEARCH_SCREENINGS_DIR,
+    RESEARCH_SEARCHES_DIR,
     RESEARCH_STATE,
     RESEARCH_TASKS_DIR,
     VAULT_ROOT,
@@ -31,6 +38,13 @@ _RECORD_TYPES = {
     "tasks": ("tasks", "task"),
     "runs": ("runs", "run"),
     "handoffs": ("handoffs", "handoff"),
+    "protocols": ("protocols", "protocol"),
+    "searches": ("searches", "search"),
+    "candidates": ("candidates", "candidate"),
+    "screenings": ("screenings", "screening"),
+    "appraisals": ("appraisals", "appraisal"),
+    "extractions": ("extractions", "extraction"),
+    "classifications": ("classifications", "classification"),
 }
 
 
@@ -42,7 +56,11 @@ def _root(repository_root: str | Path | None) -> Path | None:
 
 
 def _config(root: Path | None) -> dict[str, Any]:
-    path = (root or VAULT_ROOT) / "research.config.yaml"
+    if root is None:
+        path = VAULT_ROOT / "research.config.yaml"
+    else:
+        candidates = (root / "research.config.yaml", root / "knowledge-base" / "research.config.yaml")
+        path = next((candidate for candidate in candidates if candidate.is_file()), candidates[0])
     try:
         value = yaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, yaml.YAMLError) as exc:
@@ -70,6 +88,13 @@ def _collection_dirs(root: Path | None) -> dict[str, Path]:
             "tasks": RESEARCH_TASKS_DIR,
             "runs": RESEARCH_RUNS_DIR,
             "handoffs": RESEARCH_HANDOFFS_DIR,
+            "protocols": RESEARCH_PROTOCOLS_DIR,
+            "searches": RESEARCH_SEARCHES_DIR,
+            "candidates": RESEARCH_CANDIDATES_DIR,
+            "screenings": RESEARCH_SCREENINGS_DIR,
+            "appraisals": RESEARCH_APPRAISALS_DIR,
+            "extractions": RESEARCH_EXTRACTIONS_DIR,
+            "classifications": RESEARCH_CLASSIFICATIONS_DIR,
         }
     research = root / ".research"
     return {name: research / name for name in _RECORD_TYPES}
@@ -89,9 +114,13 @@ def _read_records(
     dirs = _collection_dirs(root)
 
     for collection, (directory, schema_name) in _RECORD_TYPES.items():
-        validator = jsonschema.Draft202012Validator(_schema(root, schema_name))
         valid: list[dict[str, Any]] = []
-        for path in sorted(dirs[collection].glob("*.json")):
+        paths = sorted(dirs[collection].glob("*.json"))
+        if not paths:
+            records[collection] = valid
+            continue
+        validator = jsonschema.Draft202012Validator(_schema(root, schema_name))
+        for path in paths:
             relative = f".research/{directory}/{path.name}"
             try:
                 record = json.loads(path.read_text(encoding="utf-8"))
@@ -177,6 +206,11 @@ def build_state(repository_root: str | Path | None = None) -> dict[str, Any]:
             ),
         },
         "events": {"total": len(records["events"])},
+        "classifications": {"total": len(records["classifications"])},
+        "method_records": {
+            name: len(records[name])
+            for name in ("protocols", "searches", "candidates", "screenings", "appraisals", "extractions")
+        },
         "malformed": {"count": len(malformed), "records": malformed},
     }
 

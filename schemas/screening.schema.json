@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "https://polder.dev/schemas/screening.schema.json",
+  "title": "Screening decision", "type": "object", "additionalProperties": false,
+  "required": ["id", "schema_version", "run_id", "protocol_id", "protocol_sha256", "candidate_id", "stage", "decision_kind", "reviewer_id", "outcome", "rationale", "decided_at"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^scr_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+    "schema_version": {"type": "integer", "const": 1}, "run_id": {"type": "string", "pattern": "^run_"},
+    "protocol_id": {"type": "string", "pattern": "^prm_"}, "protocol_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "candidate_id": {"type": "string", "pattern": "^can_"}, "source_id": {"type": "string", "pattern": "^src_"}, "stage": {"enum": ["title_abstract", "full_text"]},
+    "decision_kind": {"enum": ["independent", "adjudication"]}, "reviewer_id": {"type": "string", "minLength": 1},
+    "outcome": {"enum": ["include", "exclude", "uncertain"]}, "exclusion_reason": {"type": "string"},
+    "rationale": {"type": "string", "minLength": 1}, "resolves_decision_ids": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"type": "string", "pattern": "^scr_"}},
+    "decided_at": {"type": "string", "format": "date-time"}
+  },
+  "allOf": [
+    {"if": {"properties": {"outcome": {"const": "exclude"}}, "required": ["outcome"]}, "then": {"required": ["exclusion_reason"], "properties": {"exclusion_reason": {"minLength": 1}}}},
+    {"if": {"properties": {"decision_kind": {"const": "adjudication"}}, "required": ["decision_kind"]}, "then": {"required": ["resolves_decision_ids"]}}
+  ]
+}

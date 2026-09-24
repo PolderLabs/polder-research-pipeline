@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "https://polder.dev/schemas/search.schema.json",
+  "title": "Search execution", "type": "object", "additionalProperties": false,
+  "required": ["id", "schema_version", "run_id", "protocol_id", "protocol_sha256", "query_id", "database", "platform", "query", "executed_at", "executed_by", "result_count"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^sea_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+    "schema_version": {"type": "integer", "const": 1}, "run_id": {"type": "string", "pattern": "^run_"},
+    "protocol_id": {"type": "string", "pattern": "^prm_"}, "protocol_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "query_id": {"type": "string", "minLength": 1}, "database": {"type": "string", "minLength": 1},
+    "platform": {"type": "string", "minLength": 1}, "query": {"type": "string", "minLength": 1},
+    "executed_at": {"type": "string", "format": "date-time"}, "executed_by": {"type": "string", "minLength": 1},
+    "tool_name": {"type": "string"}, "tool_version": {"type": "string"},
+    "parameters": {"type": "object"},
+    "result_count": {"type": "integer", "minimum": 0},
+    "export_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "export_location": {"type": "string", "minLength": 1}, "notes": {"type": "string"}
+  }
+}

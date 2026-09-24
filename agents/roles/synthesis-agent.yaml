@@ -4,6 +4,8 @@ description: Produces final research reports from verified claims.
 tools:
   - synthesize_report
   - trace_provenance
+  - research_methods.generate_review_report
+  - research_methods.validate_run_for_completion
   - emit_event
 read:
   - .research/claims/**
@@ -11,10 +13,18 @@ read:
   - .research/entities/**
   - .research/gaps/**
   - .research/conflicts/**
+  - .research/protocols/**
+  - .research/searches/**
+  - .research/candidates/**
+  - .research/screenings/**
+  - .research/extractions/**
+  - .research/appraisals/**
+  - .research/reports/**
 write:
   - 02-research/**
   - .research/events/**
   - .research/runs/**
+  - .research/reports/**
 forbidden:
   - schemas/**
   - agents/**

@@ -17,12 +17,19 @@ How the Polder Research Pipeline tracks where knowledge comes from and who touch
 |---|---|---:|
 | `research.config.yaml` | Authoritative policy | No |
 | `schemas/*.schema.json` | Authoritative contracts | No |
-| `agents/roles/*.yaml` | Authoritative capabilities | No |
+| `agents/roles/*.yaml` | Intended agent capabilities; runtime authorization is not enforced for every boundary | No |
 | `.research/sources/*.json` | Authoritative source metadata | No |
 | `.research/claims/*.json` | Authoritative structured knowledge | No |
 | `.research/entities/*.json` | Authoritative entity identity | No |
 | `.research/tasks/*.json` | Authoritative workflow state | No |
 | `.research/events/*.json` | Authoritative history | No |
+| `.research/protocols/*.json` | Frozen systematic-review methods | No |
+| `.research/searches/*.json` | Exact search executions | No |
+| `.research/candidates/*.json` | Search hits, including duplicates | No |
+| `.research/screenings/*.json` | Independent selection and adjudication decisions | No |
+| `.research/extractions/*.json` | Duplicate field extraction and resolution | No |
+| `.research/appraisals/*.json` | Instrument-specific study appraisal | No |
+| `.research/reports/*.json` | Generated review audit index with record hashes | Yes; regenerate from current records |
 | `.research/runs/*.json` | Authoritative run state | No |
 | `.research/state.json` | Derived snapshot | Yes |
 | `.research/health.json` | Derived health | Yes |
@@ -30,7 +37,7 @@ How the Polder Research Pipeline tracks where knowledge comes from and who touch
 
 ## Event log
 
-Every agent action emits a typed event to `.research/events/`. Events are append-only.
+Where implemented, state-changing actions emit typed events to `.research/events/`; events are append-only. Event emission is not yet integrated into every research-method writer, so do not rely on the event log alone to reconstruct a systematic review.
 
 Required fields per event:
 - `id` (evt_ UUIDv7)
@@ -83,3 +90,5 @@ The complete audit trail for any claim:
 2. For each evidence edge, find the source record
 3. For each source, find the raw file and verify `content_sha256`
 4. For each event, check `actor`, `role`, `code_revision`, `instruction_version`
+
+For a systematic evidence review, extend the trace backward from the source to its candidate, screening decisions, search execution, and frozen protocol. The generated report indexes these records and hashes their contents. This local record store is not shared durable storage; see [[research-methods|research methods]] for the reproducibility boundary.

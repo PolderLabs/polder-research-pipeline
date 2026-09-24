@@ -22,11 +22,11 @@ The orchestrator does not do research itself. It coordinates.
 ## Workflow
 
 1. Receive a brief (question, scope, out-of-scope, definition of done).
-2. Create a `run` record in `.research/runs/`.
-3. Plan: decompose into `task` records.
-4. Assign tasks to roles via typed `handoff` records.
-5. Monitor: poll task completion, handle failures.
-6. Close the run when all tasks are done or the budget is exhausted.
+2. Choose and record the run method: `continuous_intelligence` or `systematic_evidence_review`.
+3. For a systematic review, create and freeze the protocol, then bind its hash to the run before activation.
+4. Decompose the brief into `task` records and assign them via typed `handoff` records.
+5. Monitor task completion and handle failures. Systematic runs also require a generated review report and clean `validate_run_for_completion` result.
+6. Close only when the applicable completion gate is satisfied; otherwise record the blocker or failure.
 
 ## Triggers
 

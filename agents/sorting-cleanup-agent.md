@@ -29,4 +29,4 @@ Maintains the structural integrity of the vault and derived state.
 ## Output
 
 - Reports written to `.research/maintenance/`.
-- Events: `maintenance.triggered`, `maintenance.completed`.
+- Where the event interface is implemented, emit `maintenance.triggered` and `maintenance.completed`.

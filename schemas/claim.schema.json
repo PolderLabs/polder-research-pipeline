@@ -110,6 +110,7 @@
       "type": "array",
       "items": {"type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"}
     },
+    "classification_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^cls_"}},
     "superseded_by": {"type": "string", "pattern": "^clm_", "default": ""},
     "conflict_ids": {
       "type": "array",

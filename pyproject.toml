@@ -18,6 +18,7 @@ dev = [
     "pytest==8.3.5",
     "ruff==0.11.13",
 ]
+laya = ["laya>=0.3.20"]
 
 [project.scripts]
 polder-research = "polder_research.scripts:main"
@@ -30,4 +31,3 @@ build-backend = "hatchling.build"
 packages = ["src/polder_research"]
 
 [tool.pytest.ini_options]
-

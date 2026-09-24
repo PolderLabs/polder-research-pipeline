@@ -10,6 +10,8 @@ tags:
 
 Canonical bibliography and evidence records. Every source that informs a durable note is catalogued here.
 
+An unacquired search hit is a candidate, not a source. Systematic-review searches, candidate decisions, and appraisals are recorded separately under `.research/`; an item becomes a source only after its content is acquired and hashed. See [[00-home/research-methods|Research methods]] and [[00-home/provenance-model|Provenance model]].
+
 ## Papers
 
 Academic papers with citation metadata: title, authors, venue, year, DOI or URL. Includes distillation summaries and key claims extracted from each.

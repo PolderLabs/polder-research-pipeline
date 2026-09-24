@@ -1,20 +1,17 @@
 schema_version: 1
 role: evolution-agent
-description: Proposes and applies controlled changes to the pipeline ontology and workflow.
+description: Proposes controlled changes to schemas and workflow; proposal persistence is not yet implemented.
 tools:
   - propose_schema
   - propose_workflow
   - apply_migration
   - emit_event
 read:
-  - .research/schemas/**
+  - schemas/**
   - .research/state.json
-  - 07-evolution/proposals/**
 write:
   - schemas/**
   - .research/events/**
-  - 07-evolution/proposals/**
-  - 07-evolution/migrations/**
 forbidden:
   - .research/sources/**
   - .research/claims/**

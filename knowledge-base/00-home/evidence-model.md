@@ -14,7 +14,10 @@ How claims, evidence, and sources are structured in the Polder Research Pipeline
 ## Core hierarchy
 
 ```
-source (src_)
+systematic review protocol (prm_)
+  └── search execution (sea_)
+       └── search candidate (can_) — includes duplicates and exclusions before acquisition
+            └── source (src_)       — acquired artifact with content hash
   └── segment (seg_)         — verbatim passage, pinned locator
        └── claim (clm_)      — structured statement
             └── evidence     — directed edge to source segment
@@ -35,6 +38,8 @@ One canonical record per distinct research artifact. Fields:
 - `freshness.volatility`, `freshness.review_after`
 - `lineage[]`: cites | mirrors | republishes | summarizes | forks | derives_from | ...
 - `independence_group`: sources with shared authorship/editorial control
+
+Search hits are not sources until an artifact has been acquired and hashed. Systematic-review candidate, screening, extraction, appraisal, and report records preserve the pre-acquisition selection history.
 
 ## Segment
 
@@ -73,6 +78,8 @@ Claims flagged `impact.high_impact: true` MUST receive:
 6. Primary evidence check
 7. Disconfirming search (seek contradicting evidence)
 8. Freshness check
+
+Systematic review extraction is separate from claim authoring: each prespecified field is independently extracted by two protocol-listed human reviewers, linked to a segment, and adjudicated when values differ. Appraisal records retain instrument-specific domain judgments and rationales; they are not represented by evidence-edge confidence.
 
 ## Conflict detection
 

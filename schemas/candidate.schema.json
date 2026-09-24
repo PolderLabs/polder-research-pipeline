@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "https://polder.dev/schemas/candidate.schema.json",
+  "title": "Search candidate", "type": "object", "additionalProperties": false,
+  "required": ["id", "schema_version", "run_id", "protocol_id", "protocol_sha256", "search_ids", "title", "dedupe_key", "status", "discovered_at"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^can_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+    "schema_version": {"type": "integer", "const": 1}, "run_id": {"type": "string", "pattern": "^run_"},
+    "protocol_id": {"type": "string", "pattern": "^prm_"}, "protocol_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "search_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^sea_"}},
+    "stable_identifiers": {"type": "array", "items": {"type": "string"}},
+    "title": {"type": "string", "minLength": 1}, "authors": {"type": "array", "items": {"type": "string"}},
+    "published_at": {"type": "string"}, "url": {"type": "string", "format": "uri"}, "abstract": {"type": "string"},
+    "dedupe_key": {"type": "string", "minLength": 1}, "duplicate_of": {"type": "string", "pattern": "^can_"},
+    "status": {"enum": ["unique", "duplicate"]},
+    "source_id": {"type": "string", "pattern": "^src_"}, "discovered_at": {"type": "string", "format": "date-time"}
+  }
+}

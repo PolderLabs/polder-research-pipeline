@@ -81,6 +81,8 @@
       "type": "array",
       "items": {"type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"}
     },
+    "topic": {"type": "string"},
+    "classification_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^cls_"}},
     "entities": {
       "type": "array",
       "items": {"type": "string", "pattern": "^ent_"}

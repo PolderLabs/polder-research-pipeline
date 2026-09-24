@@ -20,6 +20,7 @@ from polder_research.evidence import (
     register_segment,
     register_source,
 )
+from polder_research.schemas import validate
 
 
 @pytest.fixture(autouse=True)
@@ -166,6 +167,11 @@ class TestRegisterGap:
             priority="high",
         )
         assert gap_id.startswith("gap_")
+        record = json.loads(
+            (_paths_mod.EVIDENCE_GAPS_DIR / f"{gap_id}.json").read_text(encoding="utf-8")
+        )
+        assert record["priority"] == "high"
+        validate("gap", record)
 
 
 class TestRegisterConflict:

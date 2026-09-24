@@ -14,6 +14,13 @@ read:
   - .research/segments/**
   - .research/conflicts/**
   - .research/gaps/**
+  - .research/protocols/**
+  - .research/searches/**
+  - .research/candidates/**
+  - .research/screenings/**
+  - .research/extractions/**
+  - .research/appraisals/**
+  - .research/reports/**
 write:
   - .research/gaps/**
   - .research/events/**

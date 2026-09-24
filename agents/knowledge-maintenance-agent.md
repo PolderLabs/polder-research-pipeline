@@ -37,4 +37,4 @@ Keeps the knowledge base current by monitoring and refreshing sources and claims
 
 - Updated `claim` and `source` records.
 - `conflict` records if contradictions detected.
-- Events: `source.refreshed`, `maintenance.triggered`.
+- Where the event interface is implemented, emit `source.refreshed` and `maintenance.triggered`.

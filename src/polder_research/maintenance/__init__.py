@@ -45,9 +45,20 @@ def _event_time(record: dict[str, Any]) -> datetime | None:
     if not isinstance(timestamp, str):
         return None
     try:
-        return datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
     except ValueError:
         return None
+    # ISO-8601 permits timestamps without an offset. Treat these as UTC so
+    # event ordering remains comparable with the UTC clock used by maintenance.
+    return parsed.replace(tzinfo=UTC) if parsed.tzinfo is None else parsed
+
+
+def _updated_time(value: str) -> datetime | None:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return parsed.replace(tzinfo=UTC) if parsed.tzinfo is None else parsed
 
 
 def _evidence_collection(root: Path | None, kind: str) -> list[dict[str, Any]]:
@@ -57,7 +68,7 @@ def _evidence_collection(root: Path | None, kind: str) -> list[dict[str, Any]]:
     for path in sorted((research / f"{kind}s").glob("*.json")):
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
-        except OSError, json.JSONDecodeError:
+        except (OSError, UnicodeError, json.JSONDecodeError):
             continue
         if validator.is_valid(record):
             out.append(record)
@@ -180,9 +191,8 @@ def derive_stale_records(
         updated_at = record.get("updated_at")
         if not isinstance(updated_at, str) or not updated_at:
             continue
-        try:
-            parsed = datetime.fromisoformat(updated_at.replace("Z", "+00:00"))
-        except ValueError:
+        parsed = _updated_time(updated_at)
+        if parsed is None:
             continue
         if parsed < cutoff:
             findings.append(
@@ -305,7 +315,11 @@ def evaluate_maintenance(
         )
 
     interval_hours = maintenance.get("health_compute_interval_hours")
-    if isinstance(interval_hours, (int, float)) and interval_hours > 0:
+    if (
+        isinstance(interval_hours, int | float)
+        and not isinstance(interval_hours, bool)
+        and interval_hours > 0
+    ):
         last_health = max(
             (
                 time
@@ -436,7 +450,7 @@ def build_health(repository_root: str | Path | None = None) -> dict[str, Any]:
             return None
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
-        except OSError, json.JSONDecodeError:
+        except (OSError, UnicodeError, json.JSONDecodeError):
             return None
         return record if isinstance(record, dict) else None
 

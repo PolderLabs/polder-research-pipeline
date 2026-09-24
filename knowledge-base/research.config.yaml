@@ -1,14 +1,49 @@
 # research.config.yaml — authoritative pipeline configuration (AUDIT.md §22)
 #
-# This file is the single source of truth for pipeline policy. All typed
-# status enums, transition rules, freshness thresholds, and agent defaults
-# live here. Tools MUST read this file rather than hard-coding values.
+# This file is the policy vocabulary and defaults reference. Some runtime
+# consumers still use Python constants; strict-review invariants are enforced
+# by the research-method API and schemas. Do not infer runtime enforcement
+# from the presence of a configuration key.
 #
-# NOTE: This is the P2 implementation. P0/P1 establish the skeleton.
-# P3+ wire the config into actual agent code.
+# Canonical policy and vocabularies for current implementations. Not every
+# runtime currently consumes every setting; see README and AUDIT.md for limits.
 
 schema_version: 1
 pipeline_version: "0.1.0"
+
+# ─── Automatic classification ────────────────────────────────────────────────
+# Jev calls TypeSafe's hosted API. Laya runs in-process with local model
+# weights; installing the optional extra does not download weights until first
+# classification. Neither provider silently falls back to the other.
+classification:
+  enabled: true
+  provider: rules # rules | jev | laya; switch here
+  minimum_confidence: 0.75
+  max_input_chars: 12000
+  jev:
+    endpoint: https://api.typesafe.ai/v1/systemone
+    model: jev-latest
+    api_key_env: TYPESAFE_API_KEY
+    timeout_seconds: 30
+  laya:
+    model: multilingual
+    device: auto # auto | cpu | cuda | mps
+  taxonomy:
+    version: "2026-09-24.1"
+    categories:
+      project: {description: Project goals, requirements, and constraints, keywords: [polder, project, requirements]}
+      research: {description: Research findings, models, papers, methods, or technology landscape, keywords: [research, paper, study, benchmark, model]}
+      system: {description: System architecture, performance, transports, deployment, or runtime, keywords: [architecture, system, runtime, deployment]}
+      decision: {description: Decisions, comparisons, or risk assessments, keywords: [decision, comparison, tradeoff, risk]}
+      operation: {description: Experiments, benchmarks, roadmaps, or operational work, keywords: [experiment, benchmark, roadmap, operation]}
+      other: {description: Material outside the listed knowledge-base categories, keywords: []}
+    tags:
+      artificial-intelligence: {description: artificial intelligence and machine learning, keywords: [artificial intelligence, machine learning, neural, llm]}
+      real-time: {description: real-time processing, streaming, or low-latency systems, keywords: [real-time, realtime, streaming, latency]}
+      visual-models: {description: visual generation, rendering, or vision models, keywords: [visual, image generation, rendering, vision model]}
+      evaluation: {description: evaluation, benchmarks, or measurement, keywords: [evaluation, benchmark, metric, measurement]}
+      methodology: {description: research methods, protocols, or evidence synthesis, keywords: [methodology, protocol, systematic review, evidence synthesis]}
+      open-source: {description: open-source projects, repositories, or software, keywords: [open-source, github, repository, license]}
 
 # ─── Vault scan scope ───────────────────────────────────────────────────────
 # Controls what the vault_audit and frontmatter_fix tools consider "in scope".
@@ -124,6 +159,33 @@ task:
     - evolve
     - decide
     - plan
+    - search
+    - screen
+    - extract
+    - adjudicate
+    - appraise
+    - report
+
+# ─── Research method policy ────────────────────────────────────────────────
+research_method:
+  valid_methods:
+    - continuous_intelligence
+    - systematic_evidence_review
+  systematic_evidence_review:
+    protocol_required_before_activation: true
+    protocol_frozen_before_search: true
+    nonempty_search_requires_saved_export_sha256: true
+    candidate_records_separate_from_acquired_sources: true
+    screening_requires_independent_human_reviewers: 2
+    extraction_requires_independent_human_reviewers: 2
+    disagreement_requires_protocol_adjudication: true
+    completion_requires_generated_review_report: true
+    completion_requires_duplicate_independent_appraisal: false
+  limits:
+    reviewer_identity_authenticated: false
+    review_report_is_portable_archive: false
+    authoritative_records_shared_by_default: false
+    method_record_events_complete: false
   lease_ttl_seconds: 300
 
 # ─── Source model ───────────────────────────────────────────────────────────

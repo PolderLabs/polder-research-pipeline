@@ -5,13 +5,20 @@ tools:
   - http_get
   - git_clone
   - arxiv_fetch
+  - research_methods.record_search
+  - research_methods.register_candidate
   - compute_hash
   - register_source
   - emit_event
 read:
   - .research/state.json
+  - .research/protocols/**
+  - .research/searches/**
+  - .research/candidates/**
   - .research/sources/**
 write:
+  - .research/searches/**
+  - .research/candidates/**
   - .research/sources/**
   - .research/events/**
   - 90-inbox/manifest.md

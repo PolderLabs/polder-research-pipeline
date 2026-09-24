@@ -85,9 +85,14 @@ Every note should be reachable from at least one other note. Orphan notes are su
 
 Use wikilinks: `[[path]]` or `[[path|alias]]`. Vault-root-relative, no `.md`.
 
-## Tag taxonomy
+## Tag taxonomy and automatic classification
 
-Tags emerge from content. No master taxonomy required. Keep tags:
+The versioned category and tag vocabulary in `research.config.yaml` drives
+automatic classification of sources, claims, entities, and segments. Change
+the taxonomy there and increment its version. Human tags are preserved. Low
+confidence results remain review-required; tagging never establishes evidence
+or replaces systematic review screening, appraisal, extraction, or adjudication.
+Keep manually added tags:
 - Lowercase, kebab-case.
 - One concept per tag.
 - Meaningful: `ai-inference`, `streaming`, `latency`.

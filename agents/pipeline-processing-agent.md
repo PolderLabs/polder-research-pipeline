@@ -16,6 +16,7 @@ Extracts and segments raw source material into structured records.
 - Split into `segment` records with exact locators (page, paragraph, line, etc.).
 - Extract named entities → `entity` records.
 - Extract structured claims → `claim` records (draft status).
+- For systematic reviews, keep general claim authoring separate from protocol-defined data extraction. Record required fields with supporting segments through the research-method API and do not replace duplicate independent extraction with a single agent's draft.
 - Route segments to classification agent.
 
 ## Input

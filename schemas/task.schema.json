@@ -16,7 +16,7 @@
       "enum": [
         "intake", "acquire", "process", "classify", "verify",
         "distill", "synthesize", "query", "maintain", "evolve",
-        "decide", "plan"
+        "decide", "plan", "search", "screen", "extract", "adjudicate", "appraise", "report"
       ]
     },
     "status": {

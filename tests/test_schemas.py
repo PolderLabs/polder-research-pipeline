@@ -21,6 +21,13 @@ class TestSchemaRegistry:
             "segment",
             "conflict",
             "gap",
+            "protocol",
+            "search",
+            "candidate",
+            "screening",
+            "appraisal",
+            "review_report",
+            "extraction",
         }
         assert expected.issubset(SCHEMAS.keys()), f"missing: {expected - SCHEMAS.keys()}"
 
@@ -32,6 +39,21 @@ class TestSchemaRegistry:
     def test_get_unknown_raises_keyerror(self):
         with pytest.raises(KeyError):
             get("does-not-exist")
+
+    @pytest.mark.parametrize("task_kind", ["search", "screen", "extract", "adjudicate", "appraise", "report"])
+    def test_task_schema_accepts_research_method_work(self, task_kind):
+        validate(
+            "task",
+            {
+                "id": "tsk_00000000-0000-7000-8000-000000000001",
+                "schema_version": 1,
+                "task_kind": task_kind,
+                "status": "pending",
+                "role": "research-agent",
+                "created_at": "2026-09-24T00:00:00Z",
+                "summary": "Protocol-defined review activity",
+            },
+        )
 
     def test_validate_source_minimal(self):
         validate(

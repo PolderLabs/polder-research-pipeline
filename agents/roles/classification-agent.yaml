@@ -11,10 +11,12 @@ read:
   - .research/claims/**
   - .research/segments/**
   - .research/sources/**
+  - .research/classifications/**
 write:
   - .research/claims/**
   - .research/gaps/**
   - .research/events/**
+  - .research/classifications/**
 forbidden:
   - schemas/**
   - agents/**

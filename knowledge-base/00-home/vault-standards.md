@@ -51,7 +51,8 @@ tags:
 
 - Lowercase, kebab-case: `ai-inference`, `latency`, `streaming`
 - One concept per tag; no abbreviations unless universally known
-- Tag taxonomy is emergent; no master list required
+- Use the versioned taxonomy in `research.config.yaml` for automatic tagging.
+- Human-added tags remain valid; taxonomy changes must increment its version.
 
 ## Wikilinks
 

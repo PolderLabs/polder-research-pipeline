@@ -12,7 +12,7 @@ Experiments, benchmarks, roadmaps, and runbooks. Notes here capture operational 
 
 ## Experiments
 
-Experiment definitions, protocols, hypotheses, and results. Each experiment is a structured note covering setup, variables, observations, and conclusions.
+Experiment definitions, protocols, hypotheses, and results. Experiment protocols describe experimental setup. Systematic evidence-review protocols define eligibility, search, screening, extraction, appraisal, and synthesis; see [[00-home/research-methods|Research methods]]. Each experiment is a structured note covering setup, variables, observations, and conclusions.
 
 ## Benchmarks
 

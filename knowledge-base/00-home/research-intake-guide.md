@@ -10,6 +10,8 @@ tags:
 
 How to transform a raw artifact (PDF, URL, transcript, benchmark log) into a durable, linked note.
 
+For a prespecified systematic review, follow [[research-methods|Research Methods and Auditability]] before searching. This intake guide describes individual artifact processing; it does not establish comprehensive search coverage or independent screening by itself.
+
 ## The 6-step lifecycle
 
 ### 1. Drop

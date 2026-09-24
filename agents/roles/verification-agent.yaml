@@ -8,6 +8,9 @@ tools:
   - emit_event
 read:
   - .research/claims/**
+  - .research/protocols/**
+  - .research/screenings/**
+  - .research/appraisals/**
   - .research/sources/**
   - .research/segments/**
 write:

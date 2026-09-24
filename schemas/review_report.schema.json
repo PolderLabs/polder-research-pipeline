@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema", "$id": "https://polder.dev/schemas/review_report.schema.json",
+  "title": "Systematic review audit report", "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "run_id", "protocol_id", "protocol_sha256", "generated_at", "flow", "record_ids", "record_hashes", "limitations", "content_sha256"],
+  "properties": {
+    "schema_version": {"type": "integer", "const": 1}, "run_id": {"type": "string", "pattern": "^run_"},
+    "protocol_id": {"type": "string", "pattern": "^prm_"}, "protocol_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "flow": {"type": "object", "required": ["records_identified", "records_represented", "duplicates_removed", "records_screened", "records_excluded_title_abstract", "reports_sought", "reports_assessed_full_text", "reports_excluded_full_text", "studies_included", "unresolved_decisions", "required_queries", "executed_queries", "extraction_fields_required", "extraction_fields_resolved"], "additionalProperties": false, "properties": {
+      "records_identified": {"type": "integer", "minimum": 0}, "records_represented": {"type": "integer", "minimum": 0}, "duplicates_removed": {"type": "integer", "minimum": 0}, "records_screened": {"type": "integer", "minimum": 0}, "records_excluded_title_abstract": {"type": "integer", "minimum": 0}, "reports_sought": {"type": "integer", "minimum": 0}, "reports_assessed_full_text": {"type": "integer", "minimum": 0}, "reports_excluded_full_text": {"type": "integer", "minimum": 0}, "studies_included": {"type": "integer", "minimum": 0}, "unresolved_decisions": {"type": "integer", "minimum": 0}, "required_queries": {"type": "integer", "minimum": 0}, "executed_queries": {"type": "integer", "minimum": 0}, "extraction_fields_required": {"type": "integer", "minimum": 0}, "extraction_fields_resolved": {"type": "integer", "minimum": 0}
+    }},
+    "record_ids": {"type": "object", "required": ["searches", "candidates", "screenings", "extractions", "appraisals", "sources", "claims", "conflicts"], "additionalProperties": false, "properties": {
+      "searches": {"type": "array", "items": {"type": "string", "pattern": "^sea_"}}, "candidates": {"type": "array", "items": {"type": "string", "pattern": "^can_"}}, "screenings": {"type": "array", "items": {"type": "string", "pattern": "^scr_"}}, "extractions": {"type": "array", "items": {"type": "string", "pattern": "^ext_"}}, "appraisals": {"type": "array", "items": {"type": "string", "pattern": "^app_"}}, "sources": {"type": "array", "items": {"type": "string", "pattern": "^src_"}}, "claims": {"type": "array", "items": {"type": "string", "pattern": "^clm_"}}, "conflicts": {"type": "array", "items": {"type": "string", "pattern": "^cfl_"}}
+    }},
+    "record_hashes": {"type": "object", "propertyNames": {"pattern": "^(sea|can|scr|ext|app|src|clm|cfl)_"}, "additionalProperties": {"type": "string", "pattern": "^[0-9a-f]{64}$"}},
+    "limitations": {"type": "array", "items": {"type": "string"}}, "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

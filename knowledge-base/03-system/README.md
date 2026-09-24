@@ -8,6 +8,8 @@ tags:
 
 # System
 
+See [[03-system/classification-providers|Classification providers]] for automatic taxonomy tagging and switchable Jev/Laya backends. Run `polder-research serve` to open the [[03-system/control-panel|local control panel]] for configuration, model setup, health, and analytics.
+
 Architecture, performance, transports, deployment, and runtime. Notes here describe how the system is built and how it runs.
 
 ## Architecture

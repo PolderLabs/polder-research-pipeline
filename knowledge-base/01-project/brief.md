@@ -33,12 +33,15 @@ Build a reusable research operating system that can start from an arbitrary proj
 - **Markdown is a projection**: human-readable view of structured state
 - **Events are append-only**: no overwriting history
 - **Provenance is mandatory**: every claim traces to a source
-- **Schema registry is the single source of truth**: for vocabulary, status enums, transition rules
+- **Typed record contracts**: JSON Schemas define record structure; some vocabularies and policy values are also represented in Python and `research.config.yaml`, so updates must keep those surfaces synchronized.
 - **Tests are evidence**: assertions prove behavior, not implementation
 
-## Current phase
+## Current research modes
 
-P0–P3 implementation: making the repository truthful, establishing conventions, building the control plane, and setting up CI.
+- `continuous_intelligence`: bounded ongoing discovery, source processing, verification, and maintenance. It does not claim exhaustive coverage.
+- `systematic_evidence_review`: protocol-first workflow with frozen eligibility, search, and synthesis plans; saved hashed search exports; explicit candidates; independent human screening and extraction; adjudication; appraisal; and an audit report.
+
+The workflow is locally auditable. Runtime records are gitignored; reviewer IDs are not identity-authenticated; the report is a hash-indexed inventory rather than a portable archive. See [[00-home/research-methods|Research methods]] for the procedure and standards references.
 
 ## Constraints
 

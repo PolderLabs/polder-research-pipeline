@@ -8,6 +8,4 @@ tags:
 
 # Claude
 
-This project uses OpenWolf for context management. For the full operating protocol — repository layout, intake lifecycle, validators, frontmatter schema, and wikilink rules — see [[AGENTS|AGENTS.md]].
-
-The always-on rules live in `.claude/rules/openwolf.md`; hooks handle bookkeeping automatically. Load the `openwolf` skill or read `.wolf/OPENWOLF.md`; regenerate the session handoff with `/handoff`.
+For the repository operating protocol, manual intake lifecycle, validators, frontmatter schema, and wikilink rules, see [AGENTS.md](AGENTS.md). For systematic evidence reviews, follow [the research-methods guide](knowledge-base/00-home/research-methods.md) before searching. This file does not assume a particular Claude plugin or local session-state setup.

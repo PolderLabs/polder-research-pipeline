@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import sys
 
+from ..web import serve
 from .audit import cmd_vault_audit
 from .frontmatter import cmd_frontmatter_fix
 from .intake import cmd_intake_register
@@ -46,6 +47,8 @@ def main(argv: list[str] | None = None) -> int:
     new.add_argument("--dry-run", action="store_true")
     sub.add_parser("state-build", help="Rebuild .research/state.json")
     sub.add_parser("health-build", help="Rebuild .research/health.json")
+    web = sub.add_parser("serve", help="Open the local research control panel")
+    web.add_argument("--port", type=int, default=8765)
 
     args = parser.parse_args(argv)
 
@@ -78,6 +81,11 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_build_state()
     if args.cmd == "health-build":
         return cmd_build_health()
+    if args.cmd == "serve":
+        if not 0 <= args.port <= 65535:
+            parser.error("--port must be between 0 and 65535")
+        serve(port=args.port)
+        return 0
     return 2
 
 

@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from ..atomic import write_atomic
+from ..classification import classify_text, merge_proposals
 from ..paths import (
     EVIDENCE_CLAIMS_DIR,
     EVIDENCE_CONFLICTS_DIR,
@@ -118,6 +119,7 @@ def register_source(
     raw_location: str | None = None,
     byte_size: int | None = None,
     mime_type: str | None = None,
+    tags: list[str] | None = None,
     repository_root: Path | None = None,
 ) -> str:
     """Register a new source record. The content SHA-256 is required (computed
@@ -157,6 +159,21 @@ def register_source(
         record["byte_size"] = byte_size
     if mime_type:
         record["mime_type"] = mime_type
+    if tags:
+        record["tags"] = list(dict.fromkeys(tags))
+    try:
+        text = raw_bytes.decode("utf-8", errors="ignore")[:12000] if raw_bytes else ""
+        classification = classify_text(
+            "\n".join(part for part in (title, source_type, media_type, text) if part),
+            target_kind="source",
+            target_id=sid,
+            repository_root=repository_root,
+            output_dir=_record_dir(EVIDENCE_SOURCES_DIR, repository_root, "sources").parent
+            / "classifications",
+        )
+        merge_proposals(record, classification)
+    except (OSError, ValueError, RuntimeError):
+        pass
     _persist(
         _record_dir(EVIDENCE_SOURCES_DIR, repository_root, "sources").joinpath(f"{sid}.json"),
         record,
@@ -224,6 +241,18 @@ def register_segment(
         record["locator"]["start"] = start
     if end is not None:
         record["locator"]["end"] = end
+    try:
+        classification = classify_text(
+            text,
+            target_kind="segment",
+            target_id=seg_id,
+            repository_root=repository_root,
+            output_dir=_record_dir(EVIDENCE_SEGMENTS_DIR, repository_root, "segments").parent
+            / "classifications",
+        )
+        merge_proposals(record, classification)
+    except (OSError, ValueError, RuntimeError):
+        pass
     _persist(
         _record_dir(EVIDENCE_SEGMENTS_DIR, repository_root, "segments").joinpath(f"{seg_id}.json"),
         record,
@@ -238,6 +267,7 @@ def register_claim(
     source_ids: list[str],
     claim_status: str = "draft",
     claim_kind: str | None = None,
+    tags: list[str] | None = None,
     repository_root: Path | None = None,
 ) -> str:
     """Register a claim. Every source_id must resolve to an existing source
@@ -264,6 +294,20 @@ def register_claim(
     }
     if claim_kind:
         record["claim_kind"] = claim_kind
+    if tags:
+        record["tags"] = list(dict.fromkeys(tags))
+    try:
+        classification = classify_text(
+            statement,
+            target_kind="claim",
+            target_id=clm_id,
+            repository_root=repository_root,
+            output_dir=_record_dir(EVIDENCE_CLAIMS_DIR, repository_root, "claims").parent
+            / "classifications",
+        )
+        merge_proposals(record, classification)
+    except (OSError, ValueError, RuntimeError):
+        pass
     _persist(
         _record_dir(EVIDENCE_CLAIMS_DIR, repository_root, "claims").joinpath(f"{clm_id}.json"),
         record,
@@ -278,6 +322,7 @@ def register_entity(
     entity_kind: str,
     aliases: list[str] | None = None,
     description: str | None = None,
+    tags: list[str] | None = None,
     repository_root: Path | None = None,
 ) -> str:
     ensure_evidence_dirs(repository_root=repository_root)
@@ -293,6 +338,20 @@ def register_entity(
         record["aliases"] = aliases
     if description:
         record["description"] = description
+    if tags:
+        record["tags"] = list(dict.fromkeys(tags))
+    try:
+        classification = classify_text(
+            "\n".join(part for part in (name, description or "", " ".join(aliases or [])) if part),
+            target_kind="entity",
+            target_id=ent_id,
+            repository_root=repository_root,
+            output_dir=_record_dir(EVIDENCE_ENTITIES_DIR, repository_root, "entities").parent
+            / "classifications",
+        )
+        merge_proposals(record, classification)
+    except (OSError, ValueError, RuntimeError):
+        pass
     _persist(
         _record_dir(EVIDENCE_ENTITIES_DIR, repository_root, "entities").joinpath(f"{ent_id}.json"),
         record,
@@ -331,8 +390,10 @@ def register_gap(
         "status": status,
         "created_at": _now(),
     }
-    _record_dir(EVIDENCE_GAPS_DIR, repository_root, "gaps").joinpath(f"{gap_id}.json").write_text(
-        json.dumps(record, indent=2), encoding="utf-8"
+    _persist(
+        _record_dir(EVIDENCE_GAPS_DIR, repository_root, "gaps").joinpath(f"{gap_id}.json"),
+        record,
+        schema_name="gap",
     )
     return gap_id
 

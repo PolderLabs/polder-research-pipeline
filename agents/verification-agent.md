@@ -22,6 +22,7 @@ Verifies high-impact claims against primary evidence.
 - Seek contradicting evidence (disconfirming searches).
 - Check freshness against source volatility policy.
 - Update `claim.verification` field.
+- For systematic reviews, claim verification is a downstream evidence check. It does not replace protocol-listed independent screening, adjudication, domain-based appraisal, or duplicate extraction.
 
 ## Input
 
@@ -30,4 +31,4 @@ Verifies high-impact claims against primary evidence.
 ## Output
 
 - Updated `claim` records with `verification.status` set.
-- Events: `claim.verified`, `claim.disputed`, `claim.refuted`.
+- Where the event interface is implemented, emit `claim.verified`, `claim.disputed`, or `claim.refuted`.

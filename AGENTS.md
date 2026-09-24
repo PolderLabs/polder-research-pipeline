@@ -8,7 +8,7 @@ tags:
 
 # Agents
 
-**Repository:** Polder Research Pipeline — a self-evolving knowledge base for realtime AI-driven visual platform research.
+**Repository:** Polder Research Pipeline — a source-backed research and knowledge-maintenance system. It supports continuous intelligence and protocol-first systematic evidence review; those modes have different coverage and completion claims.
 
 ## Entry point
 
@@ -40,6 +40,8 @@ tags:
 
 Full contract: `skills/obsidian-knowledgebase-curator/SKILL.md`.
 
+For a systematic evidence review, use the protocol-first lifecycle in `knowledge-base/00-home/research-methods.md` before running any search. Freeze the protocol before activating the run; record exact searches and saved exports, candidates and duplicates, independent human screening/extraction, adjudication, appraisal, and the generated audit report. The manual intake lifecycle above handles individual artifacts and does not establish systematic coverage.
+
 ## Validators
 
 Run from the repo root:
@@ -50,7 +52,7 @@ Run from the repo root:
 
 ## Bootstrap (fresh clone)
 
-Authoritative records under `.research/{events,tasks,runs,handoffs,sources,segments,claims,entities,gaps,conflicts,edges}/*.json` are local-only and are gitignored (see AUDIT.md "Persistence mode"). On a fresh clone that means `.research/state.json` does not exist yet. The correct startup sequence is:
+Authoritative records under `.research/{events,tasks,runs,handoffs,protocols,searches,candidates,screenings,extractions,appraisals,classifications,sources,segments,claims,entities,gaps,conflicts,edges}/*.json` are local-only and gitignored (see `knowledge-base/AUDIT.md`, persistence boundary). Search exports and review reports are also local. On a fresh clone these records and `.research/state.json` may not exist. The correct startup sequence is:
 
 1. Locate and validate the authoritative state backend (`polder_research.workflow._read_records(repository_root)`).
 2. Build a derived snapshot if missing or stale:
@@ -59,10 +61,10 @@ Authoritative records under `.research/{events,tasks,runs,handoffs,sources,segme
    from polder_research.maintenance import build_state
 
    state = build_state(repository_root=".")
-   # state["work"], state["tasks"], state["runs"], state["handoffs"], state["events"]
+   # state["work"], state["tasks"], state["runs"], state["handoffs"], state["events"], state["method_records"], state["classifications"]
    ```
 
-   `polder_research.maintenance.build_state` is the canonical bootstrap entry point. It re-exports `polder_research.workflow.build_state`, which derives the snapshot from the authoritative record store without mutating any record and without needing a pre-existing `.research/state.json`. The snapshot exposes per-status task/run/handoff counts, work buckets (done, pending, blocked, leased, running, failed, abandoned), running and done run IDs, pending handoff IDs, and a `malformed` bucket for any record that fails schema validation or JSON parsing.
+   `polder_research.maintenance.build_state` is the canonical bootstrap entry point. It re-exports `polder_research.workflow.build_state`, which derives the snapshot from authoritative records without mutating them or needing a pre-existing `.research/state.json`. The snapshot exposes task/run/handoff counts, classification and method-record counts, work buckets, running and done run IDs, pending handoff IDs, and a `malformed` bucket for records that fail schema validation or JSON parsing. `.research/reports/` contains generated systematic-review audit reports; it is not part of the state bootstrap.
 
 3. Inspect the resulting snapshot; do not assume `.research/state.json` exists before calling `build_state`.
 

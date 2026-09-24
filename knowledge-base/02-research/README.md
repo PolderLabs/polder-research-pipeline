@@ -10,6 +10,8 @@ tags:
 
 Distilled research from papers, models, tools, and the broader technology landscape. Notes here represent curated synthesis, not raw source text.
 
+For a systematic evidence review, follow [[00-home/research-methods|the protocol-first research method]] before searching. A distilled note is a human-facing synthesis; protocol, candidate, screening, appraisal, and extraction records remain authoritative in the local `.research/` store.
+
 ## Models and Backends
 
 Papers, model cards, and integration candidates for AI inference. Covers foundation models, fine-tuned variants, API providers, and local inference runtimes.

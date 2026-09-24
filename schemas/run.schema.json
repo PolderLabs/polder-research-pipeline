@@ -22,6 +22,12 @@
     "started_at": {"type": "string", "default": ""},
     "finished_at": {"type": "string", "default": ""},
     "owner": {"type": "string", "default": ""},
+    "research_method": {
+      "enum": ["continuous_intelligence", "systematic_evidence_review"],
+      "default": "continuous_intelligence"
+    },
+    "protocol_id": {"type": "string", "pattern": "^prm_"},
+    "protocol_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "brief": {
       "type": "object",
       "required": ["question"],
@@ -64,5 +70,9 @@
       "type": "array",
       "items": {"type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"}
     }
-  }
+  },
+  "allOf": [{
+    "if": {"properties": {"research_method": {"const": "systematic_evidence_review"}, "run_status": {"enum": ["active", "completed"]}}, "required": ["research_method", "run_status"]},
+    "then": {"required": ["protocol_id", "protocol_sha256"]}
+  }]
 }

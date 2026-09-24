@@ -8,13 +8,17 @@ tools:
   - extract_segments
   - extract_entities
   - draft_claims
+  - research_methods.record_extraction
   - emit_event
 read:
   - .research/sources/**
+  - .research/segments/**
+  - .research/protocols/**
 write:
   - .research/segments/**
   - .research/entities/**
   - .research/claims/**
+  - .research/extractions/**
   - .research/events/**
 forbidden:
   - schemas/**

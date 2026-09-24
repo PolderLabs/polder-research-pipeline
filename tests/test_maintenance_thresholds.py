@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from polder_research.maintenance import (
+    _event_time,
     build_state,
     derive_stale_records,
     evaluate_maintenance,
@@ -168,6 +169,23 @@ def test_derive_stale_records_no_op_when_threshold_none(tmp_path: Path):
             threshold_days=None,
         )
         == []
+    )
+
+
+def test_derive_stale_records_treats_naive_timestamp_as_utc(tmp_path: Path):
+    _scaffold(tmp_path)
+    now = datetime(2026, 9, 24, tzinfo=UTC)
+    findings = derive_stale_records(
+        [{"id": "t_old", "updated_at": "2020-01-01T00:00:00"}],
+        threshold_days=30,
+        now=now,
+    )
+    assert [finding["id"] for finding in findings] == ["t_old"]
+
+
+def test_event_time_treats_naive_timestamp_as_utc():
+    assert _event_time({"timestamp": "2026-09-24T00:00:00"}) == datetime(
+        2026, 9, 24, tzinfo=UTC
     )
 
 

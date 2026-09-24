@@ -15,7 +15,8 @@ Canonical note templates. Copy from here when creating a new note; never invent 
 | Template | When to use |
 |---|---|
 | [[intake-record-template|Intake record]] | Processing a raw drop from `90-inbox/raw/` |
-| [[source-entry-template|Research note]] | One concept per research note |
+| [[source-entry-template|Topic note]] | Concise overview of one concept and its properties |
+| [[research-note-template|Evidence-led research note]] | Research question, method scope, structured claims, and source-linked evidence |
 | [[decision-record-template|Decision record]] | Recording an ADRC decision |
 | [[experiment-template|Experiment]] | Defining and running an experiment |
 | [[conflict-note-template|Conflict note]] | Preserving contradictory claims |
