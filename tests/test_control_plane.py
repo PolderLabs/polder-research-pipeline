@@ -78,7 +78,7 @@ def _patch_config_path(monkeypatch, tmp_path: Path):
 def _write(research: Path, rel: str, payload) -> Path:
     path = research / rel
     path.parent.mkdir(parents=True, exist_ok=True)
-    if isinstance(payload, (dict, list)):
+    if isinstance(payload, dict | list):
         path.write_text(json.dumps(payload))
     else:
         path.write_text(payload)

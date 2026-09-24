@@ -72,12 +72,18 @@ def _questions(taxonomy: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return questions
 
 
-def _remote_call(state: str, questions: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
+def _remote_call(
+    state: str,
+    questions: dict[str, Any],
+    config: dict[str, Any],
+    *,
+    repository_root: Path | None = None,
+) -> dict[str, Any]:
     endpoint = config.get("endpoint", JEv_URL)
     if endpoint != JEv_URL:
         raise ValueError("Jev provider endpoint is fixed to https://api.typesafe.ai/v1/systemone")
     key_env = config.get("api_key_env", "TYPESAFE_API_KEY")
-    api_key = os.environ.get(key_env) or _saved_api_key(key_env)
+    api_key = os.environ.get(key_env) or _saved_api_key(key_env, repository_root)
     if not api_key:
         raise RuntimeError(f"Jev selected but {key_env} is not set")
     payload = json.dumps(
@@ -104,8 +110,9 @@ def _remote_call(state: str, questions: dict[str, Any], config: dict[str, Any]) 
     return result
 
 
-def _saved_api_key(key_env: str) -> str | None:
-    path = REPO_ROOT / ".research" / "web-secrets.json"
+def _saved_api_key(key_env: str, repository_root: Path | None = None) -> str | None:
+    root = Path(repository_root) if repository_root is not None else REPO_ROOT
+    path = root / ".research" / "web-secrets.json"
     try:
         values = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
@@ -230,7 +237,7 @@ def classify_text(
         if provider == "rules":
             result = _rules_call(clipped, taxonomy)
         elif provider == "jev":
-            result = _remote_call(clipped, questions, config.get("jev", {}))
+            result = _remote_call(clipped, questions, config.get("jev", {}), repository_root=root)
         else:
             result = _local_call(clipped, questions, config.get("laya", {}))
         answers = result["answers"]

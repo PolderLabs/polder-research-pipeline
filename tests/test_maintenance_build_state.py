@@ -12,6 +12,7 @@ AUDIT.md §26). This test asserts:
 3. it does not require a pre-existing ``.research/state.json`` on disk
    (the fresh-clone bootstrap case).
 """
+
 from __future__ import annotations
 
 import json

@@ -11,6 +11,7 @@ The generator must:
 4. handle a fully empty ``.research`` tree without raising;
 5. handle a non-empty collection without raising.
 """
+
 from __future__ import annotations
 
 import json
@@ -24,9 +25,11 @@ if str(SCRIPTS_DIR.parent) not in sys.path:
     sys.path.insert(0, str(SCRIPTS_DIR.parent))
 sys.path.insert(0, str(SCRIPTS_DIR.parent / "scripts"))
 
-import importlib.util
+import importlib.util  # noqa: E402 - script path setup above is required
 
-_spec = importlib.util.spec_from_file_location("generate_derived", SCRIPTS_DIR / "generate_derived.py")
+_spec = importlib.util.spec_from_file_location(
+    "generate_derived", SCRIPTS_DIR / "generate_derived.py"
+)
 assert _spec and _spec.loader
 generate_derived = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(generate_derived)
@@ -120,9 +123,7 @@ def test_generator_records_malformed_files(tmp_path: Path) -> None:
 
 def test_main_writes_files_in_place(tmp_path: Path) -> None:
     """``main()`` writes state.json + health.json under the given root."""
-    rc = generate_derived.main(
-        ["--repository-root", str(tmp_path)]
-    )
+    rc = generate_derived.main(["--repository-root", str(tmp_path)])
     assert rc == 0
     state_path = tmp_path / ".research" / "generated" / "state.json"
     health_path = tmp_path / ".research" / "generated" / "health.json"

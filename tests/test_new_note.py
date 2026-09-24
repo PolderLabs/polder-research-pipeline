@@ -86,15 +86,11 @@ class TestCmdNewNote:
         assert "unknown domain" in capsys.readouterr().err
 
     def test_rejects_invalid_type(self, capsys):
-        rc = cmd_new_note(
-            domain="02-research", title="x", type_="nope", dry_run=True
-        )
+        rc = cmd_new_note(domain="02-research", title="x", type_="nope", dry_run=True)
         assert rc == 2
         assert "invalid type" in capsys.readouterr().err
 
     def test_rejects_invalid_status(self, capsys):
-        rc = cmd_new_note(
-            domain="02-research", title="x", status="nope", dry_run=True
-        )
+        rc = cmd_new_note(domain="02-research", title="x", status="nope", dry_run=True)
         assert rc == 2
         assert "invalid status" in capsys.readouterr().err

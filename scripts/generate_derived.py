@@ -28,6 +28,7 @@ Usage:
 
   python3 scripts/generate_derived.py [--repository-root PATH]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -103,7 +104,7 @@ def _collect(repository_root: Path) -> dict[str, dict[str, Any]]:
                 if ts is not None and (last_updated is None or ts > last_updated):
                     last_updated = ts
                 version = record.get("schema_version")
-                if isinstance(version, (str, int)):
+                if isinstance(version, str | int):
                     schema_versions[str(version)] += 1
         snapshot[name] = {
             "count": count,

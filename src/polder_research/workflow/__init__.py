@@ -59,7 +59,10 @@ def _config(root: Path | None) -> dict[str, Any]:
     if root is None:
         path = VAULT_ROOT / "research.config.yaml"
     else:
-        candidates = (root / "research.config.yaml", root / "knowledge-base" / "research.config.yaml")
+        candidates = (
+            root / "research.config.yaml",
+            root / "knowledge-base" / "research.config.yaml",
+        )
         path = next((candidate for candidate in candidates if candidate.is_file()), candidates[0])
     try:
         value = yaml.safe_load(path.read_text(encoding="utf-8"))
@@ -209,7 +212,14 @@ def build_state(repository_root: str | Path | None = None) -> dict[str, Any]:
         "classifications": {"total": len(records["classifications"])},
         "method_records": {
             name: len(records[name])
-            for name in ("protocols", "searches", "candidates", "screenings", "appraisals", "extractions")
+            for name in (
+                "protocols",
+                "searches",
+                "candidates",
+                "screenings",
+                "appraisals",
+                "extractions",
+            )
         },
         "malformed": {"count": len(malformed), "records": malformed},
     }

@@ -7,6 +7,7 @@ from pathlib import Path
 
 import yaml
 
+from polder_research import classification
 from polder_research.classification import classify_text, merge_proposals
 
 
@@ -55,9 +56,7 @@ def test_rules_classification_is_auditable_and_idempotent(tmp_path: Path):
     assert first["proposed_tags"] == ["visual-models"]
     assert first["taxonomy_snapshot"]["version"] == "test-1"
     assert first["questions"]["category"]["type"] == "choice"
-    persisted = json.loads(
-        (root / ".research/classifications" / f"{first['id']}.json").read_text()
-    )
+    persisted = json.loads((root / ".research/classifications" / f"{first['id']}.json").read_text())
     assert text not in json.dumps(persisted)
     assert persisted["input_sha256"] == first["input_sha256"]
     assert len(list((root / ".research/classifications").glob("cls_*.json"))) == 1
@@ -82,8 +81,26 @@ def test_merge_keeps_user_metadata_and_only_adds_classification_ids():
 def test_disabled_classification_has_no_side_effect(tmp_path: Path):
     root = _repository(tmp_path, enabled=False)
 
-    assert classify_text("research", target_kind="claim", target_id="clm-test", repository_root=root) is None
+    assert (
+        classify_text("research", target_kind="claim", target_id="clm-test", repository_root=root)
+        is None
+    )
     assert not (root / ".research").exists()
+
+
+def test_saved_api_keys_are_scoped_to_repository(tmp_path: Path) -> None:
+    credential_root = tmp_path / "credential-repository"
+    secret_path = credential_root / ".research/web-secrets.json"
+    secret_path.parent.mkdir(parents=True)
+    secret_path.write_text(json.dumps({"TYPESAFE_API_KEY": "synthetic-test-key"}))
+    other_repository = tmp_path / "other-repository"
+    other_repository.mkdir()
+    other_root = _repository(other_repository, provider="jev")
+
+    assert (
+        classification._saved_api_key("TYPESAFE_API_KEY", credential_root) == "synthetic-test-key"
+    )
+    assert classification._saved_api_key("TYPESAFE_API_KEY", other_root) is None
 
 
 def test_provider_failure_is_recorded_without_source_text(tmp_path: Path, monkeypatch):

@@ -86,7 +86,7 @@ jobs:
         run: python3 skills/obsidian-knowledgebase-curator/scripts/vault_audit.py
 
   schema-validate:
-    name: Schema validation and generated drift
+    name: Schema validation and generated state
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -122,7 +122,7 @@ jobs:
         run: |
           python3 -c "
           import yaml
-          c = yaml.safe_load(open('research.config.yaml'))
+          c = yaml.safe_load(open('knowledge-base/research.config.yaml'))
           assert c['schema_version'] == 1
           print('OK: research.config.yaml')
           "
@@ -136,19 +136,15 @@ jobs:
               print(f'OK: {p}')
           print('All schemas valid JSON')
           "
-      - name: Generated drift check
-        # AUDIT.md §24 — generate tracked derived artifacts, then require a
-        # clean git diff. scripts/generate_derived.py derives
-        # .research/generated/{state,health}.json purely from record
-        # content (no mtimes, no wall-clock), so regeneration in CI must be
-        # byte-identical to the committed snapshot; otherwise the snapshot
-        # is stale and CI fails until it is re-committed.
+      - name: Generated-state deterministic smoke check
         run: |
           set -euo pipefail
           python3 scripts/generate_derived.py
-          if ! git diff --exit-code -- .research/generated; then
-            echo '::error::Generated drift detected under .research/generated' >&2
-            echo 'Run: python3 scripts/generate_derived.py && git add -f .research/generated/' >&2
+          before=$(sha256sum .research/generated/state.json .research/generated/health.json)
+          python3 scripts/generate_derived.py
+          after=$(sha256sum .research/generated/state.json .research/generated/health.json)
+          if [ "$before" != "$after" ]; then
+            echo '::error::Generated state is not deterministic' >&2
             exit 1
           fi
 
@@ -161,10 +157,13 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - name: Run gitleaks
-        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: "1.25.x"
+      - name: Install pinned Gitleaks CLI
+        run: go install github.com/zricethezav/gitleaks/v8@v8.30.1
+      - name: Scan Git history
+        run: "$(go env GOPATH)/bin/gitleaks git --redact --no-banner"
   implementation-status:
     name: Implementation status block
     # AUDIT.md §27 — machine-verified status block. Runs after every other

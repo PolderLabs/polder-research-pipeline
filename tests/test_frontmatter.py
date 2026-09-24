@@ -68,4 +68,6 @@ def test_infer_type_from_domain(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(_mod, "REPO_ROOT", tmp_path)
     assert _mod.infer_type(Path(tmp_path / "knowledge-base" / "00-home" / "x.md")) == "guide"
     assert _mod.infer_type(Path(tmp_path / "knowledge-base" / "02-research" / "x.md")) == "research"
-    assert _mod.infer_type(Path(tmp_path / "knowledge-base" / "04-decisions" / "x.md")) == "decision"
+    assert (
+        _mod.infer_type(Path(tmp_path / "knowledge-base" / "04-decisions" / "x.md")) == "decision"
+    )

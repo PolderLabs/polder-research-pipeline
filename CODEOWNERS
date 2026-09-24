@@ -2,41 +2,40 @@
 # Order matters — later patterns override earlier ones.
 
 # Default owner for the whole repository
-*       @PolderLabs/maintainers
+*       @DrB0rk
 
 # Control plane changes need stricter review
-/agents/                    @PolderLabs/maintainers
-/agents/roles/              @PolderLabs/maintainers
-/schemas/                   @PolderLabs/maintainers
-/research.config.yaml       @PolderLabs/maintainers
-/src/                       @PolderLabs/maintainers
-/.github/                   @PolderLabs/maintainers
-/.gitignore                 @PolderLabs/maintainers
-/.gitattributes             @PolderLabs/maintainers
-/.editorconfig              @PolderLabs/maintainers
-/pyproject.toml             @PolderLabs/maintainers
-/ruff.toml                  @PolderLabs/maintainers
-
-# Evolution/migrations get strict review
-/07-evolution/              @PolderLabs/maintainers
+/agents/                    @DrB0rk
+/agents/roles/              @DrB0rk
+/schemas/                   @DrB0rk
+/knowledge-base/research.config.yaml @DrB0rk
+/src/                       @DrB0rk
+/.github/                   @DrB0rk
+/.gitignore                 @DrB0rk
+/.gitattributes             @DrB0rk
+/.editorconfig              @DrB0rk
+/pyproject.toml             @DrB0rk
+/ruff.toml                  @DrB0rk
 
 # Knowledge base content
-/00-home/                   @PolderLabs/maintainers
-/01-project/                @PolderLabs/maintainers
-/02-research/               @PolderLabs/maintainers
-/03-system/                 @PolderLabs/maintainers
-/04-decisions/              @PolderLabs/maintainers
-/05-operations/             @PolderLabs/maintainers
-/06-sources/                @PolderLabs/maintainers
-/90-inbox/                  @PolderLabs/maintainers
-/99-templates/              @PolderLabs/maintainers
+/knowledge-base/00-home/                   @DrB0rk
+/knowledge-base/01-project/                @DrB0rk
+/knowledge-base/02-research/               @DrB0rk
+/knowledge-base/03-system/                 @DrB0rk
+/knowledge-base/04-decisions/              @DrB0rk
+/knowledge-base/05-operations/             @DrB0rk
+/knowledge-base/06-sources/                @DrB0rk
+/knowledge-base/90-inbox/                  @DrB0rk
+/knowledge-base/99-templates/              @DrB0rk
 
 # Skills
-/skills/                    @PolderLabs/maintainers
+/skills/                    @DrB0rk
 
-# Tests can be reviewed by any contributor
-/tests/                     @PolderLabs/maintainers
+# Tests
+/tests/                     @DrB0rk
 
 # Documentation
-/README.md                  @PolderLabs/maintainers
-/AUDIT.md                   @PolderLabs/maintainers
+/README.md                  @DrB0rk
+/CONTRIBUTING.md            @DrB0rk
+/SECURITY.md                @DrB0rk
+/knowledge-base/AUDIT.md    @DrB0rk

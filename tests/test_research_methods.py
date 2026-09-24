@@ -73,7 +73,10 @@ def method_repo(monkeypatch, tmp_path: Path):
                 "adjudication_rule": "Independent reviewers discuss discrepancies; adjudicator records resolution.",
                 "exclusion_reasons": ["irrelevant", "no full text", "duplicate"],
             },
-            "extraction_plan": {"fields": ["model", "latency", "quality", "evaluation conditions"], "duplicate_review": True},
+            "extraction_plan": {
+                "fields": ["model", "latency", "quality", "evaluation conditions"],
+                "duplicate_review": True,
+            },
             "appraisal_plan": {
                 "required": True,
                 "instrument": "technical-evidence-appraisal-v1",
@@ -158,7 +161,9 @@ def test_search_candidate_dedup_screening_and_appraisal(method_repo):
         title="Different title for same report",
         stable_identifiers=["doi:10.1234/visual.1"],
     )
-    candidate = json.loads((Path(methods.RESEARCH_CANDIDATES_DIR) / f"{duplicate_id}.json").read_text())
+    candidate = json.loads(
+        (Path(methods.RESEARCH_CANDIDATES_DIR) / f"{duplicate_id}.json").read_text()
+    )
     assert candidate["status"] == "duplicate"
     assert candidate["duplicate_of"] == candidate_id
 
@@ -203,8 +208,16 @@ def test_search_candidate_dedup_screening_and_appraisal(method_repo):
         instrument="technical-evidence-appraisal-v1",
         overall_judgement="some concerns",
         domains=[
-            {"name": "measurement validity", "judgement": "some concerns", "rationale": "Device details are incomplete."},
-            {"name": "independence", "judgement": "high concerns", "rationale": "Vendor funded the comparison."},
+            {
+                "name": "measurement validity",
+                "judgement": "some concerns",
+                "rationale": "Device details are incomplete.",
+            },
+            {
+                "name": "independence",
+                "judgement": "high concerns",
+                "rationale": "Vendor funded the comparison.",
+            },
         ],
         limitations=["Single device configuration."],
     )
@@ -218,7 +231,9 @@ def test_search_candidate_dedup_screening_and_appraisal(method_repo):
                 field=field,
                 status="reported",
                 rationale="Copied from the cited source passage.",
-                value=("250 ms" if field == "latency" and reviewer == "reviewer-a" else "350 ms") if field == "latency" else f"reported {field}",
+                value=("250 ms" if field == "latency" and reviewer == "reviewer-a" else "350 ms")
+                if field == "latency"
+                else f"reported {field}",
                 segment_id=segment_id,
             )
         if field == "latency":
@@ -238,8 +253,12 @@ def test_search_candidate_dedup_screening_and_appraisal(method_repo):
     assert flow["duplicates_removed"] == 1
     assert flow["studies_included"] == 1
     assert flow["extraction_fields_required"] == flow["extraction_fields_resolved"] == 4
-    assert methods.validate_run_for_completion(run_id) == ["review audit report has not been generated"]
-    report = methods.generate_review_report(run_id, limitations=["Search coverage is bounded to the recorded sources."])
+    assert methods.validate_run_for_completion(run_id) == [
+        "review audit report has not been generated"
+    ]
+    report = methods.generate_review_report(
+        run_id, limitations=["Search coverage is bounded to the recorded sources."]
+    )
     assert report.is_file()
     assert methods.validate_run_for_completion(run_id) == []
     runs_module.update_run_status(run_id, "completed")
@@ -261,22 +280,41 @@ def test_disagreement_requires_independent_human_adjudication(method_repo):
         run_id, search_id=search_id, title="Possibly relevant benchmark"
     )
     first = methods.record_screening_decision(
-        run_id, candidate_id=candidate_id, stage="title_abstract", reviewer_id="reviewer-a",
-        outcome="include", rationale="Potentially in scope.",
+        run_id,
+        candidate_id=candidate_id,
+        stage="title_abstract",
+        reviewer_id="reviewer-a",
+        outcome="include",
+        rationale="Potentially in scope.",
     )
     second = methods.record_screening_decision(
-        run_id, candidate_id=candidate_id, stage="title_abstract", reviewer_id="reviewer-b",
-        outcome="exclude", rationale="Appears out of scope.", exclusion_reason="irrelevant",
+        run_id,
+        candidate_id=candidate_id,
+        stage="title_abstract",
+        reviewer_id="reviewer-b",
+        outcome="exclude",
+        rationale="Appears out of scope.",
+        exclusion_reason="irrelevant",
     )
     with pytest.raises(methods.ResearchMethodError, match="does not match"):
         methods.adjudicate_screening(
-            run_id, candidate_id=candidate_id, stage="title_abstract", outcome="include",
-            adjudicator_id="reviewer-a", rationale="Not an authorized adjudicator.",
+            run_id,
+            candidate_id=candidate_id,
+            stage="title_abstract",
+            outcome="include",
+            adjudicator_id="reviewer-a",
+            rationale="Not an authorized adjudicator.",
         )
     adjudication_id = methods.adjudicate_screening(
-        run_id, candidate_id=candidate_id, stage="title_abstract", outcome="include",
-        adjudicator_id="adjudicator", rationale="The abstract satisfies the scope.",
+        run_id,
+        candidate_id=candidate_id,
+        stage="title_abstract",
+        outcome="include",
+        adjudicator_id="adjudicator",
+        rationale="The abstract satisfies the scope.",
     )
-    adjudication = json.loads((Path(methods.RESEARCH_SCREENINGS_DIR) / f"{adjudication_id}.json").read_text())
+    adjudication = json.loads(
+        (Path(methods.RESEARCH_SCREENINGS_DIR) / f"{adjudication_id}.json").read_text()
+    )
     assert set(adjudication["resolves_decision_ids"]) == {first, second}
     assert methods.screening_flow(run_id)["unresolved_decisions"] == 0

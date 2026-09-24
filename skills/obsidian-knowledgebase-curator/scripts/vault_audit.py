@@ -158,7 +158,7 @@ def parse_frontmatter(text):
     # string "no" (YAML 1.1 would coerce it to False) and dates must not
     # become datetime objects.
     return {
-        key: value if isinstance(value, (str, list, dict, type(None))) else str(value)
+        key: value if isinstance(value, str | list | dict | type(None)) else str(value)
         for key, value in document.items()
     }
 

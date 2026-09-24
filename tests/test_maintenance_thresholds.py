@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import json
-import shutil
-import tempfile
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -16,7 +14,6 @@ from polder_research.maintenance import (
     superseded_source_proxy,
     thresholds,
 )
-
 
 MINIMAL_CONFIG = (
     "schema_version: 1\n"
@@ -184,9 +181,7 @@ def test_derive_stale_records_treats_naive_timestamp_as_utc(tmp_path: Path):
 
 
 def test_event_time_treats_naive_timestamp_as_utc():
-    assert _event_time({"timestamp": "2026-09-24T00:00:00"}) == datetime(
-        2026, 9, 24, tzinfo=UTC
-    )
+    assert _event_time({"timestamp": "2026-09-24T00:00:00"}) == datetime(2026, 9, 24, tzinfo=UTC)
 
 
 def test_evaluate_maintenance_exposes_stale_derived_in_inputs(tmp_path: Path):

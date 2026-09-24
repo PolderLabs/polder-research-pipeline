@@ -4,7 +4,6 @@
 The block is fenced by ``<!-- status:begin -->`` / ``<!-- status:end -->``
 sentinels and is regenerated on every invocation. Fields:
 
-- ``revision`` — current git HEAD (short SHA);
 - ``python`` — running interpreter version;
 - ``schema_count`` — number of ``schemas/*.schema.json``;
 - ``test_count`` — number of pytest tests collected (matching the local
@@ -21,6 +20,7 @@ Usage:
 
   python3 scripts/emit_implementation_status.py [--repository-root PATH]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -40,18 +40,6 @@ AUDIT_REVISION_RE = re.compile(
     r"^Implementation revision inspected:\s*([0-9a-f]{4,40})\s*$",
     re.MULTILINE,
 )
-
-
-def _git_short_sha(repository_root: Path) -> str:
-    try:
-        out = subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"],
-            cwd=str(repository_root),
-            stderr=subprocess.DEVNULL,
-        )
-    except (OSError, subprocess.CalledProcessError):
-        return "unknown"
-    return out.decode("utf-8").strip() or "unknown"
 
 
 def _audit_revision(audit_text: str) -> str:
@@ -106,14 +94,12 @@ def _test_count(repository_root: Path) -> int:
 def build_status_block(repository_root: Path) -> str:
     """Build the markdown block (between sentinels) for the given repo."""
     audit_text = (repository_root / "knowledge-base" / "AUDIT.md").read_text(encoding="utf-8")
-    revision = _git_short_sha(repository_root)
     py_ver = python_version()
     schema_count = _schema_count(repository_root)
     test_count = _test_count(repository_root)
     last_audit = _audit_revision(audit_text)
 
     body = (
-        f"- revision: `{revision}`\n"
         f"- python: `{py_ver}`\n"
         f"- schema_count: `{schema_count}`\n"
         f"- test_count: `{test_count}`\n"

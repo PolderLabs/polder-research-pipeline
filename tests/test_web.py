@@ -41,13 +41,20 @@ def test_dashboard_uses_real_empty_local_state(repo: Path):
 def test_basic_settings_patch_preserves_comments_and_uses_revision(repo: Path):
     path = repo / "knowledge-base" / "research.config.yaml"
     raw = path.read_text()
-    raw = raw.replace("provider: rules # rules | jev | laya; switch here", "provider: rules # preserve this comment")
+    raw = raw.replace(
+        "provider: rules # rules | jev | laya; switch here",
+        "provider: rules # preserve this comment",
+    )
     path.write_text(raw)
 
-    result = _patch_config(repo, __import__("hashlib").sha256(raw.encode()).hexdigest(), {
-        "classification.provider": "laya",
-        "classification.minimum_confidence": 0.81,
-    })
+    result = _patch_config(
+        repo,
+        __import__("hashlib").sha256(raw.encode()).hexdigest(),
+        {
+            "classification.provider": "laya",
+            "classification.minimum_confidence": 0.81,
+        },
+    )
 
     updated = path.read_text()
     assert result["config"]["classification"]["provider"] == "laya"
@@ -61,7 +68,9 @@ def test_advanced_config_save_validates_before_atomic_write(repo: Path):
     raw = path.read_text()
     revision = __import__("hashlib").sha256(raw.encode()).hexdigest()
     with pytest.raises(ValueError, match="minimum_confidence"):
-        _write_config(repo, raw.replace("minimum_confidence: 0.75", "minimum_confidence: 2"), revision)
+        _write_config(
+            repo, raw.replace("minimum_confidence: 0.75", "minimum_confidence: 2"), revision
+        )
     assert path.read_text() == raw
 
 
@@ -70,7 +79,9 @@ def test_secret_store_is_owner_only_and_does_not_echo_secret(repo: Path, monkeyp
     secret = "ts_test_value_never_returned"
     _save_secret(repo, "TYPESAFE_API_KEY", secret)
 
-    status = _secret_status(repo, yaml.safe_load((repo / "knowledge-base/research.config.yaml").read_text()))
+    status = _secret_status(
+        repo, yaml.safe_load((repo / "knowledge-base/research.config.yaml").read_text())
+    )
     secret_path = repo / ".research" / "web-secrets.json"
     assert status == {"configured": True, "source": "local vault", "key_env": "TYPESAFE_API_KEY"}
     assert secret_path.stat().st_mode & 0o777 == 0o600

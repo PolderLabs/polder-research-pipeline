@@ -40,7 +40,9 @@ class TestSchemaRegistry:
         with pytest.raises(KeyError):
             get("does-not-exist")
 
-    @pytest.mark.parametrize("task_kind", ["search", "screen", "extract", "adjudicate", "appraise", "report"])
+    @pytest.mark.parametrize(
+        "task_kind", ["search", "screen", "extract", "adjudicate", "appraise", "report"]
+    )
     def test_task_schema_accepts_research_method_work(self, task_kind):
         validate(
             "task",

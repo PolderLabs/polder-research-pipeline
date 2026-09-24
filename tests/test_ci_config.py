@@ -24,7 +24,14 @@ RUFF_PATH = REPO_ROOT / "ruff.toml"
 # matches `- uses: owner/repo@<sha> # <comment>`
 USES_PIN_RE = re.compile(r"^\s*-\s*uses:\s+([\w.-]+/[\w.-]+)@([0-9a-f]{40})(?:\s+#\s*(.*))?$")
 
-REQUIRED_JOBS = ("lint", "test", "vault-audit", "schema-validate", "secret-scan", "implementation-status")
+REQUIRED_JOBS = (
+    "lint",
+    "test",
+    "vault-audit",
+    "schema-validate",
+    "secret-scan",
+    "implementation-status",
+)
 
 
 @pytest.fixture(scope="module")
@@ -125,22 +132,16 @@ def test_gitleaks_config_present() -> None:
     assert "useDefault" in text, "gitleaks config must declare useDefault"
 
 
-def test_secret_scan_job_uses_gitleaks_action(ci_text: str) -> None:
-    assert "gitleaks/gitleaks-action@" in ci_text, (
-        "secret-scan job must invoke gitleaks/gitleaks-action"
+def test_secret_scan_job_installs_pinned_gitleaks_cli(ci_yaml: dict) -> None:
+    """Use the CLI so organization license requirements cannot disable scans."""
+    steps = ci_yaml["jobs"]["secret-scan"]["steps"]
+    commands = [step.get("run", "") for step in steps]
+    assert any(
+        "go install github.com/zricethezav/gitleaks/v8@v8.30.1" in command for command in commands
     )
+    assert any("gitleaks git --redact --no-banner" in command for command in commands)
+    assert all("GITLEAKS_LICENSE" not in command for command in commands)
 
-
-def test_secret_scan_job_pins_github_token_only(ci_yaml: dict) -> None:
-    """Gitleaks-action v3 contract: GITHUB_TOKEN required; GITLEAKS_LICENSE
-    is only for organization-owned repositories (this repo is personal, so
-    referencing the unset secret makes the job fail keygen)."""
-    env = ci_yaml["jobs"]["secret-scan"]["steps"][-1].get("env") or {}
-    assert env.get("GITHUB_TOKEN") == "${{ secrets.GITHUB_TOKEN }}"
-    assert "GITLEAKS_LICENSE" not in env, (
-        "GITLEAKS_LICENSE must not be referenced: it is reserved for "
-        "organization repos and is unset here, failing the scan"
-    )
 
 def test_pyproject_declares_supported_python() -> None:
     text = PYPROJECT_PATH.read_text()
@@ -175,6 +176,7 @@ def test_dev_extras_are_pinned() -> None:
         # pinned form: name==X.Y.Z
         assert "==" in line, f"dev extra must be pinned with == for deterministic install: {line!r}"
 
+
 REQUIREMENTS_CI_PATH = REPO_ROOT / "requirements-ci.txt"
 
 
@@ -197,13 +199,11 @@ def test_ci_installs_from_requirements_ci(ci_text: str) -> None:
         "CI must install pinned toolchain via requirements-ci.txt"
     )
     # The pre-lockfile floating ruff install must be gone.
-    assert "ruff>=0.1" not in ci_text, (
-        "CI must not perform a floating ruff install"
-    )
+    assert "ruff>=0.1" not in ci_text, "CI must not perform a floating ruff install"
 
 
 def test_drift_check_present(ci_text: str) -> None:
-    assert "Generated drift" in ci_text, "workflow must include a generated drift check job step"
+    assert "Generated-state deterministic smoke check" in ci_text
 
 
 def test_schema_validation_step_present(ci_text: str) -> None:

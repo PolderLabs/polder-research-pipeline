@@ -30,7 +30,9 @@ def write_run(
     RESEARCH_RUNS_DIR.mkdir(parents=True, exist_ok=True)
     rid = _uuid7("run")
     if research_method == "systematic_evidence_review" and run_status != "draft":
-        raise ValueError("systematic evidence review runs must be created as draft, then protocol-frozen")
+        raise ValueError(
+            "systematic evidence review runs must be created as draft, then protocol-frozen"
+        )
     record: dict[str, Any] = {
         "id": rid,
         "schema_version": 1,
@@ -51,7 +53,10 @@ def update_run_status(run_id: str, run_status: str) -> None:
     rec = json.loads(p.read_text(encoding="utf-8"))
     if rec.get("id") != run_id:
         raise ValueError(f"run identity mismatch: {run_id!r}")
-    if rec.get("research_method") == "systematic_evidence_review" and run_status in {"active", "completed"}:
+    if rec.get("research_method") == "systematic_evidence_review" and run_status in {
+        "active",
+        "completed",
+    }:
         from ..research_methods import verify_run_protocol
 
         verify_run_protocol(run_id)

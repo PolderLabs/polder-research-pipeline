@@ -1,8 +1,8 @@
 """Smoke + idempotency test for ``scripts/emit_implementation_status.py``.
 
 The emitter writes a fenced ``<!-- status:begin -->`` ... ``<!-- status:end
--->`` block into AUDIT.md with five machine-verified fields
-(revision, python, schema_count, test_count, last_audit_revision). Tests
+-->`` block into AUDIT.md with four machine-verified fields
+(python, schema_count, test_count, last_audit_revision). Tests
 assert:
 
 1. first invocation appends the block (when no sentinels exist yet);
@@ -11,12 +11,10 @@ assert:
 4. the block correctly reads ``last_audit_revision`` from the AUDIT.md
    front-matter ``Implementation revision inspected:`` line.
 """
+
 from __future__ import annotations
 
 import importlib.util
-import json
-import shutil
-import sys
 from pathlib import Path
 
 import pytest
@@ -33,7 +31,6 @@ _spec.loader.exec_module(emit)
 
 
 REQUIRED_FIELDS: tuple[str, ...] = (
-    "revision:",
     "python:",
     "schema_count:",
     "test_count:",
@@ -54,8 +51,7 @@ def temp_repo(tmp_path: Path) -> Path:
     audit = tmp_path / "knowledge-base" / "AUDIT.md"
     audit.parent.mkdir(parents=True, exist_ok=True)
     audit.write_text(
-        "Audit date: 2026-09-22\n"
-        "Implementation revision inspected: abc1234567def\n",
+        "Audit date: 2026-09-22\nImplementation revision inspected: abc1234567def\n",
         encoding="utf-8",
     )
     return tmp_path
@@ -79,7 +75,7 @@ def test_emitter_is_idempotent(temp_repo: Path) -> None:
     emit.main(["--repository-root", str(temp_repo)])
     text_after = (temp_repo / "knowledge-base" / "AUDIT.md").read_text()
     # Idempotent on the surrounding file: sentinel count is still 1 and
-    # the only changes (if any) are timestamp/revision counter updates.
+    # the generated block is deterministic for a given checkout and test environment.
     assert text_after.count(emit.BEGIN_SENTINEL) == 1
     assert text_after.count(emit.END_SENTINEL) == 1
     # Manual prose above the sentinels is byte-identical.

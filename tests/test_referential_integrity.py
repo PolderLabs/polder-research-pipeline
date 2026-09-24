@@ -23,7 +23,6 @@ from polder_research.evidence import (
 )
 from polder_research.tasks import acquire_lease
 
-
 MISSING_SRC = "src_00000000-0000-7000-8000-000000000000"
 MISSING_CLM = "clm_00000000-0000-7000-8000-000000000000"
 MISSING_TSK = "tsk_00000000-0000-7000-8000-000000000000"
