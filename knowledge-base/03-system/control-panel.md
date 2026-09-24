@@ -9,7 +9,7 @@ tags:
 
 # Local research control panel
 
-Run `polder-research serve` from the repository root. The server prints its local address (default `http://127.0.0.1:8765`); `--port` selects another port. Stop it with Ctrl-C.
+Install a fresh workspace with `curl -fsSL https://raw.githubusercontent.com/PolderLabs/polder-research-pipeline/main/install.sh | sh -s -- --target ./my-research`, then run `.venv/bin/polder-research serve` from that workspace. Existing checkouts can run `polder-research serve` from the repository root. The server prints its local address (default `http://127.0.0.1:8765`); `--port` selects another port. Stop it with Ctrl-C.
 
 The dashboard reads authoritative `.research/` records and current vault configuration. Its analytics are record counts, source and tag distributions, classification outcomes, and 30-day additions; these measures do not establish research completeness or methodological quality. Health combines schema validation, workflow health, configured maintenance checks, provider readiness, and local disk information.
 

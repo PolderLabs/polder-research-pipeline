@@ -39,6 +39,18 @@ The systematic workflow is auditable within the local `.research/` store. Record
 - [Audit and roadmap](knowledge-base/AUDIT.md): integration findings, known limitations, and planned work. Historical findings are labeled with their inspection date.
 - [Knowledge base dashboard](knowledge-base/index.md): human-facing Obsidian entry point.
 
+## Install a research workspace
+
+From a POSIX shell with Git and Python 3.14+, bootstrap the complete project (knowledge base, schemas, agents, pipeline, and dashboard) into a new directory:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/PolderLabs/polder-research-pipeline/main/install.sh | sh -s -- --target ./my-research
+cd ./my-research
+.venv/bin/polder-research serve
+```
+
+Use `--with-dev` for pytest and Ruff or `--with-laya` to install Laya and its larger machine-learning dependencies. Laya model weights are downloaded separately from the dashboard. The installer refuses non-empty targets and creates a project-local virtual environment. See [install.sh](install.sh) for all options.
+
 ## Local control panel
 
 Install the project, then run `polder-research serve` from the repository root and open the printed `http://127.0.0.1:8765` address. Use `--port` to select another local port. The interface edits the complete research configuration, stores an optional TypeSafe key in `.research/web-secrets.json` with owner-only permissions, and can download/load the selected Laya checkpoint into the server process. The service binds only to loopback. See [the control panel guide](knowledge-base/03-system/control-panel.md) for provider, privacy, and model setup details.
