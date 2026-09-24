@@ -83,6 +83,9 @@
     },
     "topic": {"type": "string"},
     "classification_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^cls_"}},
+    "classification_status": {"enum": ["accepted", "review_required", "failed", "disabled"]},
+    "classification_error": {"type": "string", "maxLength": 500},
+    "classification_dimensions": {"type": "object", "additionalProperties": {"type": "string", "minLength": 1}},
     "entities": {
       "type": "array",
       "items": {"type": "string", "pattern": "^ent_"}

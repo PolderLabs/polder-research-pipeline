@@ -20,7 +20,15 @@ from typing import Any
 import jsonschema
 import yaml
 
-from ..classification import preload_laya_model
+from ..classification import (
+    _local_call,
+    _probability,
+    _remote_call,
+    laya_inference_verified,
+    preload_laya_model,
+)
+from ..classification_review import record_review, review_records_audit
+from ..locking import acquire_file_lock, release_file_lock
 from ..maintenance import build_health, evaluate_maintenance
 from ..paths import REPO_ROOT
 from ..workflow import _read_records, build_state
@@ -225,6 +233,20 @@ def _validate_config(config: Any) -> None:
         raise ValueError("classification.laya.device must be auto, cpu, cuda, or mps")
     if not isinstance(classification.get("enabled", True), bool):
         raise ValueError("classification.enabled must be a boolean")
+    routing = classification.get("routing", {})
+    if not isinstance(routing, dict):
+        raise ValueError("classification.routing must be a mapping")
+    sensitive_provider = routing.get("sensitive_provider")
+    if sensitive_provider is not None and sensitive_provider not in {"rules", "jev", "laya"}:
+        raise ValueError("classification.routing.sensitive_provider must be rules, jev, or laya")
+    by_target_kind = routing.get("by_target_kind", {})
+    if not isinstance(by_target_kind, dict):
+        raise ValueError("classification.routing.by_target_kind must be a mapping")
+    for target_kind, routed_provider in by_target_kind.items():
+        if target_kind not in {"source", "segment", "claim", "entity", "note"}:
+            raise ValueError(f"Unsupported classification routing target kind: {target_kind!r}")
+        if routed_provider not in {"rules", "jev", "laya"}:
+            raise ValueError("Classification routing providers must be rules, jev, or laya")
     jev_model = jev.get("model", "jev-latest")
     if not isinstance(jev_model, str) or not re.fullmatch(r"[a-zA-Z0-9._-]{1,80}", jev_model):
         raise ValueError("classification.jev.model contains unsupported characters")
@@ -247,6 +269,37 @@ def _validate_config(config: Any) -> None:
                 isinstance(word, str) for word in keywords
             ):
                 raise ValueError(f"Taxonomy entry {key!r} keywords must be a list of strings")
+    dimensions = taxonomy.get("dimensions", {})
+    if not isinstance(dimensions, dict):
+        raise ValueError("classification.taxonomy.dimensions must be a mapping")
+    for key, dimension in dimensions.items():
+        if not re.fullmatch(r"[a-z0-9]+(?:[-_][a-z0-9]+)*", str(key)) or not isinstance(
+            dimension, dict
+        ):
+            raise ValueError(f"Invalid taxonomy dimension: {key!r}")
+        if not isinstance(dimension.get("instructions"), str) or not dimension[
+            "instructions"
+        ].strip():
+            raise ValueError(f"Taxonomy dimension {key!r} requires instructions")
+        values = dimension.get("values")
+        if not isinstance(values, dict) or not values:
+            raise ValueError(f"Taxonomy dimension {key!r} requires a non-empty values mapping")
+        for value_key, value in values.items():
+            if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", str(value_key)) or not isinstance(
+                value, dict
+            ):
+                raise ValueError(f"Invalid taxonomy dimension value: {value_key!r}")
+            if not isinstance(value.get("description"), str) or not value["description"].strip():
+                raise ValueError(
+                    f"Taxonomy dimension value {value_key!r} requires a description"
+                )
+            keywords = value.get("keywords", [])
+            if not isinstance(keywords, list) or not all(
+                isinstance(word, str) for word in keywords
+            ):
+                raise ValueError(
+                    f"Taxonomy dimension value {value_key!r} keywords must be a list of strings"
+                )
 
 
 def _atomic_text(path: Path, content: str, *, mode: int = 0o600) -> None:
@@ -259,6 +312,14 @@ def _atomic_text(path: Path, content: str, *, mode: int = 0o600) -> None:
             handle.flush()
             os.fsync(handle.fileno())
         os.replace(temp_name, path)
+        try:
+            directory_fd = os.open(path.parent, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+        except OSError:
+            pass
     except Exception:
         try:
             os.unlink(temp_name)
@@ -272,22 +333,26 @@ def _save_secret(root: Path, key_env: str, secret: str | None) -> None:
         not isinstance(secret, str) or len(secret) > 2048 or "\n" in secret or "\r" in secret
     ):
         raise ValueError("API key must be a single line under 2048 characters")
-    path = _secret_path(root)
-    values: dict[str, str] = {}
+    lock = acquire_file_lock(root / ".research" / "locks" / "web-secrets.lock", wait=True)
     try:
-        current = json.loads(path.read_text(encoding="utf-8"))
-        if isinstance(current, dict):
-            values = {str(k): str(v) for k, v in current.items()}
-    except (OSError, json.JSONDecodeError):
-        pass
-    if secret:
-        values[key_env] = secret
-    else:
-        values.pop(key_env, None)
-    if values:
-        _atomic_text(path, json.dumps(values, indent=2) + "\n", mode=0o600)
-    else:
-        path.unlink(missing_ok=True)
+        path = _secret_path(root)
+        values: dict[str, str] = {}
+        try:
+            current = json.loads(path.read_text(encoding="utf-8"))
+            if isinstance(current, dict):
+                values = {str(k): str(v) for k, v in current.items()}
+        except (OSError, json.JSONDecodeError):
+            pass
+        if secret:
+            values[key_env] = secret
+        else:
+            values.pop(key_env, None)
+        if values:
+            _atomic_text(path, json.dumps(values, indent=2) + "\n", mode=0o600)
+        else:
+            path.unlink(missing_ok=True)
+    finally:
+        release_file_lock(lock)
 
 
 def _records(root: Path, collection: str, schema_name: str) -> tuple[list[dict[str, Any]], int]:
@@ -316,8 +381,13 @@ def _records(root: Path, collection: str, schema_name: str) -> tuple[list[dict[s
 def _provider_health(root: Path, config: dict[str, Any]) -> dict[str, Any]:
     classification = config.get("classification", {})
     provider = classification.get("provider", "rules")
+    routing_config = classification.get("routing", {})
+    has_routing = isinstance(routing_config, dict) and bool(
+        routing_config.get("sensitive_provider") or routing_config.get("by_target_kind")
+    )
     laya_installed = importlib.util.find_spec("laya") is not None
     model = classification.get("laya", {}).get("model", "multilingual")
+    device = classification.get("laya", {}).get("device", "auto")
     cached = False
     cache_path = None
     if model in _MODEL_REPOS:
@@ -333,29 +403,290 @@ def _provider_health(root: Path, config: dict[str, Any]) -> dict[str, Any]:
     with _DOWNLOAD_LOCK:
         download = dict(_DOWNLOAD)
     enabled = bool(classification.get("enabled", True))
-    laya_ready = laya_installed and (cached or download.get("status") == "ready")
-    selected_ready = (
-        not enabled
-        or provider == "rules"
-        or (provider == "jev" and key["configured"])
-        or (provider == "laya" and laya_ready)
-    )
+    laya_loaded = laya_inference_verified(model, device)
+    laya_ready = laya_installed and laya_loaded
+    routes = {"default": provider}
+    sensitive_provider = routing_config.get("sensitive_provider") if isinstance(routing_config, dict) else None
+    if sensitive_provider:
+        routes["sensitive"] = sensitive_provider
+    by_kind = routing_config.get("by_target_kind", {}) if isinstance(routing_config, dict) else {}
+    if isinstance(by_kind, dict):
+        routes.update({f"target:{kind}": value for kind, value in by_kind.items()})
+    readiness = {
+        "rules": True,
+        "jev": key["configured"],
+        "laya": laya_ready,
+    }
+    route_status = {
+        name: {"provider": route_provider, "ready": readiness.get(route_provider, False)}
+        for name, route_provider in routes.items()
+    }
+    selected_ready = not enabled or all(item["ready"] for item in route_status.values())
     return {
         "selected": provider,
         "enabled": enabled,
         "ready": selected_ready,
         "minimum_confidence": classification.get("minimum_confidence", 0.75),
         "taxonomy_version": classification.get("taxonomy", {}).get("version", "1"),
+        "routing": {
+            "mode": "policy-based" if has_routing else "single-provider",
+            "routes": route_status,
+            "detail": (
+                "One or more configured provider routes are not ready."
+                if not selected_ready and enabled
+                else "Sensitive and target-kind routing rules are active."
+                if has_routing
+                else "New records use the selected provider. Per-record routing policy is not configured."
+            ),
+        },
+        "replay": {
+            "available": True,
+            "detail": "Durable replay is available from the CLI: run `polder-research classify-existing --dry-run`, then `polder-research classify-existing`; resume interrupted jobs with `--resume <job_id>`. The dashboard does not start replay jobs.",
+        },
         "typesafe": {"ready": key["configured"], **key},
         "laya": {
             "installed": laya_installed,
             "model": model,
-            "device": classification.get("laya", {}).get("device", "auto"),
+            "device": device,
             "cached": cached,
+            "loaded": laya_loaded,
+            "inference_verified": laya_loaded,
             "ready": laya_ready,
             "cache_path": cache_path,
             "job": download,
         },
+    }
+
+
+def _number(value: Any) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, int | float):
+        return None
+    return float(value)
+
+
+def _latency_summary(values: list[float]) -> dict[str, int | None]:
+    if not values:
+        return {"count": 0, "mean_ms": None, "p50_ms": None, "p95_ms": None, "max_ms": None}
+    ordered = sorted(values)
+
+    def percentile(fraction: float) -> int:
+        index = max(0, min(len(ordered) - 1, round((len(ordered) - 1) * fraction)))
+        return round(ordered[index])
+
+    return {
+        "count": len(ordered),
+        "mean_ms": round(sum(ordered) / len(ordered)),
+        "p50_ms": percentile(0.5),
+        "p95_ms": percentile(0.95),
+        "max_ms": round(ordered[-1]),
+    }
+
+
+def _classification_analytics(
+    classifications: list[dict[str, Any]], reviews: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Return privacy-preserving operational metrics for immutable classification records."""
+    by_disposition = Counter(str(item.get("disposition", "unknown")) for item in classifications)
+    by_provider = Counter(str(item.get("provider", "unknown")) for item in classifications)
+    by_target_kind = Counter(str(item.get("target_kind", "unknown")) for item in classifications)
+    category_status = Counter()
+    tag_status = Counter()
+    dimension_status = Counter()
+    by_field_status: dict[str, Counter[str]] = {}
+    tag_coverage = Counter()
+    confidence_bands = Counter()
+    latency_values: list[float] = []
+    review_queue: list[dict[str, Any]] = []
+    failed_queue: list[dict[str, Any]] = []
+    reviewed_fields: dict[str, dict[str, dict[str, Any]]] = {}
+    for review in reviews:
+        classification_id = review.get("classification_id")
+        resolutions = review.get("resolutions")
+        if not isinstance(classification_id, str) or not isinstance(resolutions, dict):
+            continue
+        destination = reviewed_fields.setdefault(classification_id, {})
+        for field, resolution in resolutions.items():
+            if isinstance(field, str) and isinstance(resolution, dict):
+                destination[field] = resolution
+
+    for item in classifications:
+        disposition = str(item.get("disposition", "unknown"))
+        decisions = item.get("field_decisions")
+        if not isinstance(decisions, dict):
+            decisions = {}
+        safe_decisions: dict[str, dict[str, Any]] = {}
+        for field, raw_decision in list(decisions.items())[:30]:
+            if not isinstance(field, str) or not isinstance(raw_decision, dict):
+                continue
+            value = raw_decision.get("value")
+            probability = _number(raw_decision.get("probability"))
+            status = raw_decision.get("status")
+            if not isinstance(status, str):
+                continue
+            safe_decisions[field] = {
+                "status": status,
+                "value": value if isinstance(value, str | bool) or value is None else None,
+                "probability": probability,
+            }
+            taxonomy = item.get("taxonomy_snapshot")
+            if field == "category" and isinstance(taxonomy, dict):
+                options = list(taxonomy.get("categories", {}))
+            elif field.startswith("tag_"):
+                options = [False, True]
+            elif field.startswith("dimension_") and isinstance(taxonomy, dict):
+                dimension = field.removeprefix("dimension_")
+                dimensions = taxonomy.get("dimensions", {})
+                entry = dimensions.get(dimension, {}) if isinstance(dimensions, dict) else {}
+                values = entry.get("values", {}) if isinstance(entry, dict) else {}
+                options = list(values) if isinstance(values, dict) else []
+            else:
+                options = []
+            safe_decisions[field]["options"] = [None, *options] if not field.startswith("tag_") else options
+        pending_decisions = {
+            field: decision
+            for field, decision in safe_decisions.items()
+            if decision["status"] == "review_required"
+            and field not in reviewed_fields.get(str(item.get("id", "")), {})
+        }
+        target = {
+            "id": str(item.get("id", "unknown")),
+            "target_kind": str(item.get("target_kind", "unknown")),
+            "target_id": str(item.get("target_id", "unknown")),
+            "field_decisions": pending_decisions,
+            "reviewed_fields": sorted(reviewed_fields.get(str(item.get("id", "")), {})),
+        }
+        if disposition == "review_required" and pending_decisions:
+            review_queue.append(target)
+        elif disposition == "failed":
+            failed_queue.append(target)
+
+        elapsed = _number(item.get("elapsed_ms"))
+        if elapsed is not None and elapsed >= 0:
+            latency_values.append(elapsed)
+
+        threshold = _number(item.get("threshold"))
+        threshold = threshold if threshold is not None else 0.75
+        scores: list[float] = []
+        if safe_decisions:
+            for field, decision in safe_decisions.items():
+                status = decision["status"]
+                by_field_status.setdefault(field, Counter())[status] += 1
+                if field == "category":
+                    category_status[status] += 1
+                elif field.startswith("tag_"):
+                    tag_status[status] += 1
+                    if status == "accepted":
+                        tag_coverage[field.removeprefix("tag_")] += 1
+                elif field.startswith("dimension_"):
+                    dimension_status[status] += 1
+                score = decision["probability"]
+                if score is not None:
+                    scores.append(score)
+        else:
+            questions = item.get("questions") if isinstance(item.get("questions"), dict) else {}
+            category_asked = "category" in questions or "category_confidence" in item
+            if disposition == "failed":
+                category_status["failed"] += 1
+            elif not category_asked:
+                category_status["not_evaluated"] += 1
+            elif isinstance(item.get("category"), str) and item["category"]:
+                category_status["accepted"] += 1
+            elif disposition == "review_required":
+                category_status["review_required"] += 1
+            else:
+                category_status["abstained"] += 1
+            category_confidence = _number(item.get("category_confidence"))
+            if category_confidence is not None:
+                scores.append(category_confidence)
+            probabilities = item.get("tag_probabilities")
+            if not isinstance(probabilities, dict):
+                probabilities = {}
+            proposed = {
+                str(tag) for tag in item.get("proposed_tags", []) if isinstance(tag, str)
+            }
+            if disposition == "failed":
+                tag_status["failed"] += 1
+            elif not probabilities:
+                tag_status["not_evaluated"] += 1
+            else:
+                for tag, raw_score in probabilities.items():
+                    score = _number(raw_score)
+                    if score is None:
+                        continue
+                    scores.append(score)
+                    if str(tag) in proposed:
+                        tag_status["proposed"] += 1
+                        tag_coverage[str(tag)] += 1
+                    elif abs(score - threshold) <= 0.05:
+                        tag_status["near_threshold"] += 1
+                    else:
+                        tag_status["not_applied"] += 1
+        for score in scores:
+            if abs(score - threshold) <= 0.05:
+                confidence_bands["near_threshold"] += 1
+            elif score >= threshold:
+                confidence_bands["above_threshold"] += 1
+            else:
+                confidence_bands["below_threshold"] += 1
+
+    return {
+        "by_disposition": dict(sorted(by_disposition.items())),
+        "by_provider": dict(sorted(by_provider.items())),
+        "by_target_kind": dict(sorted(by_target_kind.items())),
+        "field_status": {
+            "category": dict(sorted(category_status.items())),
+            "tags": dict(sorted(tag_status.items())),
+            "dimensions": dict(sorted(dimension_status.items())),
+        },
+        "by_field_status": {
+            field: dict(sorted(statuses.items())) for field, statuses in sorted(by_field_status.items())
+        },
+        "tag_coverage": dict(sorted(tag_coverage.items())),
+        "confidence_bands": dict(sorted(confidence_bands.items())),
+        "latency_ms": _latency_summary(latency_values),
+        "queues": {
+            "review_required": review_queue[:50],
+            "review_required_count": len(review_queue),
+            "failed": failed_queue[:50],
+            "failed_count": len(failed_queue),
+        },
+        "human_reviews": {
+            "record_count": len(reviews),
+            "resolved_field_count": sum(len(fields) for fields in reviewed_fields.values()),
+        },
+    }
+
+
+def _classification_preview(root: Path, kind: str, target_id: str) -> dict[str, Any]:
+    """Read a short local preview for human review without persisting it in predictions."""
+    directories = {
+        "source": "sources",
+        "segment": "segments",
+        "claim": "claims",
+        "entity": "entities",
+    }
+    directory = directories.get(kind)
+    if (
+        not directory
+        or not target_id.startswith({"source": "src_", "segment": "seg_", "claim": "clm_", "entity": "ent_"}[kind])
+        or Path(target_id).name != target_id
+        or "/" in target_id
+        or "\\" in target_id
+    ):
+        return {"title": "Record unavailable", "text": "The linked local evidence record could not be resolved."}
+    try:
+        record = json.loads((root / ".research" / directory / f"{target_id}.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {"title": "Record unavailable", "text": "The linked local evidence record could not be read."}
+    title = str(record.get("title") or record.get("name") or record.get("id") or target_id)
+    body = record.get("text") or record.get("statement") or record.get("description") or ""
+    if kind == "source":
+        body = " · ".join(str(value) for value in (record.get("source_type"), record.get("media_type"), record.get("canonical_url")) if value)
+    return {
+        "title": title[:240],
+        "text": str(body)[:2000],
+        "sensitivity": str(record.get("sensitivity", "unspecified")),
+        "personal_data": bool(record.get("personal_data", False)),
     }
 
 
@@ -389,10 +720,11 @@ def _analytics(root: Path) -> dict[str, Any]:
             tag_counts.update(tag for tag in record.get("tags", []) if isinstance(tag, str))
     source_types = Counter(str(source.get("source_type", "unknown")) for source in sources)
     source_statuses = Counter(str(source.get("source_status", "unknown")) for source in sources)
-    classification_status = Counter(
-        str(item.get("disposition", "unknown")) for item in classifications
-    )
-    providers = Counter(str(item.get("provider", "unknown")) for item in classifications)
+    reviews, review_errors = review_records_audit(root)
+    malformed += len(review_errors)
+    classification_metrics = _classification_analytics(classifications, reviews)
+    for item in classification_metrics["queues"]["review_required"]:
+        item["preview"] = _classification_preview(root, item["target_kind"], item["target_id"])
     by_day: dict[str, dict[str, int]] = {}
     today = datetime.now(UTC).date()
     for offset in range(29, -1, -1):
@@ -429,20 +761,18 @@ def _analytics(root: Path) -> dict[str, Any]:
         "topics": dict(sorted(topic_counts.items())),
         "tags": dict(sorted(tag_counts.items())),
         "classifications": {
-            "by_disposition": dict(sorted(classification_status.items())),
-            "by_provider": dict(sorted(providers.items())),
-            "review_required": [
-                item["id"]
-                for item in classifications
-                if item.get("disposition") == "review_required"
-            ],
-            "failed": [
-                item["id"] for item in classifications if item.get("disposition") == "failed"
-            ],
+            **classification_metrics,
+            # Compatibility aliases for pre-existing dashboard clients.
+            "review_required": [item["id"] for item in classification_metrics["queues"]["review_required"]],
+            "failed": [item["id"] for item in classification_metrics["queues"]["failed"]],
         },
         "method_records": method_records,
         "activity_30d": [{"date": day, **counts} for day, counts in by_day.items()],
         "malformed_count": malformed,
+        "classification_review_integrity": {
+            "malformed_count": len(review_errors),
+            "malformed_records": review_errors,
+        },
         "operational_health": operational,
         "workflow_state": states,
     }
@@ -559,14 +889,23 @@ def create_server(repository_root: Path | None = None, *, port: int = 8765) -> _
                     return True
                 if method == "GET" and path == "/api/config":
                     raw = _config_text(self.root)
-                    config = yaml.safe_load(raw)
+                    config = None
+                    provider_status = None
+                    validation_error = None
+                    try:
+                        config = yaml.safe_load(raw)
+                        _validate_config(config)
+                        provider_status = _provider_health(self.root, config)
+                    except (yaml.YAMLError, ValueError) as exc:
+                        validation_error = str(exc)[:500]
                     self._json(
                         200,
                         {
                             "config": config,
                             "config_yaml": raw,
                             "revision": _revision(raw),
-                            "provider": _provider_health(self.root, config),
+                            "provider": provider_status,
+                            "validation_error": validation_error,
                         },
                     )
                     return True
@@ -616,6 +955,23 @@ def create_server(repository_root: Path | None = None, *, port: int = 8765) -> _
                     payload = json.loads(self._body())
                     result = _test_provider(self.root, str(payload.get("provider", "")))
                     self._json(200 if result["ok"] else 503, result)
+                    return True
+                if method == "POST" and path == "/api/classifications/review":
+                    payload = json.loads(self._body())
+                    review = record_review(
+                        str(payload.get("classification_id", "")),
+                        reviewer=payload.get("reviewer"),
+                        resolutions=payload.get("resolutions"),
+                        repository_root=self.root,
+                    )
+                    self._json(
+                        201,
+                        {
+                            "saved": True,
+                            "review_id": review["id"],
+                            "classification_id": review["classification_id"],
+                        },
+                    )
                     return True
                 return False
             except RuntimeError as exc:
@@ -726,10 +1082,8 @@ def _start_laya_download(root: Path) -> None:
 def _test_provider(root: Path, provider: str) -> dict[str, Any]:
     config = yaml.safe_load(_config_text(root)).get("classification", {})
     if provider == "jev":
-        from ..classification import _remote_call
-
         try:
-            _remote_call(
+            response = _remote_call(
                 "Polder provider connectivity check. This contains no research material.",
                 {
                     "reachable": {
@@ -738,11 +1092,16 @@ def _test_provider(root: Path, provider: str) -> dict[str, Any]:
                     }
                 },
                 config.get("jev", {}),
+                repository_root=root,
             )
+            answer = response["answers"].get("reachable")
+            if not isinstance(answer, dict) or answer.get("type") != "noul":
+                raise ValueError("provider returned no valid reachable Noul answer")
+            _probability(answer.get("noul"))
             return {
                 "provider": "jev",
                 "ok": True,
-                "message": "TypeSafe API returned a valid response.",
+                "message": "TypeSafe API returned a valid Noul response for the connectivity prompt.",
             }
         except Exception as exc:
             return {"provider": "jev", "ok": False, "message": str(exc)[:300]}
@@ -753,18 +1112,19 @@ def _test_provider(root: Path, provider: str) -> dict[str, Any]:
                 "ok": False,
                 "message": "Install the optional Laya dependency first.",
             }
-        with _DOWNLOAD_LOCK:
-            if _DOWNLOAD.get("status") != "ready":
-                return {
-                    "provider": "laya",
-                    "ok": False,
-                    "message": "Download and load the selected Laya model first.",
-                }
-        return {
-            "provider": "laya",
-            "ok": True,
-            "message": "Laya model is loaded for local inference.",
-        }
+        try:
+            result = _local_call(
+                "Polder local classifier check. This contains no research material.",
+                {"reachable": {"type": "noul", "instructions": "Is this a local classifier connectivity check?"}},
+                config.get("laya", {}),
+            )
+            answer = result["answers"].get("reachable")
+            if not isinstance(answer, dict) or answer.get("type") != "noul":
+                raise ValueError("local model returned no valid reachable Noul answer")
+            _probability(answer.get("noul"))
+            return {"provider": "laya", "ok": True, "message": "Laya completed a valid local inference probe."}
+        except Exception as exc:
+            return {"provider": "laya", "ok": False, "message": str(exc)[:300]}
     if provider == "rules":
         return {"provider": "rules", "ok": True, "message": "Built-in rules are available locally."}
     return {"provider": provider, "ok": False, "message": "Unknown provider."}

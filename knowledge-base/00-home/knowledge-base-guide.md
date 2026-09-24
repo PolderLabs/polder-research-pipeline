@@ -87,11 +87,14 @@ Use wikilinks: `[[path]]` or `[[path|alias]]`. Vault-root-relative, no `.md`.
 
 ## Tag taxonomy and automatic classification
 
-The versioned category and tag vocabulary in `research.config.yaml` drives
-automatic classification of sources, claims, entities, and segments. Change
-the taxonomy there and increment its version. Human tags are preserved. Low
-confidence results remain review-required; tagging never establishes evidence
-or replaces systematic review screening, appraisal, extraction, or adjudication.
+The versioned categories, tags, and controlled dimensions in
+`research.config.yaml` drive automatic classification of sources, claims,
+entities, and segments. Change the taxonomy there and increment its version.
+Human tags are preserved. Per-field uncertainty is recorded, uncertain
+proposals are not silently applied, and the dashboard can save append-only
+review decisions. Classification organizes material; it never establishes
+evidence or replaces systematic-review screening, appraisal, extraction, or
+adjudication. See [[03-system/classification-operations]].
 Keep manually added tags:
 - Lowercase, kebab-case.
 - One concept per tag.

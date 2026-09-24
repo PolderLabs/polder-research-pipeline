@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -48,16 +49,30 @@ def write_handoff(
 
 
 def accept_handoff(handoff_id: str) -> None:
+    _validate_handoff_id(handoff_id)
     p = RESEARCH_HANDOFFS_DIR / f"{handoff_id}.json"
     rec = json.loads(p.read_text())
+    if rec.get("id") != handoff_id:
+        raise ValueError(f"handoff identity mismatch: {handoff_id!r}")
     rec["status"] = "accepted"
     rec["accepted_at"] = _now()
     write_atomic(p, rec, schema_name="handoff")
 
 
 def reject_handoff(handoff_id: str, reason: str) -> None:
+    _validate_handoff_id(handoff_id)
     p = RESEARCH_HANDOFFS_DIR / f"{handoff_id}.json"
     rec = json.loads(p.read_text())
+    if rec.get("id") != handoff_id:
+        raise ValueError(f"handoff identity mismatch: {handoff_id!r}")
     rec["status"] = "rejected"
     rec["rejection_reason"] = reason
     write_atomic(p, rec, schema_name="handoff")
+
+
+def _validate_handoff_id(handoff_id: str) -> None:
+    if not isinstance(handoff_id, str) or not re.fullmatch(
+        r"hnd_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}",
+        handoff_id,
+    ):
+        raise ValueError(f"invalid handoff record id: {handoff_id!r}")

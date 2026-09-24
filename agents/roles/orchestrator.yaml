@@ -2,31 +2,36 @@ schema_version: 1
 role: orchestrator
 description: Top-level coordinator — creates runs, decomposes briefs, assigns tasks.
 tools:
-  - create_run
-  - create_task
-  - emit_event
-  - read_state
-  - handoff_task
-  - abort_run
-  - research_methods.verify_run_protocol
-  - research_methods.validate_run_for_completion
+- polder_research.runs.write_run
+- polder_research.tasks.write_task
+- polder_research.events.write_event
+- polder_research.workflow.build_state
+- polder_research.handoffs.write_handoff
+- polder_research.research_methods.verify_run_protocol
+- polder_research.research_methods.validate_run_for_completion
 read:
-  - .research/state.json
-  - .research/health.json
-  - .research/protocols/**
-  - .research/reports/**
-  - .research/searches/**
-  - .research/screenings/**
-  - .research/extractions/**
-  - .research/appraisals/**
-  - knowledge-base/01-project/brief.md
+- .research/state.json
+- .research/health.json
+- .research/protocols/**
+- .research/reports/**
+- .research/searches/**
+- .research/screenings/**
+- .research/extractions/**
+- .research/appraisals/**
+- knowledge-base/01-project/brief.md
 write:
-  - .research/runs/**
-  - .research/tasks/**
-  - .research/events/**
-  - .research/handoffs/**
+- .research/runs/**
+- .research/tasks/**
+- .research/events/**
+- .research/handoffs/**
 forbidden:
-  - schemas/**
-  - agents/**
-  - .research/sources/**
-  - .research/claims/**
+- schemas/**
+- agents/**
+- .research/sources/**
+- .research/claims/**
+planned_tools:
+- brief decomposition
+- agent launch
+- scheduler
+- automatic task assignment
+- run abort operation

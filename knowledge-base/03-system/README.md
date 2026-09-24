@@ -8,7 +8,9 @@ tags:
 
 # System
 
-See [[03-system/classification-providers|Classification providers]] for automatic taxonomy tagging and switchable Jev/Laya backends. Run `polder-research serve` to open the [[03-system/control-panel|local control panel]] for configuration, model setup, health, and analytics.
+See [[03-system/classification-providers|Classification providers]] for switchable Jev/Laya backends and [[03-system/classification-operations|Classification operations]] for review, evaluation, privacy, and automation policy. Run `polder-research serve` to open the [[03-system/control-panel|local control panel]] for configuration, model setup, health, and analytics.
+
+See [[03-system/agent-capabilities|Agent role and runtime capability map]] for implemented APIs versus role-contract or external-tool work.
 
 Architecture, performance, transports, deployment, and runtime. Notes here describe how the system is built and how it runs.
 

@@ -9,52 +9,91 @@ tags:
 
 # Classification providers
 
-The evidence API automatically classifies registered sources, claims, entities,
-and segments using the closed, versioned taxonomy in `research.config.yaml`.
-The built-in `rules` provider is the default and has no network or model
-dependency. Switch `classification.provider` to `jev` or `laya` to use a model.
+The evidence API classifies sources, segments, claims, and entities against the
+versioned taxonomy in `knowledge-base/research.config.yaml`. The tracked default
+uses deterministic `rules`; the project-local provider can be changed to `jev`
+or `laya` in the dashboard or YAML. No provider silently falls back to another.
 
 ## Jev / TypeSafe API
 
-Jev sends the bounded input text to TypeSafe's hosted System One API. Set
-`TYPESAFE_API_KEY` in the process environment. The endpoint is fixed to
-`https://api.typesafe.ai/v1/systemone`; requests use `jev-latest` by default.
-No key or document text is written to classification records.
+Jev sends bounded classification input to `POST
+https://api.typesafe.ai/v1/systemone` using a bearer key. Configure the key with
+`TYPESAFE_API_KEY` or save it in the local dashboard. The endpoint is fixed;
+request bodies and keys are excluded from logs and classification records.
+Provider responses are schema-checked. HTTP 429 and 529 receive bounded
+exponential backoff; other errors are recorded without response bodies.
 
-## Laya, in process
+Treat Jev as a cloud provider. Before selecting it, check source rights and
+project data-handling requirements. `internal`, `confidential`, `restricted`,
+or `personal_data: true` source records are routed locally by
+`classification.routing.sensitive_provider` (the included config selects Laya).
+Sensitive records fail closed if configured to Jev. Laya or rules can be chosen
+for those records; no remote fallback occurs when the local provider fails.
 
-Install the optional extra with `pip install 'polder-research-pipeline[laya]'`
-and set `classification.provider: laya`. Inference then runs locally in the
-pipeline process using Laya's Python `Router`; no Laya API server is involved.
-The model checkpoint is downloaded on first use unless already cached, and
-requires disk, memory, and suitable PyTorch support. For offline operation,
-pre-cache the selected model and disable all other networked pipeline actions.
+## Laya, fully local inference
 
-The current default model is Laya's multilingual router. A different local
-checkpoint can be selected with `classification.laya.model`. Laya model
-quality must be measured on a project-specific, human-labeled set before its
-outputs are trusted for unattended routing.
+Install the optional extra with `pip install 'polder-research-pipeline[laya]'`.
+Inference uses Laya's Python `Router` inside the pipeline process. Model weights
+are downloaded separately from the dashboard and cached outside the repository.
+Inference remains local; an initial checkpoint download requires Hugging Face
+network access. For offline operation, pre-download the model and disable other
+networked pipeline actions.
 
-## Decision and review policy
+Laya's checkpoints support English, multilingual, and typed decisions. Choose a
+checkpoint for the observed language mix and workload. Use the Router rather
+than assuming all text is English; evaluate language routing on the project's
+own records. A high confidence score is not proof that a language route or
+classification is correct. Laya quality must be compared against human labels
+before unattended use.
 
-Category uses one typed `choice`; each tag is a separate `noul` decision. The
-configured minimum confidence gates proposals. Each run creates an immutable
-`.research/classifications/cls_*.json` record with hashes, complete answers,
-probabilities, provider/model, threshold, and disposition. Input text itself is
-not copied into that record. Provider failures are recorded and do not block
-evidence registration. Existing user metadata is preserved; accepted results
-are merged with it. Classification is organizational metadata, never evidence
-of a claim and never a substitute for systematic review screening, appraisal,
-extraction, or adjudication.
+## Routing and taxonomy
 
-## Sources and inspiration
+`classification.provider` sets the normal provider. Optional
+`classification.routing.by_target_kind` overrides the provider for `source`,
+`segment`, `claim`, `entity`, or `note`. `sensitive_provider` is restricted to
+local-safe providers by runtime policy. Sensitive records cannot be forced to
+Jev with a per-kind override.
 
-- [TypeSafe introduction](https://docs.typesafe.ai/introduction) and [API quick start](https://docs.typesafe.ai/introduction/quickstart): typed choice, score, and yes/no decisions.
-- [TypeSafe confidence routing](https://docs.typesafe.ai/confidence): route uncertain results for review.
-- [Laya upstream project](https://github.com/NandhaKishorM/laya): local Python Router, multilingual checkpoints, and typed decisions.
-- [TypeSafe router](https://github.com/TypeSafeAI/typesafe-router): API payload patterns.
-- [Laya ONNX implementation](https://github.com/receptron/laya): alternate local runtime and schema patterns.
+The taxonomy includes one category choice, independent topical tags, and
+controlled dimensions such as domain, method, and evidence role. `other` values
+allow records outside the current vocabulary. Increment
+`taxonomy.version` when editing questions, categories, tags, or dimensions;
+historical classification records retain their full taxonomy snapshot and
+question-set hash.
 
-The project uses a small provider adapter rather than adopting provider SDKs as
-core dependencies. This keeps Jev and local Laya switchable without coupling
-evidence schemas to either runtime.
+## Decision records and controls
+
+Each `.research/classifications/cls_*.json` record stores the text/taxonomy/
+question-set hashes, provider and resolved model, answer distributions, field
+decisions, timing, and available usage counts. It does not store submitted text
+or provider response bodies. Field states are `accepted`, `rejected`,
+`review_required`, or `abstained`. Only accepted values are automatically
+applied; uncertain values are not silently attached to the evidence record.
+
+Use `polder-research classify-existing --dry-run` to inspect replay scope and
+`polder-research classify-existing` to create/reuse immutable results under the
+active provider and taxonomy. `classification-compare` reports matched-provider
+agreement, which is not accuracy. `classification-evaluate --gold labels.jsonl`
+uses separate human labels and held-out matching inputs to report performance.
+Label files must include a rubric ID, split, annotator, and exact input hash;
+see [[03-system/classification-operations]].
+
+The local dashboard provides per-field analytics and a review inbox. Review
+actions are append-only records in `.research/classification_reviews/`; they
+do not alter model output or existing evidence metadata. Dashboard reviewer
+names are self-reported, not authenticated. The web service binds to loopback;
+do not expose it to an untrusted network.
+
+Classification metadata never establishes a claim, decides systematic-review
+screening inclusion, rates risk of bias, replaces appraisal, or completes
+adjudication. See [[00-home/research-methods]] and
+[[03-system/classification-operations]] for those controls.
+
+## Official and upstream references
+
+- [TypeSafe introduction and atomic questions](https://docs.typesafe.ai/introduction)
+- [TypeSafe primitives](https://docs.typesafe.ai/primitives)
+- [TypeSafe confidence and risk-specific thresholds](https://docs.typesafe.ai/confidence)
+- [TypeSafe API and retry guidance](https://docs.typesafe.ai/api)
+- [Laya Router and batch API](https://github.com/NandhaKishorM/laya)
+- [[03-system/classification-operations|Classification evaluation and operating standard]]

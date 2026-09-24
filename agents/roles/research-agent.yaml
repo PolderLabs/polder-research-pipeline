@@ -2,47 +2,50 @@ schema_version: 1
 role: research-agent
 description: Executes a research run end-to-end using specialist sub-agents.
 tools:
-  - acquire_sources
-  - research_methods.create_protocol
-  - research_methods.freeze_protocol
-  - research_methods.record_search
-  - research_methods.register_candidate
-  - research_methods.record_screening_decision
-  - research_methods.adjudicate_screening
-  - research_methods.record_extraction
-  - research_methods.adjudicate_extraction
-  - research_methods.record_appraisal
-  - research_methods.validate_run_for_completion
-  - classify_claims
-  - verify_claims
-  - distill_claims
-  - synthesize_report
-  - emit_event
+- polder_research.research_methods.create_protocol
+- polder_research.research_methods.freeze_protocol
+- polder_research.research_methods.record_search
+- polder_research.research_methods.register_candidate
+- polder_research.research_methods.record_screening_decision
+- polder_research.research_methods.adjudicate_screening
+- polder_research.research_methods.record_extraction
+- polder_research.research_methods.adjudicate_extraction
+- polder_research.research_methods.record_appraisal
+- polder_research.research_methods.validate_run_for_completion
+- polder_research.classification.classify_text
+- polder-research classify-existing
+- polder_research.evidence.register_source
+- polder_research.evidence.register_claim
+- polder_research.evidence.register_segment
+- polder_research.research_methods.generate_review_report
 read:
-  - .research/runs/**
-  - .research/tasks/**
-  - .research/protocols/**
-  - .research/searches/**
-  - .research/candidates/**
-  - .research/screenings/**
-  - .research/extractions/**
-  - .research/appraisals/**
-  - .research/reports/**
-  - .research/sources/**
-  - .research/claims/**
-  - .research/entities/**
+- .research/runs/**
+- .research/tasks/**
+- .research/protocols/**
+- .research/searches/**
+- .research/candidates/**
+- .research/screenings/**
+- .research/extractions/**
+- .research/appraisals/**
+- .research/reports/**
+- .research/sources/**
+- .research/claims/**
+- .research/entities/**
 write:
-  - .research/runs/**
-  - .research/tasks/**
-  - .research/protocols/**
-  - .research/searches/**
-  - .research/candidates/**
-  - .research/screenings/**
-  - .research/extractions/**
-  - .research/appraisals/**
-  - .research/events/**
-  - .research/sources/**
-  - .research/claims/**
-  - 02-research/**
+- .research/runs/**
+- .research/tasks/**
+- .research/protocols/**
+- .research/searches/**
+- .research/candidates/**
+- .research/screenings/**
+- .research/extractions/**
+- .research/appraisals/**
+- .research/events/**
+- .research/sources/**
+- .research/claims/**
+- 02-research/**
 forbidden:
-  - schemas/**
+- schemas/**
+planned_tools:
+- autonomous end-to-end multi-agent executor
+- automated source acquisition and claim verification

@@ -2,23 +2,32 @@ schema_version: 1
 role: verification-agent
 description: Verifies high-impact claims against primary evidence.
 tools:
-  - verify_claim
-  - disconfirming_search
-  - update_claim
-  - emit_event
+- polder_research.research_methods.record_screening_decision
+- polder_research.research_methods.adjudicate_screening
+- polder_research.research_methods.record_extraction
+- polder_research.research_methods.adjudicate_extraction
+- polder_research.research_methods.record_appraisal
+- polder_research.research_methods.validate_run_for_completion
+- polder_research.research_methods.verify_run_protocol
+- polder_research.evidence.register_evidence_edge
+- polder_research.evidence.register_conflict
 read:
-  - .research/claims/**
-  - .research/protocols/**
-  - .research/screenings/**
-  - .research/appraisals/**
-  - .research/sources/**
-  - .research/segments/**
+- .research/claims/**
+- .research/protocols/**
+- .research/screenings/**
+- .research/appraisals/**
+- .research/sources/**
+- .research/segments/**
 write:
-  - .research/claims/**
-  - .research/conflicts/**
-  - .research/events/**
+- .research/claims/**
+- .research/conflicts/**
+- .research/events/**
 forbidden:
-  - schemas/**
-  - agents/**
-  - 01-project/**
-  - 02-research/**
+- schemas/**
+- agents/**
+- 01-project/**
+- 02-research/**
+planned_tools:
+- general claim verification
+- disconfirming search connector
+- automatic claim-status update

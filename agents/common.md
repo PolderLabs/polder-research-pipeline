@@ -17,7 +17,8 @@ Every agent in the Polder Research Pipeline — human or autonomous — MUST fol
 3. **Tasks are the workflow unit.** The operating model assigns work through task records; not every current API requires or validates a task ID.
 4. **Idempotency by design.** Use an `idempotency_key` where the task API supports it. This is not a guarantee that every research-method operation is replay-idempotent.
 5. **Leases reduce collisions.** Use task leases where the workflow supports them. They do not currently provide a general authorization boundary for all record writers.
-6. **Respect role scopes.** Role manifests document intended capabilities; runtime authorization does not currently enforce every manifest boundary.
+6. **Respect role scopes.** `polder_research.agents.require_role` checks declared action names when a caller invokes it. It does not enforce every filesystem path or ensure all writers call it; role manifests do not execute tools.
+7. **Do not overstate runtime support.** Before promising an agent a tool, check the Python API, CLI, or dashboard route. See [[knowledge-base/03-system/agent-capabilities]] for the current role-to-runtime map.
 
 ## State layers
 
@@ -26,6 +27,7 @@ Every agent in the Polder Research Pipeline — human or autonomous — MUST fol
 | Control plane | `.research/events/`, `.research/tasks/`, `.research/runs/`, `.research/handoffs/` | Authoritative |
 | Evidence and provenance | `.research/sources/`, `.research/segments/`, `.research/claims/`, `.research/entities/`, `.research/edges/`, `.research/gaps/`, `.research/conflicts/` | Authoritative |
 | Review method | `.research/protocols/`, `.research/searches/`, `.research/candidates/`, `.research/screenings/`, `.research/extractions/`, `.research/appraisals/` | Authoritative, local-only |
+| Classification | `.research/classifications/`, `.research/classification_reviews/`, `.research/classification-jobs/`, `.research/locks/` | Predictions, human decisions, replay manifests, and coordination locks |
 | Reports and snapshots | `.research/reports/`, `.research/state.json`, `.research/health.json` | Reports are generated audit indexes; state/health are derived |
 | Human projection | `00-home/`, `01-project/`, `02-research/`, … | Projection only |
 

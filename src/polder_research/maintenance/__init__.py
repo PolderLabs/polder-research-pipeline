@@ -22,6 +22,8 @@ from typing import Any
 
 import jsonschema
 
+from ..classification_ops import replay_job_health
+from ..classification_review import review_records_audit
 from ..paths import (
     RESEARCH_DIR,
     RESEARCH_HEALTH,
@@ -443,6 +445,8 @@ def build_health(repository_root: str | Path | None = None) -> dict[str, Any]:
     failed_tasks: list[str] = []
     failed_runs: list[str] = []
     blocked_tasks: list[str] = []
+    replay_jobs = replay_job_health(root)
+    _, malformed_reviews = review_records_audit(root)
 
     def _load(path: Path) -> dict[str, Any] | None:
         rel = f".research/{path.parent.name}/{path.name}"
@@ -482,6 +486,13 @@ def build_health(repository_root: str | Path | None = None) -> dict[str, Any]:
         issues.append(f"blocked_tasks={len(blocked_tasks)}")
     if malformed:
         issues.append(f"malformed_records={len(malformed)}")
+    failed_classifications = replay_jobs["targets_by_status"].get("failed", 0)
+    if failed_classifications:
+        issues.append(f"failed_classification_targets={failed_classifications}")
+    if replay_jobs["malformed_count"]:
+        issues.append(f"malformed_classification_jobs={replay_jobs['malformed_count']}")
+    if malformed_reviews:
+        issues.append(f"malformed_classification_reviews={len(malformed_reviews)}")
     unknown_tasks = sorted(
         status for status in task_counts if valid_tasks and status not in valid_tasks
     )
@@ -505,6 +516,11 @@ def build_health(repository_root: str | Path | None = None) -> dict[str, Any]:
         "runs": {
             "by_status": dict(sorted(run_counts.items())),
             "failed_ids": failed_runs,
+        },
+        "classification_jobs": replay_jobs,
+        "classification_reviews": {
+            "malformed_count": len(malformed_reviews),
+            "malformed_records": malformed_reviews,
         },
         "malformed_records": [{"path": item["path"], "error": item["error"]} for item in malformed],
     }

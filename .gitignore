@@ -26,9 +26,13 @@ knowledge-base/90-inbox/raw/*.onnx
 knowledge-base/90-inbox/raw/*.ckpt
 knowledge-base/90-inbox/raw/*.bin
 
-# Authoritative records under .research/{events,tasks,runs,handoffs,sources,segments,claims,entities,gaps,conflicts,edges,classifications} remain ignored.
+# The .research/ directory is the local workspace database. Never include a researcher's evidence, reviews, credentials, or generated health/state in the starter's Git history.
 # Persisted locally via polder_research.atomic.write_atomic with schema validation.
 # Tracking them is a one-way door — see AUDIT.md "Persistence mode (resolved)".
+.research/
+.venv/
+.env
+.env.*
 .research/state.json
 .research/health.json
 .research/events/*.json

@@ -17,7 +17,8 @@ Welcome to the Polder Research Pipeline knowledge base. Start here.
 - [[knowledge-base-guide|Knowledge base guide]] — folder contracts, note lifecycle, cross-linking.
 - [[research-intake-guide|Research intake guide]] — the 6-step raw-to-note pipeline.
 - [[research-methods|Research methods]] — protocol-first systematic review controls, evidence appraisal, and reproducibility limits.
-- [[03-system/classification-providers|Classification providers]] — automatic tags, categories, and Jev/Laya setup.
+- [[03-system/classification-providers|Classification providers]] — categories, tags, dimensions, routing, and Jev/Laya setup.
+- [[03-system/classification-operations|Classification operations]] — privacy, human review, evaluation, and staged automation policy.
 
 ## Vault overview
 

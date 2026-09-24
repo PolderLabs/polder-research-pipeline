@@ -1,4 +1,4 @@
-const state = { overview: null, config: null, revision: null, savedYaml: "", editorDirty: false, downloadTimer: null };
+const state = { overview: null, config: null, revision: null, savedYaml: "", editorDirty: false, reviewDraft: { reviewer: "", values: {} }, expandedReviews: new Set(), reviewDecisionDraft: false, downloadTimer: null };
 const $ = (selector) => document.querySelector(selector);
 const safe = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
 
@@ -38,6 +38,25 @@ function distributionChips(data) {
   const entries = Object.entries(data || {}).sort((a, b) => b[1] - a[1]);
   if (!entries.length) return empty("No classification metadata yet", "Automatic classifications appear after structured evidence is registered.");
   return `<div class="bar-list">${entries.slice(0, 10).map(([label, count]) => `<div class="bar-row"><span class="bar-label" title="${safe(label)}">${safe(label)}</span><span class="bar-track"><span class="bar-fill" style="display:block;width:${Math.max(2, Number(count) / Math.max(...entries.map((entry) => Number(entry[1]))) * 100)}%"></span></span><span class="bar-value">${safe(count)}</span></div>`).join("")}</div>`;
+}
+
+function queuePreview(items, emptyLabel) {
+  if (!items.length) return `<span>${safe(emptyLabel)}</span>`;
+  return `<div class="queue-preview">${items.slice(0, 6).map((item) => {
+    if (typeof item === "string") return `<div><code>${safe(item)}</code></div>`;
+    const fields = Object.entries(item.field_decisions || {}).slice(0, 8).map(([field, decision]) => {
+      const probability = Number.isFinite(decision?.probability) ? ` · ${Math.round(decision.probability * 100)}%` : "";
+      const value = typeof decision?.value === "string" ? ` = ${decision.value}` : decision?.value === true ? " = yes" : decision?.value === false ? " = no" : "";
+      const optionValue = (option) => option === null ? "__null__" : String(option);
+      const optionLabel = (option) => option === null ? "No value" : option === true ? "Yes" : option === false ? "No" : String(option);
+      const options = (decision?.options || []).map((option) => `<option value="${safe(optionValue(option))}"${option === decision?.value ? " selected" : ""}>${safe(optionLabel(option))}</option>`).join("");
+      const proposedValue = optionValue(decision?.value ?? null);
+      return `<div class="review-field"><span>${safe(field)}: ${safe(decision?.status || "unknown")}${safe(value)}${safe(probability)}</span><div class="review-actions"><select aria-label="Reviewed value for ${safe(field)}" data-review-value="${safe(item.id)}:${safe(field)}" data-proposed-value="${safe(proposedValue)}">${options}</select><button class="button button-secondary" type="button" data-review-action="accept" data-classification-id="${safe(item.id)}" data-field="${safe(field)}">Accept</button><button class="button button-quiet" type="button" data-review-action="reject" data-classification-id="${safe(item.id)}" data-field="${safe(field)}">Reject</button><button class="button button-primary" type="button" data-review-action="edit" data-classification-id="${safe(item.id)}" data-field="${safe(field)}" disabled>Save edit</button></div></div>`;
+    }).join("");
+    const preview = item.preview || {};
+    const fieldCount = Object.keys(item.field_decisions || {}).length;
+    return `<details class="review-candidate" data-review-candidate="${safe(item.id)}"><summary><code>${safe(item.id)}</code><strong>${safe(preview.title || "Evidence preview unavailable")}</strong><span class="review-meta">${safe(item.target_kind)} · ${fieldCount} fields</span></summary><div class="review-content"><p>${safe(preview.text || "No stored text preview. Follow the target ID to inspect its source record.")}</p><small>${safe(preview.sensitivity || "unspecified sensitivity")}${preview.personal_data ? " · marked as personal data" : ""} · ${safe(item.target_id)}</small>${fields || ""}</div></details>`;
+  }).join("")}</div>`;
 }
 
 function renderChart(series) {
@@ -81,11 +100,12 @@ function renderOverview(payload) {
   const accepted = disposition.accepted || 0;
   const review = disposition.review_required || 0;
   const failed = disposition.failed || 0;
+  const uncertain = classifications.confidence_bands?.near_threshold || 0;
   const issueCount = research.malformed_count + (research.operational_health.issues || []).length;
   $("#overview-metrics").innerHTML = [
     metric("Registered sources", corpus.sources || 0, `${corpus.segments || 0} source passages`),
     metric("Structured claims", corpus.claims || 0, `${corpus.entities || 0} named entities`),
-    metric("Classification decisions", corpus.classifications || 0, `${accepted} accepted · ${review} review · ${failed} failed`),
+    metric("Classification decisions", corpus.classifications || 0, `${accepted} accepted · ${review} review · ${failed} failed${uncertain ? ` · ${uncertain} near threshold` : ""}`),
     metric("Open conflicts", corpus.conflicts || 0, `${issueCount} operational or record issues`),
   ].join("");
   $("#activity-chart").innerHTML = renderChart(research.activity_30d);
@@ -99,6 +119,7 @@ function renderOverview(payload) {
 }
 
 function renderResearch(research) {
+  document.querySelectorAll("[data-review-candidate][open]").forEach((item) => state.expandedReviews.add(item.dataset.reviewCandidate));
   const c = research.corpus;
   $("#research-metrics").innerHTML = [
     metric("Sources", c.sources || 0, `${total(research.source_statuses)} with recorded status`),
@@ -109,9 +130,32 @@ function renderResearch(research) {
   $("#source-types").innerHTML = bars(research.source_types, "clay");
   const byDisposition = research.classifications.by_disposition;
   const byProvider = research.classifications.by_provider;
-  const review = research.classifications.review_required || [];
-  const failed = research.classifications.failed || [];
-  $("#classification-breakdown").innerHTML = total(byDisposition) ? `<div class="distribution-columns"><div><h3>Disposition</h3>${bars(byDisposition, "amber")}</div><div><h3>Provider</h3>${bars(byProvider)}</div></div><div class="panel-footnote">Review-required IDs: ${review.length ? review.map(safe).join(", ") : "none"}<br>Failed IDs: ${failed.length ? failed.map(safe).join(", ") : "none"}</div>` : empty("No classification records yet", "Register a source or other evidence record to create a classification decision.");
+  const queues = research.classifications.queues || {};
+  const review = queues.review_required || research.classifications.review_required || [];
+  const failed = queues.failed || research.classifications.failed || [];
+  const reviewCount = queues.review_required_count ?? review.length;
+  const failedCount = queues.failed_count ?? failed.length;
+  const queueIds = (items) => items.map((item) => safe(typeof item === "string" ? item : item.id)).join(", ");
+  const fieldStatus = research.classifications.field_status || {};
+  const bands = research.classifications.confidence_bands || {};
+  const latency = research.classifications.latency_ms || {};
+  const humanReviews = research.classifications.human_reviews || {};
+  const byField = research.classifications.by_field_status || {};
+  const fieldSummary = Object.entries(byField).map(([field, statuses]) => `${safe(field)}: ${safe(Object.entries(statuses).map(([status, count]) => `${status} ${count}`).join(", "))}`).join(" · ");
+  const runtime = latency.count ? `${latency.p50_ms} ms p50 · ${latency.p95_ms} ms p95 · ${latency.max_ms} ms max` : "No completed classification timings yet";
+  $("#classification-quality").innerHTML = total(byDisposition) ? `<div class="distribution-columns quality-columns"><div><h3>Category outcomes</h3>${bars(fieldStatus.category, "amber")}</div><div><h3>Tag outcomes</h3>${bars(fieldStatus.tags)}</div><div><h3>Dimension outcomes</h3>${bars(fieldStatus.dimensions, "clay")}</div><div><h3>Confidence position</h3>${bars(bands)}</div></div><div class="panel-footnote">Latency: ${safe(runtime)}. Field decision status: ${fieldSummary || "no typed field decisions stored"}. “Near threshold” means a score within 0.05 of the decision threshold; it identifies decisions most likely to benefit from review. These signals do not measure provider accuracy or calibration.</div>` : empty("No classification quality signals yet", "Field outcomes, confidence position, and latency appear after classification records are stored.");
+  $("#classification-breakdown").innerHTML = total(byDisposition) ? `<div class="distribution-columns"><div><h3>Disposition</h3>${bars(byDisposition, "amber")}</div><div><h3>Provider</h3>${bars(byProvider)}</div></div><div class="panel-footnote">Review queue: ${safe(reviewCount)} record(s)${review.length ? ` · ${queueIds(review)}` : ""}<br>Failed queue: ${safe(failedCount)} record(s)${failed.length ? ` · ${queueIds(failed)}` : ""}<br>Human review records: ${safe(humanReviews.record_count || 0)} · resolved fields: ${safe(humanReviews.resolved_field_count || 0)}</div><div class="queue-detail"><h3>Review candidates</h3><label class="reviewer-field"><span>Reviewer identity <small>Self-reported; this local dashboard does not authenticate reviewers.</small></span><input id="reviewer-name" maxlength="120" autocomplete="name" placeholder="Name or stable reviewer ID"></label>${queuePreview(review, "No records currently need classification review.")}</div>` : empty("No classification records yet", "Register a source or other evidence record to create a classification decision.");
+  const reviewerInput = $("#reviewer-name");
+  if (reviewerInput) reviewerInput.value = state.reviewDraft.reviewer;
+  document.querySelectorAll("[data-review-candidate]").forEach((item) => {
+    item.open = state.expandedReviews.has(item.dataset.reviewCandidate);
+  });
+  document.querySelectorAll("[data-review-value]").forEach((select) => {
+    const draft = state.reviewDraft.values[select.dataset.reviewValue];
+    if (draft !== undefined) select.value = draft;
+    const edit = select.closest(".review-field")?.querySelector('[data-review-action="edit"]');
+    if (edit) edit.disabled = select.value === select.dataset.proposedValue;
+  });
   $("#topic-list").innerHTML = bars(research.topics);
   $("#tag-list").innerHTML = bars(research.tags, "clay");
   const stages = [["Protocols", "protocols"], ["Searches", "searches"], ["Candidates", "candidates"], ["Screenings", "screenings"], ["Extractions", "extractions"], ["Appraisals", "appraisals"]];
@@ -131,6 +175,12 @@ function renderHealth(payload) {
   $("#runtime-details").innerHTML = detailRows([["Python runtime", payload.system.python], ["Repository disk", disk], ["Config", payload.system.config_valid ? "Valid YAML and provider settings" : "Invalid"], ["Malformed records", payload.research.malformed_count], ["Vault path", payload.repository]]);
   const p = payload.providers;
   $("#health-providers").innerHTML = detailRows([["Selected provider", p.selected], ["Classification", p.enabled ? "Enabled" : "Disabled"], ["Jev credential", p.typesafe.configured ? `Configured in ${p.typesafe.source}` : "Missing"], ["Local Laya package", p.laya.installed ? "Installed" : "Not installed"], ["Configured Laya model", `${p.laya.model} · ${p.laya.cached ? "cached" : "not cached"}`], ["Taxonomy version", p.taxonomy_version]]);
+  const queues = payload.research.classifications.queues || {};
+  const humanReviews = payload.research.classifications.human_reviews || {};
+  const replay = p.replay || {};
+  const replayJobs = operational.classification_jobs || {};
+  const reviewIntegrity = operational.classification_reviews || {};
+  $("#classification-operations").innerHTML = detailRows([["Routing", p.routing?.mode || "single-provider"], ["Routing detail", p.routing?.detail || "No routing policy status available"], ["Review queue", `${queues.review_required_count ?? 0} record(s)`], ["Human reviews", `${humanReviews.record_count ?? 0} immutable record(s)`], ["Review integrity errors", reviewIntegrity.malformed_count ?? 0], ["Failed queue", `${queues.failed_count ?? 0} record(s)`], ["Replay jobs", replayJobs.job_count ?? 0], ["Replay job integrity errors", replayJobs.malformed_count ?? 0], ["Replay", replay.available ? "Available" : "Integration needed"], ["Replay detail", replay.detail || "No replay status available"]]);
   const issues = [];
   for (const issue of operational.issues || []) issues.push(issue.replaceAll("_", " "));
   for (const row of payload.research.operational_health.malformed_records || []) issues.push(`${row.path}: ${row.error}`);
@@ -154,7 +204,6 @@ function renderAll(payload) {
   renderOverview(payload);
   renderResearch(payload.research);
   renderHealth(payload);
-  if (location.hash === "#settings") loadSettings().catch((error) => showError(error.message));
 }
 
 async function refresh() {
@@ -171,24 +220,39 @@ function showError(message) {
   $("#page-loading").hidden = true;
 }
 
-function setView(name) {
+function setView(name, moveFocus = false) {
   const view = ["overview", "research", "health", "settings"].includes(name) ? name : "overview";
   document.querySelectorAll(".view").forEach((section) => section.classList.toggle("active", section.id === `view-${view}`));
-  document.querySelectorAll(".nav-link").forEach((link) => link.classList.toggle("active", link.dataset.view === view));
+  document.querySelectorAll(".nav-link").forEach((link) => {
+    const active = link.dataset.view === view;
+    link.classList.toggle("active", active);
+    if (active) link.setAttribute("aria-current", "page");
+    else link.removeAttribute("aria-current");
+  });
   $("#current-section").textContent = ({ overview: "Overview", research: "Research data", health: "System health", settings: "Configuration" })[view];
-  if (view === "settings") loadSettings().catch((error) => showError(error.message));
+  document.title = `${$("#current-section").textContent} · Polder Research`;
+  if (moveFocus) $(`#${view}-title`)?.focus({ preventScroll: true });
+  if (view === "settings" && !state.editorDirty) loadSettings().catch((error) => showError(error.message));
   if (view === "health") refresh();
 }
 
 async function loadSettings() {
   const data = await api("/api/config");
-  state.config = data.config;
+  state.config = data.config || {};
   state.revision = data.revision;
   state.savedYaml = data.config_yaml;
   state.editorDirty = false;
   $("#config-editor").value = data.config_yaml;
+  $("#save-basics").disabled = Boolean(data.validation_error);
+  if (data.validation_error) {
+    $("#config-message").textContent = `Current configuration is invalid: ${data.validation_error}. Edit the YAML below and save a valid complete configuration.`;
+    $("#settings-saved").textContent = "Configuration needs repair";
+    $("#taxonomy-summary").textContent = "Taxonomy details are unavailable until the configuration is valid.";
+    $("#typesafe-card").hidden = true;
+    $("#laya-card").hidden = true;
+    return;
+  }
   $("#config-message").textContent = "";
-  $("#save-basics").disabled = false;
   fillBasicSettings(data.config);
   updateProviderCopy();
   renderCredential(data.provider.typesafe);
@@ -235,14 +299,14 @@ function renderCredential(status) {
 
 function renderLaya(status) {
   const pill = $("#laya-status-pill");
-  pill.textContent = !status.installed ? "Dependency missing" : status.job.status === "ready" ? "Loaded in process" : status.cached ? "Checkpoint cached" : "Model not downloaded";
-  pill.className = `credential-status${status.installed && (status.cached || status.job.status === "ready") ? " ready" : ""}`;
+  pill.textContent = !status.installed ? "Dependency missing" : status.inference_verified ? "Inference verified" : status.cached ? "Checkpoint cached · not loaded" : "Model not downloaded";
+  pill.className = `credential-status${status.installed && status.inference_verified ? " ready" : ""}`;
   const messages = [];
   if (!status.installed) messages.push("Install the optional Laya dependency: pip install 'polder-research-pipeline[laya]'. Then restart this local server.");
   else if (status.job.status === "downloading") messages.push(`Preparing the ${status.job.model} checkpoint. The model downloads to the local Hugging Face cache and loads into this process.`);
   else if (status.job.status === "failed") messages.push(`Model setup failed: ${status.job.error || "No error details returned."}`);
-  else if (status.job.status === "ready") messages.push(`${status.job.model} is loaded and ready for local inference.`);
-  else if (status.cached) messages.push(`${status.model} checkpoint is already cached${status.cache_path ? ` at ${status.cache_path}` : " locally"}. Select download to load it into this server process.`);
+  else if (status.inference_verified) messages.push(`${status.model} completed a successful local inference in this server process.`);
+  else if (status.cached) messages.push(`${status.model} checkpoint is already cached${status.cache_path ? ` at ${status.cache_path}` : " locally"}, but this process has not verified inference. Select load to prepare it.`);
   else messages.push(`The ${status.model} checkpoint will download from Hugging Face. The first download needs network access and available disk/RAM.`);
   $("#laya-model-status").innerHTML = `<span class="model-chip">${safe(status.model)}</span><span class="model-chip">${status.installed ? "Python package installed" : "Package not installed"}</span><span class="model-chip">${status.cached ? "Cached" : "Not cached"}</span>`;
   $("#laya-message").textContent = messages.join(" ");
@@ -309,10 +373,15 @@ async function saveSecret(secret) {
 async function testProvider(provider) {
   const button = provider === "jev" ? $("#test-jev") : $("#test-laya");
   button.disabled = true; button.textContent = "Checking…";
+  const resultNode = $("#provider-test-result");
+  resultNode.textContent = "Checking provider connectivity and a sample response…";
+  resultNode.classList.remove("error");
   try {
     const result = await api("/api/providers/test", { method: "POST", body: JSON.stringify({ provider }) });
+    resultNode.textContent = result.message;
+    resultNode.classList.toggle("error", !result.ok);
     toast(result.message, !result.ok);
-  } catch (error) { toast(error.message, true); }
+  } catch (error) { resultNode.textContent = error.message; resultNode.classList.add("error"); toast(error.message, true); }
   finally { button.disabled = false; button.textContent = provider === "jev" ? "Test API connection" : "Test local inference"; }
 }
 
@@ -335,25 +404,94 @@ async function startDownload() {
   } catch (error) { toast(error.message, true); $("#download-laya").disabled = false; }
 }
 
+function queuedDecision(classificationId, field) {
+  const items = state.overview?.research?.classifications?.queues?.review_required || [];
+  const item = items.find((candidate) => candidate.id === classificationId);
+  return item?.field_decisions?.[field] ? { item, decision: item.field_decisions[field] } : null;
+}
+
+function selectedReviewValue(classificationId, field) {
+  const select = document.querySelector(`[data-review-value="${CSS.escape(`${classificationId}:${field}`)}"]`);
+  if (!select) return undefined;
+  if (field.startsWith("tag_")) return select.value === "true";
+  return select.value === "__null__" ? null : select.value;
+}
+
+async function saveReview(button) {
+  const classificationId = button.dataset.classificationId;
+  const field = button.dataset.field;
+  const action = button.dataset.reviewAction;
+  const reviewer = $("#reviewer-name")?.value.trim();
+  const proposal = queuedDecision(classificationId, field);
+  if (!reviewer) { toast("Enter your self-reported reviewer identity before recording a decision.", true); return; }
+  if (!proposal) { toast("This proposal is no longer in the review queue. Refresh the dashboard.", true); return; }
+  let value;
+  if (action === "accept") value = proposal.decision.value;
+  else if (action === "reject") value = field.startsWith("tag_") ? false : null;
+  else value = selectedReviewValue(classificationId, field);
+  button.disabled = true;
+  try {
+    const result = await api("/api/classifications/review", {
+      method: "POST",
+      body: JSON.stringify({ classification_id: classificationId, reviewer, resolutions: { [field]: { action, value } } }),
+    });
+    toast(`Saved immutable review ${result.review_id}.`);
+    delete state.reviewDraft.values[`${classificationId}:${field}`];
+    state.reviewDecisionDraft = Object.keys(state.reviewDraft.values).length > 0;
+    await refresh();
+  } catch (error) { toast(error.message, true); }
+  finally { button.disabled = false; }
+}
+
 document.querySelectorAll(".nav-link").forEach((link) => link.addEventListener("click", (event) => {
   event.preventDefault(); location.hash = link.dataset.view;
 }));
-window.addEventListener("hashchange", () => setView(location.hash.slice(1)));
+window.addEventListener("hashchange", () => setView(location.hash.slice(1), true));
 $("#refresh-button").addEventListener("click", refresh);
 $("#health-refresh").addEventListener("click", refresh);
 $("#provider-select").addEventListener("change", updateProviderCopy);
 $("#save-basics").addEventListener("click", saveBasics);
 $("#save-config").addEventListener("click", saveConfig);
-$("#reload-config").addEventListener("click", () => loadSettings().catch((error) => toast(error.message, true)));
+$("#reload-config").addEventListener("click", () => {
+  state.editorDirty = false;
+  loadSettings().catch((error) => toast(error.message, true));
+});
 $("#save-key").addEventListener("click", () => saveSecret($("#typesafe-key").value));
 $("#remove-key").addEventListener("click", () => saveSecret(null));
 $("#test-jev").addEventListener("click", () => testProvider("jev"));
 $("#test-laya").addEventListener("click", () => testProvider("laya"));
 $("#download-laya").addEventListener("click", startDownload);
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-review-action]");
+  if (button) saveReview(button);
+});
 $("#config-editor").addEventListener("input", () => {
   state.editorDirty = $("#config-editor").value !== state.savedYaml;
   $("#settings-saved").textContent = state.editorDirty ? "Unsaved YAML edits" : "Saved configuration";
   $("#save-basics").disabled = state.editorDirty;
+});
+document.addEventListener("input", (event) => {
+  if (event.target.id === "reviewer-name") state.reviewDraft.reviewer = event.target.value;
+});
+document.addEventListener("change", (event) => {
+  if (event.target.matches("[data-review-value]")) {
+    state.reviewDraft.values[event.target.dataset.reviewValue] = event.target.value;
+    state.reviewDecisionDraft = true;
+    const edit = event.target.closest(".review-field")?.querySelector('[data-review-action="edit"]');
+    if (edit) edit.disabled = event.target.value === event.target.dataset.proposedValue;
+  }
+});
+document.addEventListener("toggle", (event) => {
+  const candidate = event.target;
+  if (!(candidate instanceof HTMLDetailsElement) || !candidate.matches("[data-review-candidate]")) return;
+  if (candidate.open) state.expandedReviews.add(candidate.dataset.reviewCandidate);
+  else state.expandedReviews.delete(candidate.dataset.reviewCandidate);
+}, true);
+window.addEventListener("beforeunload", (event) => {
+  if (state.editorDirty || state.reviewDecisionDraft) {
+    event.preventDefault();
+    event.returnValue = "";
+  }
 });
 setView(location.hash.slice(1) || "overview");
 refresh();

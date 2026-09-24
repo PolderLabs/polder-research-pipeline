@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://polder.dev/schemas/classification-review.schema.json",
+  "title": "Human classification review decision",
+  "type": "object",
+  "required": ["id", "schema_version", "classification_id", "record_key", "target_kind", "target_id", "input_sha256", "taxonomy_sha256", "reviewer", "resolutions", "created_at"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {"type": "string", "pattern": "^crv_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+    "schema_version": {"type": "integer", "const": 1},
+    "classification_id": {"type": "string", "pattern": "^cls_"},
+    "record_key": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "target_kind": {"enum": ["source", "claim", "entity", "segment", "note"]},
+    "target_id": {"type": "string", "minLength": 1},
+    "input_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "taxonomy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "reviewer": {"type": "string", "minLength": 1, "maxLength": 120},
+    "resolutions": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["action", "value"],
+        "additionalProperties": false,
+        "properties": {
+          "action": {"enum": ["accept", "reject", "edit"]},
+          "value": {"type": ["string", "boolean", "null"]}
+        }
+      }
+    },
+    "created_at": {"type": "string", "format": "date-time"}
+  }
+}

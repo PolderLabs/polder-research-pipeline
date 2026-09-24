@@ -40,6 +40,9 @@
     },
     "topic": {"type": "string"},
     "tags": {"type": "array", "items": {"type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"}},
-    "classification_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^cls_"}}
+    "classification_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^cls_"}},
+    "classification_status": {"enum": ["accepted", "review_required", "failed", "disabled"]},
+    "classification_error": {"type": "string", "maxLength": 500},
+    "classification_dimensions": {"type": "object", "additionalProperties": {"type": "string", "minLength": 1}}
   }
 }

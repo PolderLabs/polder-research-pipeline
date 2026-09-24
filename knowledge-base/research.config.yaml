@@ -17,19 +17,22 @@ pipeline_version: "0.1.0"
 # classification. Neither provider silently falls back to the other.
 classification:
   enabled: true
-  provider: rules # rules | jev | laya; switch here
+  provider: "jev" # rules | jev | laya; switch here
   minimum_confidence: 0.75
   max_input_chars: 12000
   jev:
     endpoint: https://api.typesafe.ai/v1/systemone
-    model: jev-latest
-    api_key_env: TYPESAFE_API_KEY
+    model: "jev-latest"
+    api_key_env: "TYPESAFE_API_KEY"
     timeout_seconds: 30
   laya:
-    model: multilingual
-    device: auto # auto | cpu | cuda | mps
+    model: "multilingual"
+    device: "auto" # auto | cpu | cuda | mps
+  routing:
+    sensitive_provider: "laya" # Confidential/restricted or personal-data records never go to Jev.
+    by_target_kind: {} # Optional source/segment/claim/entity provider overrides.
   taxonomy:
-    version: "2026-09-24.1"
+    version: "2026-09-24.2"
     categories:
       project: {description: Project goals, requirements, and constraints, keywords: [polder, project, requirements]}
       research: {description: Research findings, models, papers, methods, or technology landscape, keywords: [research, paper, study, benchmark, model]}
@@ -44,6 +47,35 @@ classification:
       evaluation: {description: evaluation, benchmarks, or measurement, keywords: [evaluation, benchmark, metric, measurement]}
       methodology: {description: research methods, protocols, or evidence synthesis, keywords: [methodology, protocol, systematic review, evidence synthesis]}
       open-source: {description: open-source projects, repositories, or software, keywords: [open-source, github, repository, license]}
+    dimensions:
+      research_domain:
+        instructions: Select the primary research domain represented by this record.
+        values:
+          ai-ml: {description: Artificial intelligence, machine learning, and foundation models, keywords: [artificial intelligence, machine learning, neural, llm]}
+          visual-computing: {description: Computer vision, graphics, visual generation, and rendering, keywords: [computer vision, visual generation, image, rendering]}
+          real-time-systems: {description: Streaming, realtime inference, and low-latency systems, keywords: [streaming, real-time, realtime, low latency]}
+          research-methods: {description: Study design, systematic reviews, and evidence synthesis, keywords: [method, protocol, systematic review, evidence synthesis]}
+          data-infrastructure: {description: Data platforms, storage, deployment, and compute infrastructure, keywords: [database, storage, deployment, infrastructure]}
+          other: {description: Material outside the listed research domains, keywords: []}
+      research_method:
+        instructions: Select the main research or engineering method used or discussed.
+        values:
+          empirical-study: {description: A study using measured observations or experiments, keywords: [experiment, empirical, participants, measured]}
+          benchmark-evaluation: {description: A benchmark, evaluation, or comparative measurement, keywords: [benchmark, evaluation, metric, measurement]}
+          systematic-review: {description: A systematic or structured evidence review, keywords: [systematic review, meta-analysis, evidence synthesis]}
+          survey-study: {description: A survey or questionnaire study, keywords: [survey, questionnaire]}
+          design-implementation: {description: A system design, implementation, or engineering report, keywords: [implementation, architecture, prototype, design]}
+          conceptual-analysis: {description: A conceptual, theoretical, or position analysis, keywords: [theoretical, conceptual, position paper]}
+          other: {description: Method not represented by the listed values, keywords: []}
+      evidence_role:
+        instructions: Select the primary role this record plays in the research corpus.
+        values:
+          primary-evidence: {description: Original study, dataset, or direct technical evidence, keywords: [original study, dataset, experiment]}
+          secondary-synthesis: {description: Review, survey, or synthesis of prior evidence, keywords: [review, survey, synthesis, meta-analysis]}
+          technical-reference: {description: Specification, documentation, or implementation reference, keywords: [documentation, specification, api reference]}
+          benchmark-resource: {description: Benchmark, evaluation suite, or measurement resource, keywords: [benchmark, evaluation suite, dataset]}
+          commentary: {description: Opinion, announcement, or commentary rather than primary evidence, keywords: [opinion, announcement, commentary]}
+          other: {description: Role not represented by the listed values, keywords: []}
 
 # ─── Vault scan scope ───────────────────────────────────────────────────────
 # Controls what the vault_audit and frontmatter_fix tools consider "in scope".

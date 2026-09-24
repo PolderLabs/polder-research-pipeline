@@ -2,19 +2,22 @@ schema_version: 1
 role: knowledge-maintenance-agent
 description: Keeps the knowledge base current via freshness enforcement.
 tools:
-  - check_freshness
-  - refresh_source
-  - reverify_claims
-  - emit_event
+- polder_research.maintenance.evaluate_maintenance
+- polder_research.maintenance.build_health
+- polder_research.maintenance.derive_stale_records
 read:
-  - .research/sources/**
-  - .research/claims/**
-  - .research/state.json
+- .research/sources/**
+- .research/claims/**
+- .research/state.json
 write:
-  - .research/sources/**
-  - .research/claims/**
-  - .research/conflicts/**
-  - .research/events/**
+- .research/sources/**
+- .research/claims/**
+- .research/conflicts/**
+- .research/events/**
 forbidden:
-  - schemas/**
-  - agents/**
+- schemas/**
+- agents/**
+planned_tools:
+- automated source refresh
+- automated claim re-verification
+- maintenance scheduler

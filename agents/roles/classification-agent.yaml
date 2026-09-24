@@ -1,22 +1,32 @@
 schema_version: 1
 role: classification-agent
-description: Classifies claims, assigns evidence relations, flags high-impact items.
+description: Classifies structured evidence and routes uncertain metadata decisions
+  for review.
 tools:
-  - classify_claims
-  - assign_relations
-  - detect_gaps
-  - detect_duplicates
-  - emit_event
+- polder_research.classification.classify_text
+- polder_research.classification.select_provider
+- polder-research classify-existing
+- polder-research classification-compare
+- polder-research classification-evaluate
+- polder_research.classification_review.record_review
+- local-dashboard classification review inbox
 read:
-  - .research/claims/**
-  - .research/segments/**
-  - .research/sources/**
-  - .research/classifications/**
+- .research/claims/**
+- .research/segments/**
+- .research/sources/**
+- .research/entities/**
+- .research/classifications/**
+- .research/classification_reviews/**
+- .research/classification-jobs/**
+- .research/locks/**
 write:
-  - .research/claims/**
-  - .research/gaps/**
-  - .research/events/**
-  - .research/classifications/**
+- .research/classifications/**
+- .research/classification_reviews/**
+- .research/classification-jobs/**
+- .research/locks/**
 forbidden:
-  - schemas/**
-  - agents/**
+- schemas/**
+- agents/**
+- source-claim relations, claim status, systematic screening/appraisal decisions
+planned_tools:
+- ingestion-triggered replay queue

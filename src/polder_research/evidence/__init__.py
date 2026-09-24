@@ -22,8 +22,23 @@ from ..paths import (
     EVIDENCE_SEGMENTS_DIR,
     EVIDENCE_SOURCES_DIR,
 )
+from ..schemas import SchemaRegistry
 
 _SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+_SENSITIVITY_ORDER = {"public": 0, "internal": 1, "confidential": 2, "restricted": 3}
+
+
+def _classification_policy_metadata(*sources: dict[str, Any]) -> dict[str, Any]:
+    """Carry the strictest source privacy labels into derived evidence policy."""
+    sensitivity = max(
+        (str(source.get("sensitivity", "public")) for source in sources),
+        key=lambda value: _SENSITIVITY_ORDER.get(value, 3),
+        default="public",
+    )
+    return {
+        "sensitivity": sensitivity,
+        "personal_data": any(source.get("personal_data", False) for source in sources),
+    }
 
 
 def _persist(
@@ -31,10 +46,51 @@ def _persist(
     record: dict[str, Any],
     *,
     schema_name: str,
+    repository_root: Path | None = None,
     registry_factory: Any = None,
 ) -> None:
     """Persist one canonical evidence record atomically with schema validation."""
-    write_atomic(target, record, schema_name=schema_name)
+    root = Path(repository_root).resolve() if repository_root is not None else None
+    write_atomic(
+        target,
+        record,
+        schema_name=schema_name,
+        registry=(
+            SchemaRegistry(root)
+            if root is not None and (root / "schemas").is_dir()
+            else None
+        ),
+    )
+
+
+def _classify_record(
+    record: dict[str, Any],
+    text: str,
+    *,
+    target_kind: str,
+    target_id: str,
+    repository_root: Path | None,
+    policy_metadata: dict[str, Any],
+    output_dir: Path,
+) -> None:
+    """Run automatic enrichment while leaving a visible failure on evidence."""
+    try:
+        result = classify_text(
+            text,
+            target_kind=target_kind,
+            target_id=target_id,
+            repository_root=repository_root,
+            policy_metadata=policy_metadata,
+            output_dir=output_dir,
+        )
+    except (OSError, ValueError, RuntimeError):
+        record["classification_status"] = "failed"
+        record["classification_error"] = "Classification could not complete; inspect provider configuration and classification records."
+        return
+    record["classification_status"] = "disabled" if result is None else result["disposition"]
+    if result and result.get("disposition") == "failed":
+        record["classification_error"] = result.get("error", "Provider classification failed.")
+    merge_proposals(record, result)
 
 
 def _now() -> str:
@@ -63,10 +119,13 @@ def assert_record_exists(
     Returns the parsed record so callers can perform additional checks
     (e.g. segment-membership for evidence edges).
     """
-    if not record_id or not isinstance(record_id, str):
-        raise ValueError(f"record id must be a non-empty string, got {record_id!r}")
-    if not record_id.startswith(f"{prefix}_"):
-        raise ValueError(f"expected {prefix}_ record id, got {record_id!r}")
+    if not isinstance(prefix, str) or not re.fullmatch(r"[a-z]{3}", prefix):
+        raise ValueError(f"invalid record prefix: {prefix!r}")
+    if not isinstance(record_id, str) or not re.fullmatch(
+        rf"{re.escape(prefix)}_[0-9a-f]{{8}}-[0-9a-f]{{4}}-7[0-9a-f]{{3}}-[89ab][0-9a-f]{{3}}-[0-9a-f]{{12}}",
+        record_id,
+    ):
+        raise ValueError(f"invalid {prefix} record id: {record_id!r}")
     path = _record_dir(default_dir, repository_root, directory_name) / f"{record_id}.json"
     if not path.is_file():
         raise ValueError(
@@ -119,6 +178,8 @@ def register_source(
     raw_location: str | None = None,
     byte_size: int | None = None,
     mime_type: str | None = None,
+    sensitivity: str = "public",
+    personal_data: bool = False,
     tags: list[str] | None = None,
     repository_root: Path | None = None,
 ) -> str:
@@ -126,8 +187,10 @@ def register_source(
     from ``raw_bytes`` when supplied, otherwise the caller must provide it).
     Persisting an empty hash is forbidden because the canonical schema requires
     a 64-character lowercase SHA-256 (AUDIT.md §32)."""
-    ensure_evidence_dirs(repository_root=repository_root)
-    sid = _uuid7("src")
+    if sensitivity not in {"public", "internal", "confidential", "restricted"}:
+        raise ValueError("sensitivity must be public, internal, confidential, or restricted")
+    if not isinstance(personal_data, bool):
+        raise ValueError("personal_data must be a boolean")
     if raw_bytes is not None:
         content_sha256 = compute_content_hash(raw_bytes)
     if not content_sha256 or not isinstance(content_sha256, str):
@@ -139,6 +202,8 @@ def register_source(
         raise ValueError(
             f"content_sha256 must be a 64-char lowercase hex string; got {content_sha256!r}"
         )
+    ensure_evidence_dirs(repository_root=repository_root)
+    sid = _uuid7("src")
     record: dict[str, Any] = {
         "id": sid,
         "schema_version": 1,
@@ -159,25 +224,43 @@ def register_source(
         record["byte_size"] = byte_size
     if mime_type:
         record["mime_type"] = mime_type
+    record["sensitivity"] = sensitivity
+    record["personal_data"] = personal_data
     if tags:
         record["tags"] = list(dict.fromkeys(tags))
     try:
-        text = raw_bytes.decode("utf-8", errors="ignore")[:12000] if raw_bytes else ""
-        classification = classify_text(
+        # The registration API receives original bytes, not an extracted text
+        # representation. Decode only known text media strictly; PDF, image,
+        # audio, video, and unknown payloads are classified from metadata until
+        # a format-aware extractor registers locatable text segments.
+        text_media = media_type in {"text", "markdown", "html", "json", "csv"}
+        text_mime = bool(mime_type and (mime_type.startswith("text/") or mime_type in {
+            "application/json", "application/xml", "application/ld+json"
+        }))
+        text = ""
+        if raw_bytes and (text_media or text_mime):
+            try:
+                text = raw_bytes.decode("utf-8", errors="strict")[:12000]
+            except UnicodeDecodeError:
+                text = ""
+        _classify_record(
+            record,
             "\n".join(part for part in (title, source_type, media_type, text) if part),
             target_kind="source",
             target_id=sid,
             repository_root=repository_root,
+            policy_metadata={"sensitivity": sensitivity, "personal_data": personal_data},
             output_dir=_record_dir(EVIDENCE_SOURCES_DIR, repository_root, "sources").parent
             / "classifications",
         )
-        merge_proposals(record, classification)
     except (OSError, ValueError, RuntimeError):
-        pass
+        record["classification_status"] = "failed"
+        record["classification_error"] = "Classification could not complete; inspect provider configuration and classification records."
     _persist(
         _record_dir(EVIDENCE_SOURCES_DIR, repository_root, "sources").joinpath(f"{sid}.json"),
         record,
         schema_name="source",
+        repository_root=repository_root,
     )
     return sid
 
@@ -218,7 +301,7 @@ def register_segment(
     end: str | None = None,
     repository_root: Path | None = None,
 ) -> str:
-    assert_record_exists(
+    source_record = assert_record_exists(
         source_id,
         prefix="src",
         default_dir=EVIDENCE_SOURCES_DIR,
@@ -242,21 +325,21 @@ def register_segment(
     if end is not None:
         record["locator"]["end"] = end
     try:
-        classification = classify_text(
-            text,
-            target_kind="segment",
-            target_id=seg_id,
+        _classify_record(
+            record, text, target_kind="segment", target_id=seg_id,
             repository_root=repository_root,
+            policy_metadata=_classification_policy_metadata(source_record),
             output_dir=_record_dir(EVIDENCE_SEGMENTS_DIR, repository_root, "segments").parent
             / "classifications",
         )
-        merge_proposals(record, classification)
     except (OSError, ValueError, RuntimeError):
-        pass
+        record["classification_status"] = "failed"
+        record["classification_error"] = "Classification could not complete; inspect provider configuration and classification records."
     _persist(
         _record_dir(EVIDENCE_SEGMENTS_DIR, repository_root, "segments").joinpath(f"{seg_id}.json"),
         record,
         schema_name="segment",
+        repository_root=repository_root,
     )
     return seg_id
 
@@ -274,14 +357,15 @@ def register_claim(
     record (AUDIT.md §16) before the claim is persisted."""
     if not source_ids:
         raise ValueError("register_claim: source_ids must be a non-empty list")
+    source_records = []
     for sid in source_ids:
-        assert_record_exists(
+        source_records.append(assert_record_exists(
             sid,
             prefix="src",
             default_dir=EVIDENCE_SOURCES_DIR,
             directory_name="sources",
             repository_root=repository_root,
-        )
+        ))
     ensure_evidence_dirs(repository_root=repository_root)
     clm_id = _uuid7("clm")
     record: dict[str, Any] = {
@@ -297,21 +381,21 @@ def register_claim(
     if tags:
         record["tags"] = list(dict.fromkeys(tags))
     try:
-        classification = classify_text(
-            statement,
-            target_kind="claim",
-            target_id=clm_id,
+        _classify_record(
+            record, statement, target_kind="claim", target_id=clm_id,
             repository_root=repository_root,
+            policy_metadata=_classification_policy_metadata(*source_records),
             output_dir=_record_dir(EVIDENCE_CLAIMS_DIR, repository_root, "claims").parent
             / "classifications",
         )
-        merge_proposals(record, classification)
     except (OSError, ValueError, RuntimeError):
-        pass
+        record["classification_status"] = "failed"
+        record["classification_error"] = "Classification could not complete; inspect provider configuration and classification records."
     _persist(
         _record_dir(EVIDENCE_CLAIMS_DIR, repository_root, "claims").joinpath(f"{clm_id}.json"),
         record,
         schema_name="claim",
+        repository_root=repository_root,
     )
     return clm_id
 
@@ -323,8 +407,19 @@ def register_entity(
     aliases: list[str] | None = None,
     description: str | None = None,
     tags: list[str] | None = None,
+    source_ids: list[str] | None = None,
     repository_root: Path | None = None,
 ) -> str:
+    source_records = [
+        assert_record_exists(
+            source_id,
+            prefix="src",
+            default_dir=EVIDENCE_SOURCES_DIR,
+            directory_name="sources",
+            repository_root=repository_root,
+        )
+        for source_id in dict.fromkeys(source_ids or [])
+    ]
     ensure_evidence_dirs(repository_root=repository_root)
     ent_id = _uuid7("ent")
     record: dict[str, Any] = {
@@ -340,22 +435,29 @@ def register_entity(
         record["description"] = description
     if tags:
         record["tags"] = list(dict.fromkeys(tags))
+    if source_ids:
+        record["source_ids"] = list(dict.fromkeys(source_ids))
     try:
-        classification = classify_text(
+        _classify_record(
+            record,
             "\n".join(part for part in (name, description or "", " ".join(aliases or [])) if part),
-            target_kind="entity",
-            target_id=ent_id,
-            repository_root=repository_root,
+            target_kind="entity", target_id=ent_id, repository_root=repository_root,
+            policy_metadata={
+                **_classification_policy_metadata(*source_records),
+                "personal_data": entity_kind == "person"
+                or any(source.get("personal_data", False) for source in source_records),
+            },
             output_dir=_record_dir(EVIDENCE_ENTITIES_DIR, repository_root, "entities").parent
             / "classifications",
         )
-        merge_proposals(record, classification)
     except (OSError, ValueError, RuntimeError):
-        pass
+        record["classification_status"] = "failed"
+        record["classification_error"] = "Classification could not complete; inspect provider configuration and classification records."
     _persist(
         _record_dir(EVIDENCE_ENTITIES_DIR, repository_root, "entities").joinpath(f"{ent_id}.json"),
         record,
         schema_name="entity",
+        repository_root=repository_root,
     )
     return ent_id
 
@@ -394,6 +496,7 @@ def register_gap(
         _record_dir(EVIDENCE_GAPS_DIR, repository_root, "gaps").joinpath(f"{gap_id}.json"),
         record,
         schema_name="gap",
+        repository_root=repository_root,
     )
     return gap_id
 
@@ -436,6 +539,7 @@ def register_conflict(
         ),
         record,
         schema_name="conflict",
+        repository_root=repository_root,
     )
     return cfl_id
 
@@ -540,5 +644,6 @@ def register_evidence_edge(
         _record_dir(EVIDENCE_EDGES_DIR, repository_root, "edges").joinpath(f"{edge_id}.json"),
         record,
         schema_name="evidence",
+        repository_root=repository_root,
     )
     return edge_id

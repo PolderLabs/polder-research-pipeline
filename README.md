@@ -34,7 +34,8 @@ Python 3.14 or newer is required. Laya adds large machine-learning dependencies 
 ## Current implementation
 
 - Typed schemas and Python APIs for runs, tasks, events, sources, segments, claims, entities, evidence, classifications, conflicts, gaps, handoffs, and maintenance.
-- Automatic source, claim, entity, and segment tagging from a versioned taxonomy. Jev uses TypeSafe's API; Laya inference runs in-process locally. See [provider setup](knowledge-base/03-system/classification-providers.md).
+- Automatic field-level enrichment of sources, claims, entities, and segments using categories, tags, and controlled research dimensions. Jev uses TypeSafe's API; Laya inference runs locally. Sensitive records are routed to local providers. See [provider setup](knowledge-base/03-system/classification-providers.md) and [evaluation and review standards](knowledge-base/03-system/classification-operations.md).
+- Replay existing classifications, compare provider agreement, evaluate predictions against held-out human gold labels, and record append-only field reviews from the local dashboard.
 - Protocol-first systematic-review records for protocols, searches, candidates, screening, extraction, appraisal, and review reports.
 - Atomic schema-validated record writes and derived state/health builders.
 - Obsidian-compatible vault, intake templates, note scaffolding, and vault integrity audit.
@@ -53,7 +54,7 @@ Python 3.14 or newer is required. Laya adds large machine-learning dependencies 
 
 ## Install a research workspace
 
-From a POSIX shell with Git and Python 3.14+, bootstrap the complete project (knowledge base, schemas, agents, pipeline, and dashboard) into a new directory:
+From a POSIX shell with curl, Git, and Python 3.14+, install the complete project tree (knowledge base, schemas, agents, pipeline, dashboard, docs, and development files) into a new directory:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/PolderLabs/polder-research-pipeline/main/install.sh | sh -s -- --target ./my-research
@@ -61,7 +62,7 @@ cd ./my-research
 .venv/bin/polder-research serve
 ```
 
-Use `--with-dev` for pytest and Ruff or `--with-laya` to install Laya and its larger machine-learning dependencies. Laya model weights are downloaded separately from the dashboard. The installer refuses non-empty targets and creates a project-local virtual environment. For reviewable installs, clone the repository, inspect `install.sh`, then run it with `--ref` pinned to a release tag or commit. See [install.sh](install.sh) for all options.
+The installer downloads a source archive, not a Git clone. It installs the entire repository file tree, replaces the repository-specific project brief with a blank research brief, builds a project-local virtual environment, and initializes a new local Git repository with a starter commit and no upstream remote. Research records, credentials, and generated state stay local in ignored `.research/`; application code, guides, agent roles, schemas, and commands remain in the workspace for users to customize. It refuses non-empty targets. Use `--with-dev` for pytest and Ruff or `--with-laya` to install Laya and its larger machine-learning dependencies. Laya model weights are downloaded separately from the dashboard. For reviewable installs, inspect `install.sh` and pin `--ref` to a release tag or commit. Set `POLDER_RESEARCH_REPOSITORY=OWNER/REPOSITORY` to install a fork. See [install.sh](install.sh) for all options.
 
 ## Local control panel
 

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://polder.dev/schemas/classification-replay-job.schema.json",
+  "title": "Versioned classification replay job manifest",
+  "type": "object",
+  "required": ["id", "schema_version", "version", "status", "provider_override", "taxonomy_sha256", "taxonomy_version", "created_at", "updated_at", "targets"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {"type": "string", "pattern": "^crj_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+    "schema_version": {"const": 1},
+    "version": {"type": "integer", "minimum": 1},
+    "status": {"enum": ["running", "completed", "completed_with_issues"]},
+    "provider_override": {"type": ["string", "null"], "enum": ["rules", "jev", "laya", null]},
+    "taxonomy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "taxonomy_version": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string", "format": "date-time"},
+    "updated_at": {"type": "string", "format": "date-time"},
+    "targets": {"type": "array", "items": {"type": "object", "required": ["target_kind", "target_id", "input_sha256", "provider", "sensitivity", "personal_data", "status", "attempts", "classification_id", "error"], "additionalProperties": false, "properties": {"target_kind": {"enum": ["source", "segment", "claim", "entity"]}, "target_id": {"type": "string", "minLength": 1}, "input_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "provider": {"enum": ["rules", "jev", "laya"]}, "sensitivity": {"enum": ["public", "internal", "confidential", "restricted"]}, "personal_data": {"type": "boolean"}, "status": {"enum": ["pending", "running", "completed", "failed", "blocked", "disabled"]}, "attempts": {"type": "integer", "minimum": 0}, "classification_id": {"type": ["string", "null"]}, "error": {"type": ["string", "null"], "maxLength": 500}, "updated_at": {"type": "string", "format": "date-time"}}}}
+  }
+}

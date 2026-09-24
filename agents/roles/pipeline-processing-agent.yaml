@@ -2,25 +2,27 @@ schema_version: 1
 role: pipeline-processing-agent
 description: Parses raw sources into segments, entities, and draft claims.
 tools:
-  - parse_pdf
-  - parse_html
-  - parse_markdown
-  - extract_segments
-  - extract_entities
-  - draft_claims
-  - research_methods.record_extraction
-  - emit_event
+- polder_research.evidence.register_source
+- polder_research.evidence.register_segment
+- polder_research.evidence.register_entity
+- polder_research.evidence.register_claim
+- polder_research.evidence.register_evidence_edge
+- polder_research.research_methods.record_extraction
+- polder_research.events.write_event
 read:
-  - .research/sources/**
-  - .research/segments/**
-  - .research/protocols/**
+- .research/sources/**
+- .research/segments/**
+- .research/protocols/**
 write:
-  - .research/segments/**
-  - .research/entities/**
-  - .research/claims/**
-  - .research/extractions/**
-  - .research/events/**
+- .research/segments/**
+- .research/entities/**
+- .research/claims/**
+- .research/extractions/**
+- .research/events/**
 forbidden:
-  - schemas/**
-  - .research/runs/**
-  - .research/tasks/**
+- schemas/**
+- .research/runs/**
+- .research/tasks/**
+planned_tools:
+- PDF/HTML parsers
+- model-based extraction and draft generation

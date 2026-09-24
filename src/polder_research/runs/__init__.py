@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -49,6 +50,10 @@ def write_run(
 
 def update_run_status(run_id: str, run_status: str) -> None:
     """Update a run's status; records started_at or finished_at."""
+    if not isinstance(run_id, str) or not re.fullmatch(
+        r"run_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}", run_id
+    ):
+        raise ValueError(f"invalid run record id: {run_id!r}")
     p = RESEARCH_RUNS_DIR / f"{run_id}.json"
     rec = json.loads(p.read_text(encoding="utf-8"))
     if rec.get("id") != run_id:

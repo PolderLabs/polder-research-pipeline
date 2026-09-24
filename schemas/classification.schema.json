@@ -5,10 +5,14 @@
   "description": "Immutable provenance for an automatic metadata classification.",
   "type": "object",
   "required": ["id", "schema_version", "record_key", "target_kind", "target_id", "input_sha256", "taxonomy_sha256", "taxonomy_version", "taxonomy_snapshot", "provider", "requested_model", "model", "endpoint_identity", "questions", "category", "category_confidence", "tag_probabilities", "proposed_tags", "threshold", "answers", "disposition", "elapsed_ms", "created_at"],
+  "allOf": [{
+    "if": {"properties": {"schema_version": {"const": 2}}, "required": ["schema_version"]},
+    "then": {"required": ["question_set_sha256", "usage_counts", "routing_metadata", "category_decision", "tag_decisions", "field_decisions"]}
+  }],
   "additionalProperties": false,
   "properties": {
     "id": {"type": "string", "pattern": "^cls_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
-    "schema_version": {"type": "integer", "const": 1},
+    "schema_version": {"type": "integer", "enum": [1, 2]},
     "record_key": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "target_kind": {"enum": ["source", "claim", "entity", "segment", "note"]},
     "target_id": {"type": "string", "minLength": 1},
@@ -16,20 +20,39 @@
     "taxonomy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "taxonomy_version": {"type": "string", "minLength": 1},
     "taxonomy_snapshot": {"type": "object"},
+    "question_set_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "provider": {"enum": ["rules", "jev", "laya"]},
     "requested_model": {"type": "string", "minLength": 1},
     "model": {"type": "string", "minLength": 1},
     "endpoint_identity": {"enum": ["typesafe-api", "local-process", "built-in"]},
     "questions": {"type": "object"},
+    "usage_counts": {"type": ["object", "null"], "additionalProperties": false, "properties": {"input_tokens": {"type": "integer", "minimum": 0}, "output_tokens": {"type": "integer", "minimum": 0}, "total_tokens": {"type": "integer", "minimum": 0}, "requests": {"type": "integer", "minimum": 0}}},
+    "routing_metadata": {"type": ["object", "null"], "additionalProperties": {"type": "string", "maxLength": 200}},
     "category": {"type": ["string", "null"]},
     "category_confidence": {"type": "number", "minimum": 0, "maximum": 1},
     "tag_probabilities": {"type": "object", "additionalProperties": {"type": "number", "minimum": 0, "maximum": 1}},
     "proposed_tags": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"}},
+    "category_decision": {"anyOf": [{"$ref": "#/$defs/fieldDecision"}, {"type": "null"}]},
+    "tag_decisions": {"type": "object", "additionalProperties": {"$ref": "#/$defs/fieldDecision"}},
+    "field_decisions": {"type": "object", "additionalProperties": {"$ref": "#/$defs/fieldDecision"}},
     "threshold": {"type": "number", "minimum": 0, "maximum": 1},
     "answers": {"type": "object"},
     "disposition": {"enum": ["accepted", "review_required", "failed"]},
     "error": {"type": "string", "maxLength": 500},
     "elapsed_ms": {"type": "integer", "minimum": 0},
     "created_at": {"type": "string", "format": "date-time"}
+  },
+  "$defs": {
+    "fieldDecision": {
+      "type": "object",
+      "required": ["status", "value", "probability", "provider_confidence"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {"enum": ["accepted", "rejected", "review_required", "abstained"]},
+        "value": {"type": ["string", "boolean", "null"]},
+        "probability": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "provider_confidence": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+      }
+    }
   }
 }
