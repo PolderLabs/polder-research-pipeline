@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import polder_research.paths as paths_module
 from polder_research.paths import (
     AGENTS_DIR,
     DOMAIN_TYPE,
@@ -205,3 +206,51 @@ def test_skipped_prefix_does_not_catch_a_sibling_directory() -> None:
 
     assert in_skipped_prefix(Path("knowledge-base/90-inbox/raw-notes/note.md")) is False
     assert in_skipped_prefix(Path("knowledge-base/90-inbox/manifest.md")) is False
+
+
+def test_cli_script_uses_its_source_checkout(tmp_path: Path, monkeypatch) -> None:
+    """Development uses the source copy owned by this package checkout."""
+    monkeypatch.setattr(paths_module, "REPO_ROOT", tmp_path)
+    (tmp_path / "pyproject.toml").touch()
+    (tmp_path / "src/polder_research").mkdir(parents=True)
+    script = tmp_path / "skills/obsidian-knowledgebase-curator/scripts/vault_audit.py"
+    script.parent.mkdir(parents=True)
+    script.write_text("# checkout copy", encoding="utf-8")
+
+    assert paths_module.cli_script("vault_audit.py") == script
+
+
+def test_cli_script_ignores_target_workspace_code(tmp_path: Path, monkeypatch) -> None:
+    """A workspace is data and cannot replace the installed CLI script."""
+    from polder_research.paths import BUNDLED_SKILLS_DIR
+
+    package_root = tmp_path / "installed-package"
+    package_root.mkdir()
+    monkeypatch.setattr(paths_module, "REPO_ROOT", package_root)
+    workspace_script = (
+        tmp_path / "workspace/skills/obsidian-knowledgebase-curator/scripts/vault_audit.py"
+    )
+    workspace_script.parent.mkdir(parents=True)
+    workspace_script.write_text("raise RuntimeError('untrusted workspace code')", encoding="utf-8")
+
+    assert paths_module.cli_script("vault_audit.py") == BUNDLED_SKILLS_DIR / "vault_audit.py"
+
+
+def test_cli_script_rejects_unknown_names() -> None:
+    import pytest
+
+    with pytest.raises(ValueError, match="unsupported CLI script"):
+        paths_module.cli_script("intake_register.py")
+
+
+def test_bundled_dir_sits_beside_this_module() -> None:
+    """A wrong parent level silently resolves outside the package.
+
+    REPO_ROOT is the checkout root in an editable install but site-packages
+    in a wheel install, so it cannot anchor this. The package directory can:
+    BUNDLED_SKILLS_DIR must live under the directory containing paths.py.
+    """
+    from polder_research.paths import BUNDLED_SKILLS_DIR
+
+    package_dir = Path(paths_module.__file__).resolve().parent
+    assert BUNDLED_SKILLS_DIR.parent.parent == package_dir

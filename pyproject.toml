@@ -33,5 +33,7 @@ packages = ["src/polder_research"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "schemas" = "polder_research/_bundled/schemas"
+"skills/obsidian-knowledgebase-curator/scripts/vault_audit.py" = "polder_research/_bundled/skills/vault_audit.py"
+"skills/obsidian-knowledgebase-curator/scripts/frontmatter_fix.py" = "polder_research/_bundled/skills/frontmatter_fix.py"
 
 [tool.pytest.ini_options]
