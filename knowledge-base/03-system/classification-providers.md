@@ -62,6 +62,20 @@ own records. A high confidence score is not proof that a language route or
 classification is correct. Laya quality must be compared against human labels
 before unattended use.
 
+`minimum_confidence` is a disposition threshold, not a safety gate. A
+routed local classifier can report high confidence on inputs it classifies
+incorrectly, because calibration degrades specifically where routing sends
+a request outside the checkpoint's training distribution. Treat a
+confidence score as one input to a disposition, never as evidence that a
+classification is correct, and prefer `review_required` for records whose
+language or script the routing step could not establish confidently.
+
+Aggregate calibration figures reported by a vendor are not sufficient
+evidence either: expected calibration error and Brier score can *understate*
+miscalibration in high-accuracy regimes, where correct-prediction dominance
+masks errors. Evaluate accuracy and confidence separately across the
+routing decision, and against human labels.
+
 The RTX 3060 smoke run on 2026-09-25 loaded the English checkpoint and Laya
 reported an invalid checkpoint temperature, treating that signal as
 uncalibrated. Polder keeps every non-rules taxonomy field in
