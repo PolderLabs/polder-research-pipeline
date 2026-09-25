@@ -102,6 +102,7 @@ jobs:
           cp "$GITHUB_WORKSPACE/knowledge-base/research.config.yaml" "$bare/knowledge-base/"
           mkdir -p "$bare/knowledge-base/90-inbox/processing"
           printf '# Wheel smoke fixture\n' > "$bare/knowledge-base/90-inbox/processing/wheel-smoke.md"
+          printf '%s\n' '---' 'type: index' 'status: current' 'tags:' '  - smoke-test' '---' '# Wheel smoke workspace' '' '[[90-inbox/processing/wheel-smoke]]' > "$bare/knowledge-base/index.md"
           test ! -d "$bare/skills"
           if ( cd "$bare" && env -u PYTHONPATH "$environment/bin/polder-research" vault-audit ); then
             echo "vault-audit unexpectedly accepted invalid frontmatter" >&2
