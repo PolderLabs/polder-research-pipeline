@@ -69,7 +69,7 @@ def _read_record(path: Path) -> dict[str, Any] | None:
     """Return the parsed JSON object record, or ``None`` if unparseable."""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    except OSError, json.JSONDecodeError:
         return None
     return data if isinstance(data, dict) else None
 
