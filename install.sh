@@ -5,7 +5,7 @@ REPOSITORY=${POLDER_RESEARCH_REPOSITORY:-PolderLabs/polder-research-pipeline}
 REF=main
 TARGET=
 WITH_DEV=0
-WITH_LAYA=0
+WITH_LAYA=1
 
 usage() {
   cat <<'EOF'
@@ -18,7 +18,8 @@ Options:
   --target DIR   New directory for the complete pipeline and research workspace (required)
   --ref REF      GitHub branch, tag, or commit to use as the template (default: main)
   --with-dev     Also install pytest and Ruff
-  --with-laya    Also install the optional local Laya classifier (large ML dependencies)
+  --with-laya    Install the default local Laya classifier (kept for compatibility)
+  --without-laya Skip Laya and its machine-learning dependencies
   -h, --help     Show this help
 
 The installer downloads the complete source archive without cloning Git history,
@@ -50,6 +51,10 @@ while [ "$#" -gt 0 ]; do
       ;;
     --with-laya)
       WITH_LAYA=1
+      shift
+      ;;
+    --without-laya)
+      WITH_LAYA=0
       shift
       ;;
     -h|--help)
@@ -187,7 +192,17 @@ printf 'Creating project environment…\n'
 python3 -m venv "$TARGET_PATH/.venv"
 EXTRAS=
 [ "$WITH_DEV" -eq 0 ] || EXTRAS=dev
-[ "$WITH_LAYA" -eq 0 ] || EXTRAS=${EXTRAS:+$EXTRAS,}laya
+if [ "$WITH_LAYA" -eq 1 ]; then
+  if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi --query-gpu=name --format=csv,noheader >/dev/null 2>&1; then
+    TORCH_INDEX=https://download.pytorch.org/whl/cu130
+    printf 'NVIDIA GPU detected; installing the CUDA 13.0 PyTorch wheel…\n'
+  else
+    TORCH_INDEX=https://download.pytorch.org/whl/cpu
+    printf 'No usable NVIDIA GPU detected; installing the CPU PyTorch wheel…\n'
+  fi
+  "$TARGET_PATH/.venv/bin/python" -m pip install torch==2.14.0 --index-url "$TORCH_INDEX"
+  EXTRAS=${EXTRAS:+$EXTRAS,}laya
+fi
 SPEC=$TARGET_PATH
 [ -z "$EXTRAS" ] || SPEC=$TARGET_PATH["$EXTRAS"]
 "$TARGET_PATH/.venv/bin/python" -m pip install -e "$SPEC"
@@ -206,5 +221,7 @@ INSTALL_COMPLETE=1
 printf '\nPolder Research workspace installed at %s\n' "$TARGET_PATH"
 printf 'Dashboard: cd %s && .venv/bin/polder-research serve\n' "$TARGET_PATH"
 printf 'Local Git repository initialized without an upstream remote.\n'
-printf 'Optional local Laya model: download and load it from the dashboard Configuration view.\n'
+if [ "$WITH_LAYA" -eq 1 ]; then
+  printf 'Laya is the default classifier; download model weights from the dashboard Configuration view.\n'
+fi
 printf 'The dashboard listens on 127.0.0.1 and prints its local URL.\n'
