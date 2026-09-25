@@ -33,7 +33,7 @@ from .classification import (
 from .decision.scheduler import LayaBatchScheduler
 from .decision.state_builders import build_state_for_target, clip_state, state_text
 from .locking import LockBusyError, acquire_file_lock, release_file_lock
-from .schemas import SchemaError, SchemaRegistry
+from .schemas import SchemaError, registry_for_root
 
 _KINDS = ("source", "segment", "claim", "entity")
 _DIRECTORIES = {
@@ -167,7 +167,7 @@ def evidence_targets(
     paths are returned by :func:`replay_existing` as skipped items.
     """
     root = _root(repository_root)
-    registry = SchemaRegistry(root)
+    registry = registry_for_root(root, allow_package_fallback=True)
     selected = tuple(dict.fromkeys(kinds))
     invalid = set(selected).difference(_KINDS)
     if invalid:
@@ -271,7 +271,7 @@ def _latest_job(root: Path, job_id: str) -> dict[str, Any]:
     job = _load_json(versions[-1])
     if not job:
         raise ValueError(f"classification replay job is unreadable: {job_id}")
-    SchemaRegistry(root).validate("classification-replay-job", job)
+    registry_for_root(root, allow_package_fallback=True).validate("classification-replay-job", job)
     return job
 
 
@@ -283,7 +283,7 @@ def _write_job(root: Path, job: dict[str, Any]) -> dict[str, Any]:
         _job_path(root, next_job["id"], next_job["version"]),
         next_job,
         schema_name="classification-replay-job",
-        registry=SchemaRegistry(root),
+        registry=registry_for_root(root, allow_package_fallback=True),
     )
     return next_job
 
@@ -700,7 +700,7 @@ def replay_job_health(repository_root: str | Path | None = None) -> dict[str, An
             "malformed_records": malformed,
         }
     try:
-        registry = SchemaRegistry(root)
+        registry = registry_for_root(root, allow_package_fallback=True)
     except (OSError, SchemaError) as exc:
         malformed.extend(
             {"path": f".research/{_JOB_DIRECTORY}/{path.name}", "error": str(exc)[:300]}

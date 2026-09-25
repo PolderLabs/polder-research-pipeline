@@ -15,7 +15,7 @@ from typing import Any
 
 from .atomic import write_atomic
 from .paths import REPO_ROOT
-from .schemas import SchemaRegistry
+from .schemas import registry_for_root
 
 
 def _root(repository_root: str | Path | None) -> Path:
@@ -35,7 +35,9 @@ def _classification(root: Path, classification_id: str) -> dict[str, Any]:
         raise ValueError("classification record was not found or is malformed") from exc
     if not isinstance(record, dict) or record.get("id") != classification_id:
         raise ValueError("classification record identity does not match its filename")
-    SchemaRegistry(root).validate_filename_identity("classification", path.name, record)
+    registry_for_root(root, allow_package_fallback=True).validate_filename_identity(
+        "classification", path.name, record
+    )
     return record
 
 
@@ -155,13 +157,13 @@ def record_review(
     output = root / ".research" / "classification_reviews"
     schema_path = root / "schemas" / "classification-review.schema.json"
     if schema_path.is_file():
-        registry = SchemaRegistry(root)
+        registry = registry_for_root(root, allow_package_fallback=True)
         registry.validate("classification-review", review)
         write_atomic(
             output / f"{review['id']}.json",
             review,
             schema_name="classification-review",
-            registry=SchemaRegistry(root),
+            registry=registry_for_root(root, allow_package_fallback=True),
         )
     else:
         raise ValueError("classification review schema is missing from this installation")
@@ -187,7 +189,7 @@ def review_records_audit(
     if not directory.exists() or not any(directory.glob("*.json")):
         return [], []
     try:
-        registry = SchemaRegistry(root)
+        registry = registry_for_root(root, allow_package_fallback=True)
         validator = registry.validator("classification-review")
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         return [], [{"path": "schemas/classification-review.schema.json", "error": str(exc)[:300]}]

@@ -10,6 +10,14 @@ from pathlib import Path
 
 REPO_ROOT: Path = Path(__file__).resolve().parents[2]
 
+
+def default_workspace_root() -> Path:
+    """Return the checkout root, or the current directory for wheel installs."""
+    if (REPO_ROOT / "knowledge-base").is_dir():
+        return REPO_ROOT
+    return Path.cwd().resolve()
+
+
 # The Obsidian vault root. Human-readable knowledge lives here so that
 # opening ``knowledge-base/`` in Obsidian shows only the curated notes
 # (never ``src/``, ``tests/``, ``schemas/``, or other control-plane code).

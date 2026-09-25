@@ -379,10 +379,11 @@ def audit(repo_root: Path | str | None = None):
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--root", type=Path, default=None, help="Research workspace root")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--quiet", action="store_true", help="exit code only, no output")
     args = ap.parse_args(argv)
-    r = audit()
+    r = audit(args.root)
     # Total blocks CI: frontmatter, tag, link, structure, orphan, unreachable.
     # Type drift is informational (it's a coverage map, not a defect).
     blocking = sum(

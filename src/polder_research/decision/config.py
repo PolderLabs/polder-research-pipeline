@@ -10,7 +10,7 @@ from urllib.parse import urlsplit
 
 import yaml
 
-from ..schemas import SchemaRegistry
+from ..schemas import registry_for_root
 
 
 @dataclass(frozen=True)
@@ -60,7 +60,7 @@ def validate_config(value: Any, repository_root: str | Path) -> DecisionConfig:
     """Validate an already parsed configuration with the canonical schema."""
     root = Path(repository_root)
     try:
-        SchemaRegistry(root).validate("research-config", value)
+        registry_for_root(root, allow_package_fallback=True).validate("research-config", value)
     except KeyError as exc:
         raise ValueError("research-config schema is not installed") from exc
     except Exception as exc:

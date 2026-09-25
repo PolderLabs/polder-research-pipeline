@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from ..maintenance import build_health, save_health
 from ..workflow import build_state, save_state
 
 
-def cmd_build_state() -> int:
-    state = build_state()
-    save_state(state)
+def cmd_build_state(repository_root: str | Path | None = None) -> int:
+    state = build_state(repository_root)
+    save_state(state, repository_root)
     print(
         f"state.json written — {state['events']['total']} events, "
         f"{state['tasks']['total']} tasks, {state['runs']['total']} runs"
@@ -16,9 +18,9 @@ def cmd_build_state() -> int:
     return 0
 
 
-def cmd_build_health() -> int:
-    health = build_health()
-    save_health(health)
+def cmd_build_health(repository_root: str | Path | None = None) -> int:
+    health = build_health(repository_root)
+    save_health(health, repository_root)
     issues = len(health["issues"])
     print(f"health.json written — overall: {health['overall']}, issues: {issues}")
     return 0

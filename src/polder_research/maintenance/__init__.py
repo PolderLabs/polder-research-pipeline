@@ -29,7 +29,7 @@ from ..paths import (
     RESEARCH_RUNS_DIR,
     RESEARCH_TASKS_DIR,
 )
-from ..schemas import SchemaRegistry
+from ..schemas import registry_for_root
 from ..workflow import _config, _read_records, _root, build_state
 
 # Re-exported from the workflow module so callers can address the canonical
@@ -64,7 +64,7 @@ def _updated_time(value: str) -> datetime | None:
 
 
 def _evidence_collection(root: Path | None, kind: str) -> list[dict[str, Any]]:
-    registry = SchemaRegistry(root or REPO_ROOT)
+    registry = registry_for_root(root or REPO_ROOT, allow_package_fallback=True)
     validator = registry.validator(kind)
     research = RESEARCH_DIR if root is None else root / ".research"
     out: list[dict[str, Any]] = []

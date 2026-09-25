@@ -33,7 +33,7 @@ from ..decision.projection import build_effective_projection
 from ..locking import acquire_file_lock, release_file_lock
 from ..maintenance import build_health, evaluate_maintenance
 from ..paths import REPO_ROOT
-from ..schemas import SchemaError, SchemaRegistry
+from ..schemas import SchemaError, registry_for_root
 from ..workflow import _read_records, build_state
 
 _CONFIG_LOCK = threading.RLock()
@@ -109,7 +109,7 @@ def _write_config(root: Path, raw: str, expected_revision: str) -> dict[str, Any
             parsed = yaml.safe_load(raw)
         except yaml.YAMLError as exc:
             raise ValueError(f"Invalid YAML: {exc}") from exc
-        _validate_config(parsed)
+        _validate_config(parsed, root)
         _atomic_text(
             path, raw if raw.endswith("\n") else raw + "\n", mode=path.stat().st_mode & 0o777
         )
@@ -169,18 +169,18 @@ def _patch_config(root: Path, expected_revision: str, updates: Any) -> dict[str,
         for start, end, scalar in sorted(edits, reverse=True):
             raw = raw[:start] + scalar + raw[end:]
         parsed = yaml.safe_load(raw)
-        _validate_config(parsed)
+        _validate_config(parsed, root)
         _atomic_text(
             path, raw if raw.endswith("\n") else raw + "\n", mode=path.stat().st_mode & 0o777
         )
         return {"revision": _revision(raw), "config": parsed}
 
 
-def _validate_config(config: Any) -> None:
+def _validate_config(config: Any, repository_root: Path | None = None) -> None:
     if not isinstance(config, dict):
         raise ValueError("Configuration must be a YAML mapping")
     try:
-        validate_decision_config(config, REPO_ROOT)
+        validate_decision_config(config, repository_root or REPO_ROOT)
     except Exception as exc:
         raise ValueError(
             f"Configuration does not match research-config.schema.json: {exc}"
@@ -400,7 +400,7 @@ def _save_secret(root: Path, key_env: str, secret: str | None) -> None:
 def _records(root: Path, collection: str, schema_name: str) -> tuple[list[dict[str, Any]], int]:
     directory = root / ".research" / collection
     try:
-        validator = SchemaRegistry(root).validator(schema_name)
+        validator = registry_for_root(root, allow_package_fallback=True).validator(schema_name)
     except (OSError, SchemaError, KeyError):
         return [], 0
     rows: list[dict[str, Any]] = []
@@ -900,7 +900,7 @@ def dashboard_payload(repository_root: Path | None = None) -> dict[str, Any]:
     root = Path(repository_root or REPO_ROOT).resolve()
     raw = _config_text(root)
     config = yaml.safe_load(raw)
-    _validate_config(config)
+    _validate_config(config, root)
     disk = shutil.disk_usage(root)
     research = _analytics(root)
     maintenance = evaluate_maintenance(root)
@@ -1011,7 +1011,7 @@ def create_server(repository_root: Path | None = None, *, port: int = 8765) -> _
                     validation_error = None
                     try:
                         config = yaml.safe_load(raw)
-                        _validate_config(config)
+                        _validate_config(config, self.root)
                         provider_status = _provider_health(self.root, config)
                     except (yaml.YAMLError, ValueError) as exc:
                         validation_error = str(exc)[:500]

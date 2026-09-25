@@ -6,8 +6,9 @@ import datetime
 import re
 import sys
 import unicodedata
+from pathlib import Path
 
-from ..paths import DOMAIN_TYPE, REPO_ROOT, VALID_STATUS, VALID_TYPE, VAULT_ROOT
+from ..paths import DOMAIN_TYPE, REPO_ROOT, VALID_STATUS, VALID_TYPE
 from ..templates import TemplateRegistry, registry
 
 # kind (canonical note type) → canonical template name in 99-templates/.
@@ -54,10 +55,11 @@ def resolve_template(
     kind: str,
     *,
     template_registry: TemplateRegistry | None = None,
+    repository_root: str | Path | None = None,
 ) -> str:
     """Return the canonical template text for ``kind`` via the registry."""
     name = TEMPLATE_BY_KIND.get(kind, "research-note")
-    reg = template_registry if template_registry is not None else registry(VAULT_ROOT)
+    reg = template_registry if template_registry is not None else registry(repository_root)
     return reg.resolve(name).text
 
 
@@ -70,7 +72,9 @@ def cmd_new_note(
     tags: list[str] | None = None,
     related: list[str] | None = None,
     dry_run: bool = False,
+    repository_root: str | Path | None = None,
 ) -> int:
+    root = REPO_ROOT if repository_root is None else Path(repository_root).resolve()
     bare_domain = domain.rsplit("/", 1)[-1]
     vault_domain = f"knowledge-base/{bare_domain}"
     if vault_domain not in DOMAIN_TYPE:
@@ -87,9 +91,9 @@ def cmd_new_note(
         return 2
 
     slug = slugify(title)
-    target = REPO_ROOT / "knowledge-base" / bare_domain / f"{slug}.md"
+    target = root / "knowledge-base" / bare_domain / f"{slug}.md"
     if target.exists():
-        print(f"error: {target.relative_to(REPO_ROOT)} already exists", file=sys.stderr)
+        print(f"error: {target.relative_to(root)} already exists", file=sys.stderr)
         return 2
 
     today = datetime.date.today().isoformat()
@@ -98,7 +102,11 @@ def cmd_new_note(
 
     # Resolve template body through the canonical registry; fall back to a
     # minimal scaffold if the registry cannot find a template for the kind.
-    template_text = resolve_template(note_type)
+    try:
+        template_text = resolve_template(note_type, repository_root=str(root))
+    except FileNotFoundError as exc:
+        print(f"error: cannot load workspace templates: {exc}", file=sys.stderr)
+        return 2
 
     lines = ["---", f"type: {note_type}", f"status: {status}"]
     if topic:
@@ -123,7 +131,7 @@ def cmd_new_note(
         return 0
 
     target.write_text(content, encoding="utf-8")
-    print(f"created: {target.relative_to(REPO_ROOT)}")
+    print(f"created: {target.relative_to(root)}")
     return 0
 
 

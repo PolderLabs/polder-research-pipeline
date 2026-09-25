@@ -12,16 +12,16 @@ from __future__ import annotations
 
 import argparse
 import sys
+from pathlib import Path
 
+from ..paths import default_workspace_root
 from ..web import serve
-from .audit import cmd_vault_audit
 from .classification import (
     cmd_classification_compare,
     cmd_classification_evaluate,
     cmd_classify_existing,
 )
 from .decision import cmd_decision_run
-from .frontmatter import cmd_frontmatter_fix
 from .intake import cmd_intake_register
 from .new_note import cmd_new_note
 from .state import cmd_build_health, cmd_build_state
@@ -29,6 +29,12 @@ from .state import cmd_build_health, cmd_build_state
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="polder-research")
+    parser.add_argument(
+        "--root",
+        dest="workspace_root",
+        default=None,
+        help="Research workspace root (default: checkout root or current directory)",
+    )
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("vault-audit", help="Audit vault for link/frontmatter/orphan issues")
@@ -58,7 +64,6 @@ def main(argv: list[str] | None = None) -> int:
     replay = sub.add_parser(
         "classify-existing", help="Replay classification over existing evidence"
     )
-    replay.add_argument("--root", default=None, help="Repository root (default: current directory)")
     replay.add_argument(
         "--kind",
         dest="kinds",
@@ -80,12 +85,10 @@ def main(argv: list[str] | None = None) -> int:
         "--resume", default=None, help="Resume pending or failed targets from a replay job ID"
     )
     compare = sub.add_parser("classification-compare", help="Compare existing provider predictions")
-    compare.add_argument("--root", default=None)
     compare.add_argument("--output", default=None, help="Optional JSON report destination")
     evaluate = sub.add_parser(
         "classification-evaluate", help="Evaluate predictions against human gold JSONL"
     )
-    evaluate.add_argument("--root", default=None)
     evaluate.add_argument("--gold", required=True, help="Human-authored gold JSON Lines file")
     evaluate.add_argument("--provider", choices=("rules", "jev", "laya"), default=None)
     evaluate.add_argument("--split", choices=("tuning", "held_out"), default="held_out")
@@ -105,7 +108,6 @@ def main(argv: list[str] | None = None) -> int:
     decision.add_argument("--target-kind", required=True)
     decision.add_argument("--target-id", required=True)
     decision.add_argument("--state-json", required=True, dest="state_file")
-    decision.add_argument("--root", default=None)
     decision.add_argument("--provider", choices=("laya", "jev"), default="laya")
     decision.add_argument("--role", action="append", dest="roles", default=[])
     decision.add_argument(
@@ -121,12 +123,31 @@ def main(argv: list[str] | None = None) -> int:
         default="continuous_intelligence",
     )
 
+    for command_parser in sub.choices.values():
+        command_parser.add_argument(
+            "--root",
+            dest="workspace_root",
+            default=argparse.SUPPRESS,
+            help="Research workspace root",
+        )
+
     args = parser.parse_args(argv)
+    root = (
+        Path(args.workspace_root).expanduser().resolve()
+        if args.workspace_root
+        else default_workspace_root()
+    )
+    if not root.is_dir():
+        parser.error(f"workspace root is not a directory: {root}")
 
     if args.cmd == "vault-audit":
-        return cmd_vault_audit()
+        from .audit import cmd_vault_audit
+
+        return cmd_vault_audit(root)
     if args.cmd == "frontmatter-fix":
-        return cmd_frontmatter_fix(apply=args.apply)
+        from .frontmatter import cmd_frontmatter_fix
+
+        return cmd_frontmatter_fix(apply=args.apply, repository_root=root)
     if args.cmd == "intake-register":
         return cmd_intake_register(
             file=args.file,
@@ -136,6 +157,7 @@ def main(argv: list[str] | None = None) -> int:
             outcome=args.outcome,
             set_file=args.set_file,
             list_=args.list,
+            repository_root=root,
         )
     if args.cmd == "new-note":
         return cmd_new_note(
@@ -147,19 +169,20 @@ def main(argv: list[str] | None = None) -> int:
             tags=args.tags,
             related=args.related,
             dry_run=args.dry_run,
+            repository_root=root,
         )
     if args.cmd == "state-build":
-        return cmd_build_state()
+        return cmd_build_state(root)
     if args.cmd == "health-build":
-        return cmd_build_health()
+        return cmd_build_health(root)
     if args.cmd == "serve":
         if not 0 <= args.port <= 65535:
             parser.error("--port must be between 0 and 65535")
-        serve(port=args.port)
+        serve(repository_root=root, port=args.port)
         return 0
     if args.cmd == "classify-existing":
         return cmd_classify_existing(
-            root=args.root,
+            root=str(root),
             kinds=args.kinds or ["source", "segment", "claim", "entity"],
             dry_run=args.dry_run,
             limit=args.limit,
@@ -167,10 +190,10 @@ def main(argv: list[str] | None = None) -> int:
             resume=args.resume,
         )
     if args.cmd == "classification-compare":
-        return cmd_classification_compare(root=args.root, output=args.output)
+        return cmd_classification_compare(root=str(root), output=args.output)
     if args.cmd == "classification-evaluate":
         return cmd_classification_evaluate(
-            root=args.root,
+            root=str(root),
             gold=args.gold,
             provider=args.provider,
             split=args.split,
@@ -182,7 +205,7 @@ def main(argv: list[str] | None = None) -> int:
             target_kind=args.target_kind,
             target_id=args.target_id,
             state_file=args.state_file,
-            root=args.root,
+            root=str(root),
             provider=args.provider,
             roles=args.roles,
             sensitivity=args.sensitivity,

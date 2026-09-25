@@ -57,7 +57,7 @@ def _persist(
         target,
         record,
         schema_name=schema_name,
-        registry=registry_for_root(repository_root),
+        registry=registry_for_root(repository_root, allow_package_fallback=True),
     )
 
 

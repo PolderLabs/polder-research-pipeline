@@ -62,6 +62,36 @@ jobs:
           PYTHONPATH: src
         run: pytest -v
 
+  wheel-smoke:
+    name: Wheel installation smoke check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+      - name: Build and install wheel outside checkout
+        run: |
+          set -euo pipefail
+          wheelhouse="$RUNNER_TEMP/polder-wheelhouse"
+          environment="$RUNNER_TEMP/polder-wheel-environment"
+          expected_schema_count=$(find "$GITHUB_WORKSPACE/schemas" -maxdepth 1 -name '*.schema.json' -type f | wc -l)
+          test "$expected_schema_count" -gt 0
+          python -m pip wheel --no-deps --wheel-dir "$wheelhouse" .
+          python -m venv "$environment"
+          "$environment/bin/python" -m pip install "$wheelhouse"/*.whl
+          cd "$RUNNER_TEMP"
+          env -u PYTHONPATH "$environment/bin/polder-research" --help
+          env -u PYTHONPATH "$environment/bin/python" -c "from polder_research.schemas import package_registry; count = len(package_registry().names()); assert count == $expected_schema_count, (count, $expected_schema_count); print(f'Loaded {count} packaged schemas')"
+          env -u PYTHONPATH "$environment/bin/polder-research" --root "$GITHUB_WORKSPACE" state-build
+          env -u PYTHONPATH "$environment/bin/polder-research" --root "$GITHUB_WORKSPACE" health-build
+          env -u PYTHONPATH "$environment/bin/polder-research" --root "$GITHUB_WORKSPACE" intake-register --list
+          env -u PYTHONPATH "$environment/bin/polder-research" --root "$GITHUB_WORKSPACE" new-note --domain 02-research --title "Wheel smoke check" --dry-run
+          env -u PYTHONPATH "$environment/bin/polder-research" --root "$GITHUB_WORKSPACE" vault-audit
+          env -u PYTHONPATH "$environment/bin/polder-research" --root "$GITHUB_WORKSPACE" frontmatter-fix
+
   vault-audit:
     name: Vault audit (clean = exit 0)
     runs-on: ubuntu-latest
@@ -172,7 +202,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    needs: [lint, test, vault-audit, schema-validate, secret-scan]
+    needs: [lint, test, wheel-smoke, vault-audit, schema-validate, secret-scan]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
