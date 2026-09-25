@@ -22,6 +22,7 @@ from polder_research.paths import (
     DOMAIN_TYPE,
     REPO_ROOT,
     SKIP_PARTS,
+    SKIP_PREFIXES,
     VAULT_DIRS,
 )
 
@@ -97,6 +98,11 @@ def main(argv: list[str] | None = None) -> int:
     for p in REPO_ROOT.rglob("*.md"):
         rel = p.relative_to(REPO_ROOT)
         if any(part in SKIP_PARTS for part in rel.parts):
+            continue
+        rel_str = str(rel)
+        if rel_str != "knowledge-base/90-inbox/raw/README.md" and any(
+            rel_str == prefix or rel_str.startswith(f"{prefix}/") for prefix in SKIP_PREFIXES
+        ):
             continue
         # The vault root is the first path segment (``knowledge-base``);
         # its children are the canonical domain folders from VAULT_DIRS.

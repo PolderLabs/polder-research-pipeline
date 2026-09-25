@@ -111,6 +111,13 @@ NO_ORPHAN_CHECK: frozenset[str] = frozenset(
     {"knowledge-base/90-inbox", "knowledge-base/99-templates"}
 )
 
+# The raw drop zone holds unmodified originals: a dropped .md is a *source
+# artifact*, not a vault note. Requiring frontmatter there would force edits
+# to originals and break the content-hash provenance of registered sources,
+# so it is excluded from the vault graph by path (see 90-inbox/raw/README.md,
+# which invites small text files to be dropped verbatim).
+SKIP_PREFIXES: frozenset[str] = frozenset({"knowledge-base/90-inbox/raw"})
+
 # Root-level files excluded from orphan check — the navigation durable pages.
 DURABLE_EXCLUDE: frozenset[str] = frozenset(
     {"AGENTS.md", "CLAUDE.md", "README.md", "knowledge-base/AUDIT.md", "knowledge-base/index.md"}

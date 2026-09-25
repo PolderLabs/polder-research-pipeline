@@ -71,3 +71,17 @@ def test_infer_type_from_domain(tmp_path: Path, monkeypatch):
     assert (
         _mod.infer_type(Path(tmp_path / "knowledge-base" / "04-decisions" / "x.md")) == "decision"
     )
+
+
+def test_skip_prefixes_shared_with_paths():
+    """frontmatter_fix must exclude the same drop-zone paths as vault_audit.
+
+    Otherwise `--apply` prepends frontmatter to an unmodified original dropped
+    in 90-inbox/raw, changing the bytes its content_sha256 attests to.
+    """
+    from polder_research import paths as paths_mod
+
+    assert _mod.SKIP_PREFIXES == paths_mod.SKIP_PREFIXES, (
+        "frontmatter_fix.SKIP_PREFIXES must match polder_research.paths.SKIP_PREFIXES"
+    )
+    assert "knowledge-base/90-inbox/raw" in _mod.SKIP_PREFIXES
