@@ -62,19 +62,38 @@ own records. A high confidence score is not proof that a language route or
 classification is correct. Laya quality must be compared against human labels
 before unattended use.
 
-`minimum_confidence` is a disposition threshold, not a safety gate. A
-routed local classifier can report high confidence on inputs it classifies
-incorrectly, because calibration degrades specifically where routing sends
-a request outside the checkpoint's training distribution. Treat a
+`minimum_confidence` is a disposition threshold, not a safety gate. Treat a
 confidence score as one input to a disposition, never as evidence that a
 classification is correct, and prefer `review_required` for records whose
 language or script the routing step could not establish confidently.
 
-Aggregate calibration figures reported by a vendor are not sufficient
-evidence either: expected calibration error and Brier score can *understate*
-miscalibration in high-accuracy regimes, where correct-prediction dominance
-masks errors. Evaluate accuracy and confidence separately across the
-routing decision, and against human labels.
+Two independent findings support that, and they are separate claims:
+
+1. **Calibration degrades on out-of-distribution languages, and the model
+   stays confident while it does.** Laya's own published benchmark reports
+   that its English checkpoint's "mean confidence never drops below 0.885 at
+   any accuracy level", so no threshold can filter its failure mode — which is
+   why it routes before the forward pass rather than after. Independently,
+   Tuli et al. (SemEval-2026 Task 13) report that expected calibration error
+   roughly doubles when a fine-tuned code transformer moves from seen to
+   unseen languages, and that it is wrong on a non-trivial fraction of its
+   highest-confidence predictions.
+   Sources: <https://github.com/NandhaKishorM/laya/blob/main/BENCHMARKS.md>
+   and <https://aclanthology.org/2026.semeval-1.294/>.
+
+2. **A single aggregate calibration figure is not sufficient evidence.** ECE
+   and Brier score can *understate* miscalibration in high-effectiveness
+   regimes, where correct-prediction dominance masks errors on the minority
+   class; a balanced variant of Brier score that weights correct and incorrect
+   predictions within each confidence bin reveals substantially poorer
+   calibration than the standard scores suggest.
+   Source: Prenassi et al. (ACL 2026), "When High Accuracy Hides Poor
+   Calibration" — <https://aclanthology.org/2026.acl-long.2128/>.
+
+Consequence for evaluation: report accuracy and confidence separately across
+the routing decision, prefer a metric that does not have the limitation in (2),
+and compare against human labels. Neither claim is a substitute for a
+held-out evaluation on this project's own records.
 
 The RTX 3060 smoke run on 2026-09-25 loaded the English checkpoint and Laya
 reported an invalid checkpoint temperature, treating that signal as
