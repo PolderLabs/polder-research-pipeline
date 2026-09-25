@@ -100,6 +100,26 @@ def test_block_reports_test_count(temp_repo: Path) -> None:
     assert "test_count: `1`" in block
 
 
+@pytest.mark.parametrize(
+    ("running", "expected"),
+    [
+        ("3.14.6", "3.14"),
+        ("3.14.7", "3.14"),
+        ("3.14.9", "3.14"),
+        ("3.15.0", "3.15"),
+    ],
+)
+def test_block_reports_minor_series_not_patch(
+    temp_repo: Path, monkeypatch: pytest.MonkeyPatch, running: str, expected: str
+) -> None:
+    """A CI patch bump is not repository drift, so the block must not change."""
+    monkeypatch.setattr(emit, "python_version", lambda: running)
+
+    block = emit.build_status_block(temp_repo)
+
+    assert f"- python: `{expected}`" in block
+
+
 def test_block_uses_backticked_fields(temp_repo: Path) -> None:
     block = emit.build_status_block(temp_repo)
     for field in REQUIRED_FIELDS:
