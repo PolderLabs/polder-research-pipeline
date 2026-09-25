@@ -148,7 +148,7 @@ def _root(repository_root: str | Path | None) -> Path:
 def _load_json(path: Path) -> dict[str, Any] | None:
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError):
+    except OSError, UnicodeError, json.JSONDecodeError:
         return None
     return value if isinstance(value, dict) else None
 
@@ -461,7 +461,7 @@ def replay_existing(
                     policy_metadata=item["policy_metadata"],
                     provider_result=provider_result,
                 )
-            except (OSError, ValueError, RuntimeError):
+            except OSError, ValueError, RuntimeError:
                 target.update(
                     {
                         "status": "failed",
@@ -567,7 +567,7 @@ def replay_existing(
                     responses.extend(scheduler.flush())
                 if len(responses) != len(laya_batch):
                     raise RuntimeError("Laya batch replay returned a mismatched result count")
-            except (ImportError, OSError, ValueError, RuntimeError):
+            except ImportError, OSError, ValueError, RuntimeError:
                 for target, _item in laya_batch:
                     target.update(
                         {

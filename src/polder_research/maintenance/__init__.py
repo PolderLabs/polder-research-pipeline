@@ -71,7 +71,7 @@ def _evidence_collection(root: Path | None, kind: str) -> list[dict[str, Any]]:
     for path in sorted((research / f"{kind}s").glob("*.json")):
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, UnicodeError, json.JSONDecodeError):
+        except OSError, UnicodeError, json.JSONDecodeError:
             continue
         if (
             validator.is_valid(record)
@@ -459,7 +459,7 @@ def build_health(repository_root: str | Path | None = None) -> dict[str, Any]:
             return None
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, UnicodeError, json.JSONDecodeError):
+        except OSError, UnicodeError, json.JSONDecodeError:
             return None
         return record if isinstance(record, dict) else None
 

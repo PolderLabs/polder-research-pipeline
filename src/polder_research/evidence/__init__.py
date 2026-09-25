@@ -87,7 +87,7 @@ def _classify_record(
             policy_metadata=policy_metadata,
             output_dir=output_dir,
         )
-    except (OSError, ValueError, RuntimeError):
+    except OSError, ValueError, RuntimeError:
         record["classification_status"] = "failed"
         record["classification_error"] = (
             "Classification could not complete; inspect provider configuration and classification records."
@@ -260,7 +260,7 @@ def register_source(
             output_dir=_record_dir(EVIDENCE_SOURCES_DIR, repository_root, "sources").parent
             / "classifications",
         )
-    except (OSError, ValueError, RuntimeError):
+    except OSError, ValueError, RuntimeError:
         record["classification_status"] = "failed"
         record["classification_error"] = (
             "Classification could not complete; inspect provider configuration and classification records."
@@ -349,7 +349,7 @@ def register_segment(
             output_dir=_record_dir(EVIDENCE_SEGMENTS_DIR, repository_root, "segments").parent
             / "classifications",
         )
-    except (OSError, ValueError, RuntimeError):
+    except OSError, ValueError, RuntimeError:
         record["classification_status"] = "failed"
         record["classification_error"] = (
             "Classification could not complete; inspect provider configuration and classification records."
@@ -417,7 +417,7 @@ def register_claim(
             output_dir=_record_dir(EVIDENCE_CLAIMS_DIR, repository_root, "claims").parent
             / "classifications",
         )
-    except (OSError, ValueError, RuntimeError):
+    except OSError, ValueError, RuntimeError:
         record["classification_status"] = "failed"
         record["classification_error"] = (
             "Classification could not complete; inspect provider configuration and classification records."
@@ -488,7 +488,7 @@ def register_entity(
             output_dir=_record_dir(EVIDENCE_ENTITIES_DIR, repository_root, "entities").parent
             / "classifications",
         )
-    except (OSError, ValueError, RuntimeError):
+    except OSError, ValueError, RuntimeError:
         record["classification_status"] = "failed"
         record["classification_error"] = (
             "Classification could not complete; inspect provider configuration and classification records."
