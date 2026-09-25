@@ -21,7 +21,7 @@ from ..atomic import write_atomic
 from ..decision.state_builders import canonical_json, clip_state, state_text
 from ..locking import acquire_file_lock, release_file_lock
 from ..paths import REPO_ROOT
-from ..schemas import SchemaRegistry
+from ..schemas import registry_for_root
 
 JEv_URL = "https://api.typesafe.ai/v1/systemone"
 
@@ -274,6 +274,7 @@ def _safe_failure_message(exc: Exception) -> str:
     message = str(exc)
     safe_prefixes = (
         "Jev selected but ",
+        "Jev selected; install the optional dependency",
         "Laya selected; install the optional dependency",
         "Laya is not installed;",
         "sensitive classification requires ",
@@ -725,7 +726,7 @@ def _classify_text_unlocked(
             directory / f"{record['id']}.json",
             record,
             schema_name="classification",
-            registry=SchemaRegistry(root),
+            registry=registry_for_root(root, allow_package_fallback=True),
         )
     else:
         (directory / f"{record['id']}.json").write_text(json.dumps(record, indent=2) + "\n")

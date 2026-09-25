@@ -50,11 +50,19 @@ def _scaffold(tmp: Path, *, with_config: str = MINIMAL_CONFIG) -> Path:
         "edge",
     ):
         (schemas / f"{name}.schema.json").write_text(
-            '{"$schema":"https://json-schema.org/draft/2020-12/schema",'
-            '"type":"object","required":["id","schema_version"],'
-            '"additionalProperties":true,'
-            '"properties":{"id":{"type":"string"},'
-            '"schema_version":{"type":"integer"}}}'
+            json.dumps(
+                {
+                    "$schema": "https://json-schema.org/draft/2020-12/schema",
+                    "$id": f"https://polder.dev/schemas/{name}.schema.json",
+                    "type": "object",
+                    "required": ["id", "schema_version"],
+                    "additionalProperties": True,
+                    "properties": {
+                        "id": {"type": "string"},
+                        "schema_version": {"type": "integer"},
+                    },
+                }
+            )
         )
     (tmp / "research.config.yaml").write_text(with_config)
     (tmp / ".research").mkdir()

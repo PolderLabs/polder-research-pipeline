@@ -32,9 +32,9 @@ def validate_record(
     normal integrity mechanism — malformed detection by readers is a safety net,
     not an acceptable runtime outcome.
     """
-    from .schemas import registry as default_registry
+    from .schemas import package_registry
 
-    reg = registry or default_registry()
+    reg = registry or package_registry()
     reg.validate(schema_name, dict(record))
 
 

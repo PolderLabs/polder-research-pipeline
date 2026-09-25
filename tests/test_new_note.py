@@ -80,6 +80,23 @@ class TestCmdNewNote:
         # The canonical template body must be present (it contains claim scaffold).
         assert "Observed" in out or "research_question" in out
 
+    def test_explicit_workspace_root_controls_note_and_template_paths(self, tmp_path: Path):
+        templates = tmp_path / "knowledge-base" / "99-templates"
+        target_domain = tmp_path / "knowledge-base" / "02-research"
+        templates.mkdir(parents=True)
+        target_domain.mkdir()
+        (templates / "research-note-template.md").write_text("Workspace template", encoding="utf-8")
+
+        rc = cmd_new_note(
+            domain="02-research",
+            title="Wheel Root Check",
+            repository_root=tmp_path,
+        )
+
+        assert rc == 0
+        created = target_domain / "wheel-root-check.md"
+        assert "Workspace template" in created.read_text(encoding="utf-8")
+
     def test_rejects_unknown_domain(self, capsys):
         rc = cmd_new_note(domain="07-nope", title="x", dry_run=True)
         assert rc == 2

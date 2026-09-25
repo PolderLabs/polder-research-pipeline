@@ -6,21 +6,21 @@ import importlib.util
 import sys
 from pathlib import Path
 
-_REPO_ROOT = Path(__file__).resolve().parents[3]
 
-_spec = importlib.util.spec_from_file_location(
-    "_frontmatter_fix",
-    _REPO_ROOT / "skills" / "obsidian-knowledgebase-curator" / "scripts" / "frontmatter_fix.py",
-)
-assert _spec and _spec.loader
-_mod = importlib.util.module_from_spec(_spec)
-sys.modules["_frontmatter_fix"] = _mod
-_spec.loader.exec_module(_mod)
-
-
-def cmd_frontmatter_fix(apply: bool = False) -> int:
+def cmd_frontmatter_fix(apply: bool = False, repository_root: Path | None = None) -> int:
+    root = repository_root or Path.cwd()
+    script = root / "skills/obsidian-knowledgebase-curator/scripts/frontmatter_fix.py"
+    if not script.is_file():
+        print(f"error: frontmatter-fix requires workspace script: {script}", file=sys.stderr)
+        return 2
+    spec = importlib.util.spec_from_file_location("_frontmatter_fix", script)
+    if spec is None or spec.loader is None:
+        print(f"error: cannot load frontmatter-fix script: {script}", file=sys.stderr)
+        return 2
+    module = importlib.util.module_from_spec(spec)
+    sys.modules["_frontmatter_fix"] = module
+    spec.loader.exec_module(module)
+    args = ["--root", str(root)]
     if apply:
-        sys.argv = ["frontmatter_fix.py", "--apply"]
-    else:
-        sys.argv = ["frontmatter_fix.py"]
-    return _mod.main()
+        args.append("--apply")
+    return module.main(args)

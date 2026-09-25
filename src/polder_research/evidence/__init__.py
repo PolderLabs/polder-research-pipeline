@@ -24,7 +24,7 @@ from ..paths import (
     EVIDENCE_SOURCES_DIR,
     REPO_ROOT,
 )
-from ..schemas import SchemaRegistry
+from ..schemas import registry_for_root
 
 _SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 _SENSITIVITY_ORDER = {"public": 0, "internal": 1, "confidential": 2, "restricted": 3}
@@ -53,15 +53,11 @@ def _persist(
     repository_root: Path | None = None,
     registry_factory: Any = None,
 ) -> None:
-    """Persist one canonical evidence record atomically with schema validation."""
-    root = Path(repository_root).resolve() if repository_root is not None else None
     write_atomic(
         target,
         record,
         schema_name=schema_name,
-        registry=(
-            SchemaRegistry(root) if root is not None and (root / "schemas").is_dir() else None
-        ),
+        registry=registry_for_root(repository_root, allow_package_fallback=True),
     )
 
 

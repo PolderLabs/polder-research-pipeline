@@ -8,7 +8,7 @@ from typing import Any
 
 from ..atomic import write_atomic
 from ..classification_review import active_review_ids, review_records_audit
-from ..schemas import SchemaError, SchemaRegistry
+from ..schemas import SchemaError, registry_for_root
 
 _TARGETS = {
     "source": "sources",
@@ -25,7 +25,7 @@ def build_effective_projection(repository_root: str | Path) -> dict[str, Any]:
     change effective metadata through this projection.
     """
     root = Path(repository_root)
-    registry = SchemaRegistry(root)
+    registry = registry_for_root(root, allow_package_fallback=True)
     classifications: dict[str, dict[str, Any]] = {}
     directory = root / ".research" / "classifications"
     for path in sorted(directory.glob("cls_*.json")) if directory.exists() else []:

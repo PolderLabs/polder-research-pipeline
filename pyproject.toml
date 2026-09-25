@@ -31,4 +31,7 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["src/polder_research"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"schemas" = "polder_research/_bundled/schemas"
+
 [tool.pytest.ini_options]

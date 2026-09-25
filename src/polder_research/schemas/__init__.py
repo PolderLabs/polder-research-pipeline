@@ -1,19 +1,23 @@
 """Canonical JSON Schema registry.
 
-Schema documents live only in a repository root's ``schemas/`` directory.
-``SchemaRegistry`` accepts that root explicitly so callers can validate an
-isolated repository without mutating process-wide state.
+Checkout schemas are canonical during development. Non-editable installs use
+the packaged copy unless a caller supplies an explicit repository root.
 """
 
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any
 
 import jsonschema
 
 from ..paths import REPO_ROOT
+
+# ``parents[1]`` is the polder_research package directory; this module lives in
+# its ``schemas/`` subpackage, so the bundled copy sits one level up.
+BUNDLED_SCHEMAS_DIR: Path = Path(__file__).resolve().parents[1] / "_bundled" / "schemas"
 
 
 class SchemaError(Exception):
@@ -23,9 +27,20 @@ class SchemaError(Exception):
 class SchemaRegistry:
     """Load and validate the canonical schemas for one repository root."""
 
-    def __init__(self, repo_root: Path | str | None = None) -> None:
+    def __init__(
+        self,
+        repo_root: Path | str | None = None,
+        *,
+        schema_dir: Path | str | None = None,
+    ) -> None:
         self.repo_root = Path(repo_root) if repo_root is not None else REPO_ROOT
-        self.schema_dir = self.repo_root / "schemas"
+        if schema_dir is not None:
+            self.schema_dir = Path(schema_dir)
+        elif repo_root is not None:
+            self.schema_dir = self.repo_root / "schemas"
+        else:
+            local = self.repo_root / "schemas"
+            self.schema_dir = local if local.is_dir() else BUNDLED_SCHEMAS_DIR
         self._schemas, self._validators = self._load()
 
     def _load(self) -> tuple[dict[str, dict[str, Any]], dict[str, jsonschema.Draft202012Validator]]:
@@ -59,6 +74,8 @@ class SchemaRegistry:
             validators[name] = jsonschema.Draft202012Validator(
                 document, format_checker=jsonschema.FormatChecker()
             )
+        if not loaded:
+            raise SchemaError(f"schema directory contains no schemas: {self.schema_dir}")
         return loaded, validators
 
     def names(self) -> tuple[str, ...]:
@@ -92,7 +109,10 @@ class SchemaRegistry:
         errors = list(self.iter_record_errors(schema_name, instance))
         if errors:
             first = errors[0]
-            raise SchemaError(f"validation failed for {schema_name!r}: {first['message']}")
+            location = first["path"] or "<root>"
+            raise SchemaError(
+                f"validation failed for {schema_name!r} at {location}: {first['message']}"
+            )
 
     def iter_record_errors(self, schema_name: str, instance: Any) -> tuple[dict[str, str], ...]:
         """Return bounded, deterministically ordered validation errors."""
@@ -130,38 +150,91 @@ def registry(repo_root: Path | str | None = None) -> SchemaRegistry:
     return SchemaRegistry(repo_root)
 
 
-_DEFAULT = registry()
-SCHEMAS: dict[str, dict[str, Any]] = _DEFAULT.schemas()
+_PACKAGE_REGISTRY: SchemaRegistry | None = None
+
+
+def package_registry() -> SchemaRegistry:
+    """Return the registry for the canonical schemas shipped with this package.
+
+    Built on first use so that importing the package never depends on a
+    checkout being present — a wheel install carries the schemas but not the
+    repository that surrounds them.
+    """
+    global _PACKAGE_REGISTRY
+    if _PACKAGE_REGISTRY is None:
+        package_schemas = BUNDLED_SCHEMAS_DIR
+        if not package_schemas.is_dir():
+            package_schemas = REPO_ROOT / "schemas"
+        _PACKAGE_REGISTRY = SchemaRegistry(schema_dir=package_schemas)
+    return _PACKAGE_REGISTRY
+
+
+def registry_for_root(
+    repo_root: Path | str | None,
+    *,
+    allow_package_fallback: bool = False,
+) -> SchemaRegistry:
+    """Return the registry that must validate records for one repository root.
+
+    A root that ships its own ``schemas/`` directory owns validation. A missing
+    schema directory falls back to the packaged copy only when the caller opts
+    in; an empty or partial local directory remains authoritative.
+    """
+    if repo_root is None:
+        return package_registry()
+    root = Path(repo_root)
+    if (root / "schemas").is_dir():
+        return registry(root)
+    if allow_package_fallback:
+        return package_registry()
+    raise SchemaError(f"schema directory does not exist: {root / 'schemas'}")
 
 
 def schemas(repo_root: Path | str | None = None) -> dict[str, dict[str, Any]]:
     """Load the canonical schema mapping for ``repo_root``."""
-    if repo_root is None:
-        return _DEFAULT.schemas()
-    return registry(repo_root).schemas()
+    return registry_for_root(repo_root, allow_package_fallback=True).schemas()
 
 
 def get(schema_name: str, repo_root: Path | str | None = None) -> dict[str, Any]:
     """Return a canonical schema by name."""
-    if repo_root is None:
-        return _DEFAULT.get(schema_name)
-    return registry(repo_root).get(schema_name)
+    return registry_for_root(repo_root, allow_package_fallback=True).get(schema_name)
 
 
 def validate(schema_name: str, instance: Any, repo_root: Path | str | None = None) -> None:
     """Validate an instance using the canonical schema registry."""
-    if repo_root is None:
-        _DEFAULT.validate(schema_name, instance)
-    else:
-        registry(repo_root).validate(schema_name, instance)
+    registry_for_root(repo_root, allow_package_fallback=True).validate(schema_name, instance)
 
+
+class _LazySchemaMapping(Mapping):
+    """Read-only view of the package schemas, loaded on first access.
+
+    Exists so ``SCHEMAS`` stays a plain mapping for callers while importing
+    this module never requires a repository checkout on disk.
+    """
+
+    def __getitem__(self, key: str) -> dict[str, Any]:
+        return package_registry().get(key)
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(package_registry().names())
+
+    def __len__(self) -> int:
+        return len(package_registry().names())
+
+    def keys(self):  # type: ignore[override]
+        return package_registry().schemas().keys()
+
+
+SCHEMAS: Mapping[str, dict[str, Any]] = _LazySchemaMapping()
 
 __all__ = [
     "SCHEMAS",
     "SchemaError",
     "SchemaRegistry",
     "get",
+    "package_registry",
     "registry",
+    "registry_for_root",
     "schemas",
     "validate",
 ]

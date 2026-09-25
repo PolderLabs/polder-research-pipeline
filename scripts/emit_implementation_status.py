@@ -94,7 +94,9 @@ def _test_count(repository_root: Path) -> int:
 def build_status_block(repository_root: Path) -> str:
     """Build the markdown block (between sentinels) for the given repo."""
     audit_text = (repository_root / "knowledge-base" / "AUDIT.md").read_text(encoding="utf-8")
-    py_ver = python_version()
+    # Report the minor series, not the exact patch: CI regenerates this block
+    # on a moving patch release, and a patch bump is not repository drift.
+    py_ver = ".".join(python_version().split(".")[:2])
     schema_count = _schema_count(repository_root)
     test_count = _test_count(repository_root)
     last_audit = _audit_revision(audit_text)
