@@ -2,6 +2,11 @@
 
 Thanks for helping improve Polder Research Pipeline. Contributions are welcome through GitHub issues and pull requests.
 
+The supported runtime and test environment is Python 3.14 or newer, as declared
+in `pyproject.toml`. CI also compiles the source, scripts, and tests with
+Python 3.13 as a syntax-compatibility guard; this parse check does not make
+Python 3.13 a supported runtime.
+
 ## Before opening a pull request
 
 - Describe the user-facing behavior or defect and the evidence for the change.

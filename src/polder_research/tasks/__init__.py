@@ -77,7 +77,7 @@ def write_task(
         for existing in RESEARCH_TASKS_DIR.glob("tsk_*.json"):
             try:
                 rec = json.loads(existing.read_text(encoding="utf-8"))
-            except OSError, json.JSONDecodeError:
+            except (OSError, json.JSONDecodeError):
                 continue
             if rec.get("status") in ("completed", "failed", "abandoned"):
                 continue
