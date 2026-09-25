@@ -15,11 +15,23 @@ def test_schema_registry_loads_explicit_root_in_filename_order(tmp_path: Path):
     schema_dir = tmp_path / "schemas"
     schema_dir.mkdir()
     (schema_dir / "zeta.schema.json").write_text(
-        json.dumps({"$schema": "https://json-schema.org/draft/2020-12/schema", "type": "string"}),
+        json.dumps(
+            {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "$id": "https://polder.dev/schemas/zeta.schema.json",
+                "type": "string",
+            }
+        ),
         encoding="utf-8",
     )
     (schema_dir / "alpha.schema.json").write_text(
-        json.dumps({"$schema": "https://json-schema.org/draft/2020-12/schema", "type": "integer"}),
+        json.dumps(
+            {
+                "$schema": "https://json-schema.org/draft/2020-12/schema",
+                "$id": "https://polder.dev/schemas/alpha.schema.json",
+                "type": "integer",
+            }
+        ),
         encoding="utf-8",
     )
 

@@ -274,6 +274,7 @@ def _safe_failure_message(exc: Exception) -> str:
     message = str(exc)
     safe_prefixes = (
         "Jev selected but ",
+        "Jev selected; install the optional dependency",
         "Laya selected; install the optional dependency",
         "Laya is not installed;",
         "sensitive classification requires ",

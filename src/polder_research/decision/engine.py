@@ -20,7 +20,7 @@ from ..decision.policy import evaluate_field
 from ..decision.privacy import preflight, remote_eligibility
 from ..decision.question_packs import QuestionPack
 from ..decision.state_builders import canonical_json, clip_state, state_text
-from ..schemas import SchemaError, SchemaRegistry
+from ..schemas import SchemaError, registry_for_root
 
 
 def _hash(value: Any) -> str:
@@ -208,7 +208,7 @@ def run_decision(
         }
     )
 
-    registry = SchemaRegistry(root)
+    registry = registry_for_root(root)
     attempts_dir = root / ".research" / "decision_attempts"
     prior: list[dict[str, Any]] = []
     for path in sorted(attempts_dir.glob("dpa_*.json")) if attempts_dir.exists() else []:
