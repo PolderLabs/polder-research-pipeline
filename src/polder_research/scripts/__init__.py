@@ -14,14 +14,12 @@ import argparse
 import sys
 
 from ..web import serve
-from .audit import cmd_vault_audit
 from .classification import (
     cmd_classification_compare,
     cmd_classification_evaluate,
     cmd_classify_existing,
 )
 from .decision import cmd_decision_run
-from .frontmatter import cmd_frontmatter_fix
 from .intake import cmd_intake_register
 from .new_note import cmd_new_note
 from .state import cmd_build_health, cmd_build_state
@@ -124,8 +122,12 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.cmd == "vault-audit":
+        from .audit import cmd_vault_audit
+
         return cmd_vault_audit()
     if args.cmd == "frontmatter-fix":
+        from .frontmatter import cmd_frontmatter_fix
+
         return cmd_frontmatter_fix(apply=args.apply)
     if args.cmd == "intake-register":
         return cmd_intake_register(
