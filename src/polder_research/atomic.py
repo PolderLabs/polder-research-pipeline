@@ -74,6 +74,11 @@ def write_atomic(
             fh.flush()
             os.fsync(fh.fileno())
         os.replace(tmp_path, target)
+        directory_fd = os.open(target.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory_fd)
+        finally:
+            os.close(directory_fd)
     except Exception:
         try:
             os.unlink(tmp_path)

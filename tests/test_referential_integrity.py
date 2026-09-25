@@ -207,7 +207,7 @@ class TestLeaseIntegrity:
             acquire_lease(MISSING_TSK, "leaser", 60)
 
     def test_wrong_prefix_rejected(self):
-        with pytest.raises(ValueError, match="expected tsk_ record id"):
+        with pytest.raises(ValueError, match="invalid task record id"):
             acquire_lease("run_00000000-0000-7000-8000-000000000006", "leaser", 60)
 
 
@@ -228,7 +228,7 @@ class TestHelperContract:
     def test_bad_prefix_rejected(self, tmp_path: Path):
         ensure_evidence_dirs(repository_root=tmp_path)
         src = _source(tmp_path)
-        with pytest.raises(ValueError, match="expected clm_ record id"):
+        with pytest.raises(ValueError, match="invalid clm record id"):
             assert_record_exists(
                 src,
                 prefix="clm",

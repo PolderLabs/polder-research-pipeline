@@ -20,17 +20,17 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-import jsonschema
-
 from ..classification_ops import replay_job_health
 from ..classification_review import review_records_audit
 from ..paths import (
+    REPO_ROOT,
     RESEARCH_DIR,
     RESEARCH_HEALTH,
     RESEARCH_RUNS_DIR,
     RESEARCH_TASKS_DIR,
 )
-from ..workflow import _config, _read_records, _root, _schema, build_state
+from ..schemas import SchemaRegistry
+from ..workflow import _config, _read_records, _root, build_state
 
 # Re-exported from the workflow module so callers can address the canonical
 # state builder via ``polder_research.maintenance.build_state`` without
@@ -64,7 +64,8 @@ def _updated_time(value: str) -> datetime | None:
 
 
 def _evidence_collection(root: Path | None, kind: str) -> list[dict[str, Any]]:
-    validator = jsonschema.Draft202012Validator(_schema(root, kind))
+    registry = SchemaRegistry(root or REPO_ROOT)
+    validator = registry.validator(kind)
     research = RESEARCH_DIR if root is None else root / ".research"
     out: list[dict[str, Any]] = []
     for path in sorted((research / f"{kind}s").glob("*.json")):
@@ -72,7 +73,11 @@ def _evidence_collection(root: Path | None, kind: str) -> list[dict[str, Any]]:
             record = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, UnicodeError, json.JSONDecodeError):
             continue
-        if validator.is_valid(record):
+        if (
+            validator.is_valid(record)
+            and isinstance(record, dict)
+            and path.name == f"{record.get('id')}.json"
+        ):
             out.append(record)
     return out
 

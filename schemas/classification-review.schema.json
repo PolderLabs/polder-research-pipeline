@@ -15,6 +15,12 @@
     "input_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "taxonomy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "reviewer": {"type": "string", "minLength": 1, "maxLength": 120},
+    "reviewer_namespace": {"type": "string", "minLength": 1, "maxLength": 80},
+    "status": {"enum": ["active", "superseded", "adjudicated"]},
+    "supersedes_review_id": {"type": "string", "pattern": "^crv_"},
+    "reason": {"type": "string", "maxLength": 500},
+    "policy_result_id": {"type": "string", "pattern": "^dpr_"},
+    "adjudicator": {"type": "string", "minLength": 1, "maxLength": 120},
     "resolutions": {
       "type": "object",
       "minProperties": 1,

@@ -321,6 +321,7 @@ def cmd_intake_register(
                 outcome=outcome,
                 added_on=datetime.date.today().isoformat(),
             ),
+            schema_name="intake",
         )
 
     if _find_row(parse_rows(text), file) is not None:

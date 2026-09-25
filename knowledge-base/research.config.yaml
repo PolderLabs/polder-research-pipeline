@@ -17,16 +17,20 @@ pipeline_version: "0.1.0"
 # classification. Neither provider silently falls back to the other.
 classification:
   enabled: true
-  provider: "jev" # rules | jev | laya; switch here
+  provider: "laya" # laya is the local primary; Jev requires project and target approval
   minimum_confidence: 0.75
   max_input_chars: 12000
   jev:
-    endpoint: https://api.typesafe.ai/v1/systemone
-    model: "jev-latest"
+    base_url: https://api.typesafe.ai
+    model: "jev-1.13.0"
     api_key_env: "TYPESAFE_API_KEY"
     timeout_seconds: 30
+    max_retries: 2
+    total_budget_seconds: 30
   laya:
-    model: "multilingual"
+    route_mode: auto
+    model: "english"
+    explicit_model: null
     device: "auto" # auto | cpu | cuda | mps
   routing:
     sensitive_provider: "laya" # Confidential/restricted or personal-data records never go to Jev.
@@ -34,48 +38,80 @@ classification:
   taxonomy:
     version: "2026-09-24.2"
     categories:
-      project: {description: Project goals, requirements, and constraints, keywords: [polder, project, requirements]}
-      research: {description: Research findings, models, papers, methods, or technology landscape, keywords: [research, paper, study, benchmark, model]}
-      system: {description: System architecture, performance, transports, deployment, or runtime, keywords: [architecture, system, runtime, deployment]}
-      decision: {description: Decisions, comparisons, or risk assessments, keywords: [decision, comparison, tradeoff, risk]}
-      operation: {description: Experiments, benchmarks, roadmaps, or operational work, keywords: [experiment, benchmark, roadmap, operation]}
-      other: {description: Material outside the listed knowledge-base categories, keywords: []}
+      project: {description: "Project goals, requirements, and constraints", keywords: [polder, project, requirements]}
+      research: {description: "Research findings, models, papers, methods, or technology landscape", keywords: [research, paper, study, benchmark, model]}
+      system: {description: "System architecture, performance, transports, deployment, or runtime", keywords: [architecture, system, runtime, deployment]}
+      decision: {description: "Decisions, comparisons, or risk assessments", keywords: [decision, comparison, tradeoff, risk]}
+      operation: {description: "Experiments, benchmarks, roadmaps, or operational work", keywords: [experiment, benchmark, roadmap, operation]}
+      other: {description: "Material outside the listed knowledge-base categories", keywords: []}
     tags:
-      artificial-intelligence: {description: artificial intelligence and machine learning, keywords: [artificial intelligence, machine learning, neural, llm]}
-      real-time: {description: real-time processing, streaming, or low-latency systems, keywords: [real-time, realtime, streaming, latency]}
-      visual-models: {description: visual generation, rendering, or vision models, keywords: [visual, image generation, rendering, vision model]}
-      evaluation: {description: evaluation, benchmarks, or measurement, keywords: [evaluation, benchmark, metric, measurement]}
-      methodology: {description: research methods, protocols, or evidence synthesis, keywords: [methodology, protocol, systematic review, evidence synthesis]}
-      open-source: {description: open-source projects, repositories, or software, keywords: [open-source, github, repository, license]}
+      artificial-intelligence: {description: "artificial intelligence and machine learning", keywords: [artificial intelligence, machine learning, neural, llm]}
+      real-time: {description: "real-time processing, streaming, or low-latency systems", keywords: [real-time, realtime, streaming, latency]}
+      visual-models: {description: "visual generation, rendering, or vision models", keywords: [visual, image generation, rendering, vision model]}
+      evaluation: {description: "evaluation, benchmarks, or measurement", keywords: [evaluation, benchmark, metric, measurement]}
+      methodology: {description: "research methods, protocols, or evidence synthesis", keywords: [methodology, protocol, systematic review, evidence synthesis]}
+      open-source: {description: "open-source projects, repositories, or software", keywords: [open-source, github, repository, license]}
     dimensions:
       research_domain:
         instructions: Select the primary research domain represented by this record.
         values:
-          ai-ml: {description: Artificial intelligence, machine learning, and foundation models, keywords: [artificial intelligence, machine learning, neural, llm]}
-          visual-computing: {description: Computer vision, graphics, visual generation, and rendering, keywords: [computer vision, visual generation, image, rendering]}
-          real-time-systems: {description: Streaming, realtime inference, and low-latency systems, keywords: [streaming, real-time, realtime, low latency]}
-          research-methods: {description: Study design, systematic reviews, and evidence synthesis, keywords: [method, protocol, systematic review, evidence synthesis]}
-          data-infrastructure: {description: Data platforms, storage, deployment, and compute infrastructure, keywords: [database, storage, deployment, infrastructure]}
-          other: {description: Material outside the listed research domains, keywords: []}
+          ai-ml: {description: "Artificial intelligence, machine learning, and foundation models", keywords: [artificial intelligence, machine learning, neural, llm]}
+          visual-computing: {description: "Computer vision, graphics, visual generation, and rendering", keywords: [computer vision, visual generation, image, rendering]}
+          real-time-systems: {description: "Streaming, realtime inference, and low-latency systems", keywords: [streaming, real-time, realtime, low latency]}
+          research-methods: {description: "Study design, systematic reviews, and evidence synthesis", keywords: [method, protocol, systematic review, evidence synthesis]}
+          data-infrastructure: {description: "Data platforms, storage, deployment, and compute infrastructure", keywords: [database, storage, deployment, infrastructure]}
+          other: {description: "Material outside the listed research domains", keywords: []}
       research_method:
         instructions: Select the main research or engineering method used or discussed.
         values:
-          empirical-study: {description: A study using measured observations or experiments, keywords: [experiment, empirical, participants, measured]}
-          benchmark-evaluation: {description: A benchmark, evaluation, or comparative measurement, keywords: [benchmark, evaluation, metric, measurement]}
-          systematic-review: {description: A systematic or structured evidence review, keywords: [systematic review, meta-analysis, evidence synthesis]}
-          survey-study: {description: A survey or questionnaire study, keywords: [survey, questionnaire]}
-          design-implementation: {description: A system design, implementation, or engineering report, keywords: [implementation, architecture, prototype, design]}
-          conceptual-analysis: {description: A conceptual, theoretical, or position analysis, keywords: [theoretical, conceptual, position paper]}
-          other: {description: Method not represented by the listed values, keywords: []}
+          empirical-study: {description: "A study using measured observations or experiments", keywords: [experiment, empirical, participants, measured]}
+          benchmark-evaluation: {description: "A benchmark, evaluation, or comparative measurement", keywords: [benchmark, evaluation, metric, measurement]}
+          systematic-review: {description: "A systematic or structured evidence review", keywords: [systematic review, meta-analysis, evidence synthesis]}
+          survey-study: {description: "A survey or questionnaire study", keywords: [survey, questionnaire]}
+          design-implementation: {description: "A system design, implementation, or engineering report", keywords: [implementation, architecture, prototype, design]}
+          conceptual-analysis: {description: "A conceptual, theoretical, or position analysis", keywords: [theoretical, conceptual, position paper]}
+          other: {description: "Method not represented by the listed values", keywords: []}
       evidence_role:
         instructions: Select the primary role this record plays in the research corpus.
         values:
-          primary-evidence: {description: Original study, dataset, or direct technical evidence, keywords: [original study, dataset, experiment]}
-          secondary-synthesis: {description: Review, survey, or synthesis of prior evidence, keywords: [review, survey, synthesis, meta-analysis]}
-          technical-reference: {description: Specification, documentation, or implementation reference, keywords: [documentation, specification, api reference]}
-          benchmark-resource: {description: Benchmark, evaluation suite, or measurement resource, keywords: [benchmark, evaluation suite, dataset]}
-          commentary: {description: Opinion, announcement, or commentary rather than primary evidence, keywords: [opinion, announcement, commentary]}
-          other: {description: Role not represented by the listed values, keywords: []}
+          primary-evidence: {description: "Original study, dataset, or direct technical evidence", keywords: [original study, dataset, experiment]}
+          secondary-synthesis: {description: "Review, survey, or synthesis of prior evidence", keywords: [review, survey, synthesis, meta-analysis]}
+          technical-reference: {description: "Specification, documentation, or implementation reference", keywords: [documentation, specification, api reference]}
+          benchmark-resource: {description: "Benchmark, evaluation suite, or measurement resource", keywords: [benchmark, evaluation suite, dataset]}
+          commentary: {description: "Opinion, announcement, or commentary rather than primary evidence", keywords: [opinion, announcement, commentary]}
+          other: {description: "Role not represented by the listed values", keywords: []}
+
+# ─── Decision policy ──────────────────────────────────────────────────────
+decision:
+  valid_status:
+    - proposed
+    - accepted
+    - review-due
+    - superseded
+    - rejected
+  default_provider: laya
+  remote_processing:
+    require_explicit_approval: true
+    default_allowed: false
+  providers:
+    jev:
+      model: jev-1.13.0
+      sdk_version_policy: pinned
+      timeout_seconds: 30
+      retry:
+        max_retries: 2
+        total_budget_seconds: 30
+    laya:
+      transport: inprocess
+      route_mode: auto
+      explicit_model: null
+      device: auto
+      max_loaded: 1
+      max_len:
+        english: 512
+        multilingual: 1024
+        typed-decisions: 1024
+  policy_profiles: {}
 
 # ─── Vault scan scope ───────────────────────────────────────────────────────
 # Controls what the vault_audit and frontmatter_fix tools consider "in scope".
@@ -271,15 +307,6 @@ claim:
     - methodological
     - opinion
     - other
-
-# ─── Decision model ─────────────────────────────────────────────────────────
-decision:
-  valid_status:
-    - proposed
-    - accepted
-    - review-due
-    - superseded
-    - rejected
 
 # ─── Freshness policy ───────────────────────────────────────────────────────
 freshness:

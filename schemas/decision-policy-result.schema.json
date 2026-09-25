@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://polder.dev/schemas/decision-policy-result.schema.json",
+  "title": "Deterministic policy evaluation of a provider attempt",
+  "type": "object",
+  "required": ["id", "schema_version", "attempt_id", "policy_profile_id", "policy_sha256", "fields", "created_at"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {"type": "string", "pattern": "^dpr_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+    "schema_version": {"const": 1},
+    "attempt_id": {"type": "string", "pattern": "^dpa_"},
+    "policy_profile_id": {"type": "string", "minLength": 1},
+    "policy_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "fields": {"type": "object", "additionalProperties": {"type": "object", "required": ["decision", "reason", "provider"], "properties": {"decision": {"enum": ["apply", "review", "reject", "abstain"]}, "reason": {"type": "string"}, "provider": {"enum": ["rules", "jev", "laya"]}, "provider_signal": {"type": ["number", "null"], "minimum": 0, "maximum": 1}, "calibrated_correctness": {"type": ["number", "null"], "minimum": 0, "maximum": 1}, "target_correctness": {"type": ["number", "null"], "minimum": 0, "maximum": 1}}}},
+    "created_at": {"type": "string", "format": "date-time"}
+  }
+}

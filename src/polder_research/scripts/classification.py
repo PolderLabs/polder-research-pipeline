@@ -20,10 +20,18 @@ def _emit(value: dict[str, Any], output: str | None) -> int:
 
 
 def cmd_classify_existing(
-    *, root: str | None, kinds: list[str], dry_run: bool, limit: int | None, provider: str | None, resume: str | None
+    *,
+    root: str | None,
+    kinds: list[str],
+    dry_run: bool,
+    limit: int | None,
+    provider: str | None,
+    resume: str | None,
 ) -> int:
     return _emit(
-        replay_existing(root, kinds=kinds, dry_run=dry_run, limit=limit, provider=provider, resume_job_id=resume),
+        replay_existing(
+            root, kinds=kinds, dry_run=dry_run, limit=limit, provider=provider, resume_job_id=resume
+        ),
         None,
     )
 
@@ -32,5 +40,10 @@ def cmd_classification_compare(*, root: str | None, output: str | None) -> int:
     return _emit(comparison_report(root), output)
 
 
-def cmd_classification_evaluate(*, root: str | None, gold: str, provider: str | None, split: str, output: str | None) -> int:
-    return _emit(evaluate_gold(load_human_gold(gold), repository_root=root, provider=provider, split=split), output)
+def cmd_classification_evaluate(
+    *, root: str | None, gold: str, provider: str | None, split: str, output: str | None
+) -> int:
+    return _emit(
+        evaluate_gold(load_human_gold(gold), repository_root=root, provider=provider, split=split),
+        output,
+    )

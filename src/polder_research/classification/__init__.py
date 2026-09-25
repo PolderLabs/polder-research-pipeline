@@ -7,21 +7,18 @@ decisions, and low-confidence model results remain explicitly review-required.
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata
 import json
 import math
-import os
 import threading
 import time
-import urllib.error
-import urllib.request
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
-
 from ..atomic import write_atomic
+from ..decision.state_builders import canonical_json, clip_state, state_text
 from ..locking import acquire_file_lock, release_file_lock
 from ..paths import REPO_ROOT
 from ..schemas import SchemaRegistry
@@ -41,20 +38,77 @@ def _root(repository_root: Path | None) -> Path:
 
 
 def _config(root: Path) -> dict[str, Any]:
-    try:
-        config = yaml.safe_load((root / "knowledge-base" / "research.config.yaml").read_text())
-    except (OSError, yaml.YAMLError) as exc:
-        raise ValueError(f"cannot read classification config: {exc}") from exc
-    decision = config.get("classification", {}) if isinstance(config, dict) else {}
-    return decision if isinstance(decision, dict) else {}
+    from ..decision.config import effective_classification, load_config
+
+    return effective_classification(load_config(root))
 
 
-def _hash(text: str) -> str:
-    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+def _hash(text: Any) -> str:
+    encoded = canonical_json(text) if isinstance(text, dict | list) else str(text)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 def _taxonomy_hash(taxonomy: dict[str, Any]) -> str:
     return _hash(json.dumps(taxonomy, sort_keys=True, separators=(",", ":")))
+
+
+def _question_hash(taxonomy: dict[str, Any]) -> str:
+    return _hash(json.dumps(_questions(taxonomy), ensure_ascii=False, separators=(",", ":")))
+
+
+def _requested_model(config: dict[str, Any], provider: str) -> str:
+    provider_config = config.get(provider, {}) if provider != "rules" else {}
+    if provider == "laya" and provider_config.get("route_mode", "auto") == "auto":
+        return "auto"
+    default = {"rules": "rules-v1", "laya": "english", "jev": "jev-1.13.0"}[provider]
+    return str(provider_config.get("explicit_model") or provider_config.get("model") or default)
+
+
+def _request_fingerprint(
+    *,
+    target_kind: str,
+    target_id: str,
+    state_hash: str,
+    taxonomy: dict[str, Any],
+    provider: str,
+    requested_model: str,
+    threshold: float,
+    policy: dict[str, Any] | None,
+    provider_settings: dict[str, Any] | None = None,
+) -> str:
+    parts = {
+        "schema_version": 1,
+        "target_kind": target_kind,
+        "target_id": target_id,
+        "state_builder_id": {
+            "source": "source/metadata@1",
+            "segment": "segment/default@1",
+            "claim": "claim/default@1",
+            "entity": "entity/default@1",
+        }.get(target_kind, f"{target_kind}/default@1"),
+        "state_sha256": state_hash,
+        "question_set_sha256": _question_hash(taxonomy),
+        "taxonomy_sha256": _taxonomy_hash(taxonomy),
+        "provider": provider,
+        "requested_model": requested_model,
+        "provider_settings": {
+            key: (value if isinstance(value, str | int | float | bool | type(None)) else value)
+            for key, value in (provider_settings or {}).items()
+            if key
+            in {
+                "route_mode",
+                "explicit_model",
+                "device",
+                "transport",
+                "max_len",
+                "head_max_len",
+                "token_budget",
+            }
+        },
+        "policy_profile": {"minimum_confidence": threshold},
+        "privacy": policy or {},
+    }
+    return _hash(json.dumps(parts, sort_keys=True, separators=(",", ":")))
 
 
 def _questions(taxonomy: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -94,66 +148,15 @@ def _questions(taxonomy: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 
 def _remote_call(
-    state: str,
+    state: Any,
     questions: dict[str, Any],
     config: dict[str, Any],
     *,
     repository_root: Path | None = None,
 ) -> dict[str, Any]:
-    endpoint = config.get("endpoint", JEv_URL)
-    if endpoint != JEv_URL:
-        raise ValueError("Jev provider endpoint is fixed to https://api.typesafe.ai/v1/systemone")
-    key_env = config.get("api_key_env", "TYPESAFE_API_KEY")
-    api_key = os.environ.get(key_env) or _saved_api_key(key_env, repository_root)
-    if not api_key:
-        raise RuntimeError(f"Jev selected but {key_env} is not set")
-    payload = json.dumps(
-        {"state": state, "model": config.get("model", "jev-latest"), "questions": questions}
-    ).encode()
-    request = urllib.request.Request(
-        endpoint,
-        payload,
-        {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-    )
+    from ..decision.providers.jev import predict
 
-    class _NoRedirect(urllib.request.HTTPRedirectHandler):
-        def redirect_request(self, req, fp, code, msg, headers, newurl):
-            return None
-
-    retries_value = config.get("max_retries", 3)
-    if isinstance(retries_value, bool) or not isinstance(retries_value, int):
-        raise ValueError("jev.max_retries must be an integer")
-    retries = min(retries_value, 5)
-    if retries < 0:
-        raise ValueError("jev.max_retries must be zero or greater")
-    base_delay = min(float(config.get("retry_base_seconds", 0.5)), 30.0)
-    max_delay = min(float(config.get("retry_max_seconds", 8)), 60.0)
-    if base_delay < 0 or max_delay < 0:
-        raise ValueError("Jev retry delays must be zero or greater")
-    opener = urllib.request.build_opener(_NoRedirect())
-    for attempt in range(retries + 1):
-        try:
-            with opener.open(request, timeout=float(config.get("timeout_seconds", 30))) as response:
-                body = response.read(512_001)
-                if len(body) > 512_000:
-                    raise RuntimeError("Jev classification response exceeds the 512 KB limit")
-                result = json.loads(body)
-            break
-        except urllib.error.HTTPError as exc:
-            if exc.code not in {429, 529} or attempt == retries:
-                raise RuntimeError(f"Jev classification request failed (HTTP status {exc.code})") from exc
-            retry_after = exc.headers.get("Retry-After") if exc.headers else None
-            try:
-                requested_delay = float(retry_after) if retry_after is not None else 0.0
-            except ValueError:
-                requested_delay = 0.0
-            delay = min(max_delay, max(requested_delay, base_delay * (2**attempt)))
-            time.sleep(delay)
-        except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
-            raise RuntimeError("Jev classification request failed") from exc
-    if not isinstance(result, dict) or not isinstance(result.get("answers"), dict):
-        raise RuntimeError("Jev returned an invalid System One response")
-    return result
+    return predict(state, questions, config, repository_root)
 
 
 def _saved_api_key(key_env: str, repository_root: Path | None = None) -> str | None:
@@ -167,28 +170,42 @@ def _saved_api_key(key_env: str, repository_root: Path | None = None) -> str | N
     return value if isinstance(value, str) and value else None
 
 
-def _local_call(state: str, questions: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
+def _local_call(state: Any, questions: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
     try:
-        with _LAYA_LOCK:
-            model = config.get("model", "multilingual")
-            device = config.get("device", "auto")
-            result = _laya_router(device).predict(state, questions, model=model)
-            _LAYA_VERIFIED.add((model, device))
+        if config.get("transport", "inprocess") == "local-http":
+            from ..decision.providers.laya_http import predict
+
+            result = predict(state, questions, config)
+        elif config.get("transport", "inprocess") == "inprocess":
+            from ..decision.providers.laya_inprocess import predict
+
+            result = predict(state, questions, config)
+        else:
+            raise ValueError("Laya transport must be inprocess or local-http")
     except ImportError as exc:
         raise RuntimeError(
             "Laya selected; install the optional dependency with `pip install 'polder-research-pipeline[laya]'`"
         ) from exc
     except Exception as exc:
         raise RuntimeError("Laya classification request failed") from exc
-    if not isinstance(result, dict) or not isinstance(result.get("answers"), dict):
-        raise RuntimeError("Laya returned an invalid System One response")
-    return result
+    return _validated_laya_result(result, config)
 
 
-_LAYA_ROUTER: Any = None
-_LAYA_ROUTER_DEVICE: str | None = None
 _LAYA_LOCK = threading.RLock()
 _LAYA_VERIFIED: set[tuple[str, str]] = set()
+
+
+def _validated_laya_result(result: Any, config: dict[str, Any]) -> dict[str, Any]:
+    """Validate and record a completed local inference, including batched ones."""
+    if not isinstance(result, dict) or not isinstance(result.get("answers"), dict):
+        raise RuntimeError("Laya returned an invalid System One response")
+    routing = result.get("routing")
+    resolved = result.get("model") or (routing.get("model") if isinstance(routing, dict) else None)
+    if not isinstance(resolved, str):
+        raise RuntimeError("Laya omitted routed model identity")
+    with _LAYA_LOCK:
+        _LAYA_VERIFIED.add((resolved, config.get("device", "auto")))
+    return result
 
 
 def laya_inference_verified(model: str, device: str = "auto") -> bool:
@@ -197,72 +214,21 @@ def laya_inference_verified(model: str, device: str = "auto") -> bool:
         return (model, device) in _LAYA_VERIFIED
 
 
-def _laya_router(device: str) -> Any:
-    global _LAYA_ROUTER, _LAYA_ROUTER_DEVICE
-    from laya import Router
-
-    if _LAYA_ROUTER is None or _LAYA_ROUTER_DEVICE != device:
-        options = {} if device == "auto" else {"device": device}
-        _LAYA_ROUTER = Router(**options)
-        _LAYA_ROUTER_DEVICE = device
-    return _LAYA_ROUTER
-
-
 def preload_laya_model(model: str, device: str = "auto") -> None:
     """Download and load one supported Laya checkpoint in this process."""
     with _LAYA_LOCK:
         try:
-            router = _laya_router(device)
+            from ..decision.providers.laya_inprocess import preload
+
+            preload(model, device)
         except ImportError as exc:
             raise RuntimeError("Laya is not installed; install the optional laya extra") from exc
-        router.preload([model])
-        _LAYA_VERIFIED.add((model, device))
 
 
-def _rules_call(state: str, taxonomy: dict[str, Any]) -> dict[str, Any]:
-    normalized = state.casefold()
-    categories: dict[str, float] = {}
-    for key, entry in taxonomy.get("categories", {}).items():
-        terms = [str(term).casefold() for term in entry.get("keywords", [])]
-        categories[key] = float(any(term in normalized for term in terms))
-    chosen = max(categories, key=categories.get) if categories else ""
-    if chosen and not categories[chosen]:
-        chosen = "other" if "other" in categories else None
-    categories = {key: float(key == chosen) for key in categories}
-    answers: dict[str, Any] = {}
-    if categories:
-        answers["category"] = {
-            "type": "choice",
-            "choice": chosen,
-            "confidence": 1.0 if chosen else 0.0,
-            "probabilities": categories,
-        }
-    for key, entry in taxonomy.get("tags", {}).items():
-        terms = [str(term).casefold() for term in entry.get("keywords", [])]
-        score = 1.0 if any(term in normalized for term in terms) else 0.0
-        answers[f"tag_{key}"] = {"type": "noul", "noul": score}
-    for key, entry in taxonomy.get("dimensions", {}).items():
-        values = entry.get("values", {}) if isinstance(entry, dict) else {}
-        scores = {
-            label: float(
-                any(
-                    str(term).casefold() in normalized
-                    for term in (value.get("keywords", []) if isinstance(value, dict) else [])
-                )
-            )
-            for label, value in values.items()
-        }
-        choice = max(scores, key=scores.get) if scores else ""
-        if choice and not scores[choice]:
-            choice = "other" if "other" in scores else None
-        scores = {label: float(label == choice) for label in scores}
-        answers[f"dimension_{key}"] = {
-            "type": "choice",
-            "choice": choice,
-            "probabilities": scores,
-            "confidence": scores.get(choice, 0.0),
-        }
-    return {"model": "rules-v1", "answers": answers}
+def _rules_call(state: Any, taxonomy: dict[str, Any]) -> dict[str, Any]:
+    from ..decision.providers.rules import predict
+
+    return predict(state, taxonomy)
 
 
 def select_provider(
@@ -298,8 +264,8 @@ def _is_sensitive(metadata: dict[str, Any]) -> bool:
     sensitivity = metadata.get("sensitivity")
     # Unknown labels fail closed too; a typo or newer sensitivity level must
     # never silently make content eligible for a hosted provider.
-    return bool(metadata.get("sensitive") or metadata.get("personal_data")) or (
-        sensitivity is not None and sensitivity != "public"
+    return (
+        bool(metadata.get("sensitive") or metadata.get("personal_data")) or sensitivity != "public"
     )
 
 
@@ -313,7 +279,11 @@ def _safe_failure_message(exc: Exception) -> str:
         "sensitive classification requires ",
         "sensitive classification cannot ",
     )
-    return message if message.startswith(safe_prefixes) else "classification provider or response failed"
+    return (
+        message
+        if message.startswith(safe_prefixes)
+        else "classification provider or response failed"
+    )
 
 
 def _usage_counts(result: dict[str, Any]) -> dict[str, int] | None:
@@ -321,13 +291,35 @@ def _usage_counts(result: dict[str, Any]) -> dict[str, int] | None:
     usage = result.get("usage")
     if not isinstance(usage, dict):
         return None
-    allowed = {"input_tokens", "output_tokens", "total_tokens", "requests"}
+    aliases = {
+        "input_tokens": ("input_tokens", "input_tokens_total"),
+        "output_tokens": ("output_tokens", "output_tokens_total"),
+        "total_tokens": ("total_tokens", "total_tokens_total"),
+        "requests": ("requests",),
+    }
     counts: dict[str, int] = {}
-    for key in allowed:
-        value = usage.get(key)
+    for key, options in aliases.items():
+        value = next((usage[name] for name in options if name in usage), None)
         if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
             counts[key] = value
     return counts or None
+
+
+def _provider_runtime(provider: str) -> dict[str, str | None]:
+    package = {"jev": "typesafe-sdk", "laya": "laya"}.get(provider)
+    try:
+        package_version = importlib.metadata.version(package) if package else None
+    except importlib.metadata.PackageNotFoundError:
+        package_version = None
+    try:
+        polder_version = importlib.metadata.version("polder-research-pipeline")
+    except importlib.metadata.PackageNotFoundError:
+        polder_version = "0.1.0"
+    return {
+        "polder_version": polder_version,
+        "provider_package": package,
+        "provider_package_version": package_version,
+    }
 
 
 def _bounded_answers(answers: Any, questions: dict[str, dict[str, Any]]) -> dict[str, Any]:
@@ -341,9 +333,23 @@ def _bounded_answers(answers: Any, questions: dict[str, dict[str, Any]]) -> dict
             sanitized[key] = answer
             continue
         allowed = {
-            "choice": {"type", "choice", "confidence", "probabilities"},
-            "score": {"type", "score", "confidence", "probabilities"},
-            "noul": {"type", "noul", "confidence"},
+            "choice": {
+                "type",
+                "choice",
+                "confidence",
+                "answer_confidence",
+                "probabilities",
+                "action",
+            },
+            "score": {
+                "type",
+                "score",
+                "confidence",
+                "answer_confidence",
+                "probabilities",
+                "action",
+            },
+            "noul": {"type", "noul", "confidence", "answer_confidence", "action"},
         }.get(question.get("type"), {"type"})
         sanitized[key] = {name: answer[name] for name in allowed if name in answer}
     try:
@@ -360,11 +366,23 @@ def _laya_routing_metadata(result: dict[str, Any]) -> dict[str, str] | None:
     routing = result.get("routing")
     if not isinstance(routing, dict):
         return None
-    allowed = {"model", "language", "language_code", "device"}
+    allowed = {
+        "model",
+        "language",
+        "language_code",
+        "device",
+        "route_mode",
+        "route_reason",
+        "checkpoint",
+        "repo_id",
+        "max_len",
+        "head_max_len",
+        "checkpoint_revision",
+    }
     metadata = {
-        key: value[:200]
+        key: str(value)[:200]
         for key, value in routing.items()
-        if key in allowed and isinstance(value, str)
+        if key in allowed and isinstance(value, str | int | float | bool)
     }
     return metadata or None
 
@@ -411,12 +429,16 @@ def _validated_category(
         reported_confidence = answer.get("confidence")
         if reported_confidence is not None:
             _probability(reported_confidence)
-        return None, 0.0, {
-            "status": "abstained",
-            "value": None,
-            "probability": None,
-            "provider_confidence": reported_confidence,
-        }
+        return (
+            None,
+            0.0,
+            {
+                "status": "abstained",
+                "value": None,
+                "probability": None,
+                "provider_confidence": reported_confidence,
+            },
+        )
     category, selected_probability, reported_confidence = _validated_choice_probabilities(
         answer, categories, "category"
     )
@@ -493,7 +515,7 @@ def _validated_dimensions(
 
 
 def _classify_text_unlocked(
-    text: str,
+    text: Any,
     *,
     target_kind: str,
     target_id: str,
@@ -502,6 +524,7 @@ def _classify_text_unlocked(
     provider: str | None = None,
     metadata: dict[str, Any] | None = None,
     policy_metadata: dict[str, Any] | None = None,
+    provider_result: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Classify input using configured provider and persist an immutable result.
 
@@ -519,42 +542,70 @@ def _classify_text_unlocked(
     selected_provider = provider or select_provider(config, target_kind, policy)
     if policy is not None and not isinstance(policy, dict):
         raise ValueError("policy metadata must be an object")
-    if policy and _is_sensitive(policy) and selected_provider == "jev":
-        raise ValueError("sensitive classification cannot use the Jev provider")
+    if selected_provider == "jev":
+        from ..decision.privacy import preflight
+
+        remote = config.get("remote_processing", {})
+        project_allowed = isinstance(remote, dict) and remote.get("default_allowed") is True
+        target_allowed = bool(policy and policy.get("remote_processing_allowed") is True)
+        if not (project_allowed and target_allowed):
+            raise ValueError("Jev requires explicit project and target remote-processing approval")
+        if policy is None or _is_sensitive(policy):
+            raise ValueError("sensitive or unclassified data cannot use the Jev provider")
+        if preflight(state_text(text)):
+            raise ValueError("local privacy preflight blocked remote processing")
+        if config.get("jev", {}).get("model", "jev-1.13.0") == "jev-latest":
+            raise ValueError("Jev production classification requires a pinned model version")
     if selected_provider not in {"rules", "jev", "laya"}:
         raise ValueError(f"unsupported classification provider: {selected_provider!r}")
-    if not taxonomy.get("categories") and not taxonomy.get("tags") and not taxonomy.get("dimensions"):
+    if (
+        not taxonomy.get("categories")
+        and not taxonomy.get("tags")
+        and not taxonomy.get("dimensions")
+    ):
         return None
-    clipped = text[: int(config.get("max_input_chars", 12000))]
+    clipped = clip_state(text, int(config.get("max_input_chars", 12000)))
     state_hash = _hash(clipped)
     tax_hash = _taxonomy_hash(taxonomy)
     provider_config = config.get(selected_provider, {}) if selected_provider != "rules" else {}
-    requested_model = provider_config.get(
-        "model",
-        "rules-v1"
-        if selected_provider == "rules"
-        else ("multilingual" if selected_provider == "laya" else "jev-latest"),
-    )
+    requested_model = _requested_model(config, selected_provider)
     threshold = float(config.get("minimum_confidence", 0.75))
     if not 0 <= threshold <= 1:
         raise ValueError("classification.minimum_confidence must be between 0 and 1")
     questions = _questions(taxonomy)
-    question_set_hash = _hash(json.dumps(questions, sort_keys=True, separators=(",", ":")))
-    record_key = _hash(
-        f"{target_kind}:{target_id}:{state_hash}:{tax_hash}:{question_set_hash}:{selected_provider}:{requested_model}:{threshold}"
+    question_set_hash = _question_hash(taxonomy)
+    record_key = _request_fingerprint(
+        target_kind=target_kind,
+        target_id=target_id,
+        state_hash=state_hash,
+        taxonomy=taxonomy,
+        provider=selected_provider,
+        requested_model=requested_model,
+        threshold=threshold,
+        policy=policy,
+        provider_settings=provider_config,
     )
     directory = Path(output_dir) if output_dir else root / ".research" / "classifications"
     directory.mkdir(parents=True, exist_ok=True)
+    prior_attempts: list[dict[str, Any]] = []
     for path in directory.glob("cls_*.json"):
         try:
             old = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             continue
         if old.get("record_key") == record_key:
-            return old
+            prior_attempts.append(old)
+            if old.get("disposition") in {"accepted", "review_required"}:
+                return old
+    previous = max(prior_attempts, key=lambda item: int(item.get("attempt", 1)), default=None)
+    attempt_number = int(previous.get("attempt", 1)) + 1 if previous else 1
     started = time.monotonic()
     try:
-        if selected_provider == "rules":
+        if provider_result is not None:
+            if selected_provider != "laya":
+                raise ValueError("precomputed provider results are supported only for Laya")
+            result = _validated_laya_result(provider_result, config.get("laya", {}))
+        elif selected_provider == "rules":
             result = _rules_call(clipped, taxonomy)
         elif selected_provider == "jev":
             result = _remote_call(clipped, questions, config.get("jev", {}), repository_root=root)
@@ -575,12 +626,23 @@ def _classify_text_unlocked(
             **{f"tag_{key}": value for key, value in tag_decisions.items()},
             **{f"dimension_{key}": value for key, value in dimension_decisions.items()},
         }
+        if selected_provider != "rules":
+            for decision in field_decisions.values():
+                decision["status"] = "review_required"
         decisions = list(field_decisions.values())
         has_review = any(item["status"] == "review_required" for item in decisions)
         record = {
             "id": f"cls_{uuid.uuid7()}",
             "schema_version": 2,
             "record_key": record_key,
+            "attempt": attempt_number,
+            "retry_of": previous.get("id") if previous else None,
+            "input_provenance": {
+                "original_sha256": _hash(text),
+                "submitted_sha256": state_hash,
+                "submitted_chars": len(state_text(clipped)),
+            },
+            "provider_runtime": _provider_runtime(selected_provider),
             "target_kind": target_kind,
             "target_id": target_id,
             "input_sha256": state_hash,
@@ -619,6 +681,14 @@ def _classify_text_unlocked(
             "id": f"cls_{uuid.uuid7()}",
             "schema_version": 2,
             "record_key": record_key,
+            "attempt": attempt_number,
+            "retry_of": previous.get("id") if previous else None,
+            "input_provenance": {
+                "original_sha256": _hash(text),
+                "submitted_sha256": state_hash,
+                "submitted_chars": len(state_text(clipped)),
+            },
+            "provider_runtime": _provider_runtime(selected_provider),
             "target_kind": target_kind,
             "target_id": target_id,
             "input_sha256": state_hash,
@@ -663,7 +733,7 @@ def _classify_text_unlocked(
 
 
 def classify_text(
-    text: str,
+    text: Any,
     *,
     target_kind: str,
     target_id: str,
@@ -672,10 +742,33 @@ def classify_text(
     provider: str | None = None,
     metadata: dict[str, Any] | None = None,
     policy_metadata: dict[str, Any] | None = None,
+    provider_result: dict[str, Any] | None = None,
 ) -> dict[str, Any] | None:
     """Serialize identical target/input work across threads and processes."""
     root = _root(repository_root)
-    lock_key = _hash(f"{target_kind}\0{target_id}\0{_hash(text)}")
+    config = _config(root)
+    if not config.get("enabled", True):
+        return None
+    maximum = int(config.get("max_input_chars", 12000))
+    clipped_state = clip_state(text, maximum)
+    effective_hash = _hash(clipped_state)
+    selected_provider = provider or select_provider(
+        config, target_kind, policy_metadata or metadata
+    )
+    provider_config = config.get(selected_provider, {}) if selected_provider != "rules" else {}
+    requested_model = _requested_model(config, selected_provider)
+    taxonomy = config.get("taxonomy", {})
+    lock_key = _request_fingerprint(
+        target_kind=target_kind,
+        target_id=target_id,
+        state_hash=effective_hash,
+        taxonomy=taxonomy,
+        provider=selected_provider,
+        requested_model=requested_model,
+        threshold=float(config.get("minimum_confidence", 0.75)),
+        policy=policy_metadata or metadata,
+        provider_settings=provider_config,
+    )
     lock = acquire_file_lock(
         root / ".research" / "locks" / f"classification-{lock_key}.lock", wait=True
     )
@@ -689,33 +782,17 @@ def classify_text(
             provider=provider,
             metadata=metadata,
             policy_metadata=policy_metadata,
+            provider_result=provider_result,
         )
     finally:
         release_file_lock(lock)
 
 
 def merge_proposals(record: dict[str, Any], result: dict[str, Any] | None) -> dict[str, Any]:
-    """Apply accepted fields only; preserve uncertain fields and human values."""
+    """Retain the immutable result reference; effective metadata is projected separately."""
     if not result or result.get("disposition") not in {"accepted", "review_required"}:
         return record
     record["classification_ids"] = list(
         dict.fromkeys(record.get("classification_ids", []) + [result["id"]])
     )
-    decisions = result.get("field_decisions", {})
-    category = result.get("category_decision") or decisions.get("category", {})
-    if (
-        category.get("status") == "accepted"
-        and result.get("category")
-        and "topic" not in record
-        and record.get("id", "").startswith(("src_", "clm_", "seg_"))
-    ):
-        record["topic"] = result["category"]
-    existing = list(record.get("tags", []))
-    record["tags"] = list(dict.fromkeys(existing + result.get("proposed_tags", [])))
-    dimensions = dict(record.get("classification_dimensions", {}))
-    for key, decision in decisions.items():
-        if key.startswith("dimension_") and decision.get("status") == "accepted":
-            dimensions.setdefault(key.removeprefix("dimension_"), decision.get("value"))
-    if dimensions:
-        record["classification_dimensions"] = dimensions
     return record

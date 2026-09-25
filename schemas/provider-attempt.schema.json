@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://polder.dev/schemas/provider-attempt.schema.json",
+  "title": "Immutable provider attempt",
+  "type": "object",
+  "required": ["id", "schema_version", "request_fingerprint", "attempt", "provider", "transport", "requested_model", "resolved_model", "runtime", "input", "question_pack_id", "question_pack_sha256", "answers", "routing", "usage", "elapsed_ms", "status", "created_at"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {"type": "string", "pattern": "^dpa_[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"},
+    "schema_version": {"const": 1},
+    "request_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "attempt": {"type": "integer", "minimum": 1},
+    "retry_of": {"type": ["string", "null"], "pattern": "^dpa_"},
+    "provider": {"enum": ["jev", "laya", "rules"]},
+    "transport": {"type": "string", "minLength": 1},
+    "requested_model": {"type": "string", "minLength": 1},
+    "resolved_model": {"type": ["string", "null"]},
+    "runtime": {"type": "object"},
+    "input": {"type": "object", "required": ["original_sha256", "submitted_sha256", "submitted_chars"], "properties": {"original_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "submitted_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}, "submitted_chars": {"type": "integer", "minimum": 0}, "token_budget": {"type": "object"}}},
+    "question_pack_id": {"type": "string", "minLength": 1},
+    "question_pack_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "answers": {"type": "object"},
+    "routing": {"type": ["object", "null"]},
+    "usage": {"type": ["object", "null"]},
+    "elapsed_ms": {"type": "integer", "minimum": 0},
+    "status": {"enum": ["completed", "failed", "blocked"]},
+    "error_category": {"enum": ["authentication", "timeout", "rate_limited", "provider_failure", "invalid_response", "privacy_blocked", "configuration", null]},
+    "created_at": {"type": "string", "format": "date-time"}
+  }
+}

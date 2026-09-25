@@ -81,7 +81,10 @@ def write_task(
                 continue
             if rec.get("status") in ("completed", "failed", "abandoned"):
                 continue
-            if _sig(rec.get("task_kind", ""), rec.get("role", ""), rec.get("summary", "")) == wanted:
+            if (
+                _sig(rec.get("task_kind", ""), rec.get("role", ""), rec.get("summary", ""))
+                == wanted
+            ):
                 return rec["id"]
         tid = _uuid7("tsk")
         record: dict[str, Any] = {
@@ -135,7 +138,9 @@ def acquire_lease(task_id: str, leaser: str, ttl_seconds: int) -> str:
         existing = rec.get("lease") or {}
         if existing.get("expires_at"):
             if datetime.fromisoformat(existing["expires_at"]) > datetime.now(UTC):
-                raise PermissionError(f"task {task_id} already leased by {existing.get('leaser')!r}")
+                raise PermissionError(
+                    f"task {task_id} already leased by {existing.get('leaser')!r}"
+                )
         token = _uuid7("lse")
         now = datetime.now(UTC)
         expires = now + timedelta(seconds=ttl_seconds)

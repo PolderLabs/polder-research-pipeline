@@ -28,6 +28,9 @@ class TestSchemaRegistry:
             "appraisal",
             "review_report",
             "extraction",
+            "classification",
+            "classification-review",
+            "classification-replay-job",
         }
         assert expected.issubset(SCHEMAS.keys()), f"missing: {expected - SCHEMAS.keys()}"
 

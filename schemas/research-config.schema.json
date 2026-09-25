@@ -1,0 +1,215 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://polder.dev/schemas/research-config.schema.json",
+  "title": "Repository research configuration",
+  "type": "object",
+  "required": ["schema_version"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "pipeline_version": {"type": "string", "minLength": 1},
+    "scan": {
+      "type": "object",
+      "properties": {
+        "content_plane_dirs": {"type": "array", "items": {"type": "string"}},
+        "control_plane_dirs": {"type": "array", "items": {"type": "string"}},
+        "skip_patterns": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": true
+    },
+    "frontmatter": {
+      "type": "object",
+      "properties": {
+        "required_keys": {"type": "array", "items": {"type": "string"}},
+        "valid_types": {"type": "array", "items": {"type": "string"}},
+        "valid_status_values": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": true
+    },
+    "intake": {"$ref": "#/$defs/vocabularyBlock"},
+    "task": {"$ref": "#/$defs/vocabularyBlock"},
+    "research_method": {"type": "object"},
+    "source": {"$ref": "#/$defs/vocabularyBlock"},
+    "claim": {"$ref": "#/$defs/vocabularyBlock"},
+    "freshness": {"type": "object"},
+    "run": {"$ref": "#/$defs/vocabularyBlock"},
+    "handoff": {"$ref": "#/$defs/vocabularyBlock"},
+    "maintenance": {"type": "object"},
+    "decision": {
+      "type": "object",
+      "properties": {
+        "valid_status": {"type": "array", "items": {"type": "string"}},
+        "default_provider": {"enum": ["rules", "jev", "laya"]},
+        "remote_processing": {
+          "type": "object",
+          "properties": {
+            "require_explicit_approval": {"type": "boolean"},
+            "default_allowed": {"type": "boolean"}
+          },
+          "additionalProperties": true
+        },
+        "providers": {
+          "type": "object",
+          "properties": {
+            "jev": {"$ref": "#/$defs/decisionJev"},
+            "laya": {"$ref": "#/$defs/decisionLaya"}
+          },
+          "additionalProperties": false
+        },
+        "policy_profiles": {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/policyProfile"}
+        }
+      },
+      "additionalProperties": true
+    },
+    "classification": {
+      "type": "object",
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "provider": {"enum": ["rules", "jev", "laya"]},
+        "minimum_confidence": {"type": "number", "minimum": 0, "maximum": 1},
+        "max_input_chars": {"type": "integer", "minimum": 1, "maximum": 500000},
+        "jev": {
+          "type": "object",
+          "properties": {
+            "base_url": {"type": "string", "format": "uri"},
+            "model": {"type": "string", "minLength": 1},
+            "api_key_env": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]*$"},
+            "timeout_seconds": {"type": "number", "minimum": 1, "maximum": 120},
+            "max_retries": {"type": "integer", "minimum": 0, "maximum": 5},
+            "total_budget_seconds": {"type": "number", "minimum": 1, "maximum": 120}
+          },
+          "additionalProperties": true
+        },
+        "laya": {"$ref": "#/$defs/classificationLaya"},
+        "routing": {
+          "type": "object",
+          "properties": {
+            "sensitive_provider": {"enum": ["rules", "laya"]},
+            "by_target_kind": {"type": "object", "additionalProperties": {"enum": ["rules", "jev", "laya"]}}
+          },
+          "additionalProperties": true
+        },
+        "taxonomy": {
+          "type": "object",
+          "required": ["version", "categories", "tags"],
+          "properties": {
+            "version": {"type": "string", "minLength": 1},
+            "categories": {"type": "object", "minProperties": 1, "additionalProperties": {"$ref": "#/$defs/taxonomyEntry"}},
+            "tags": {"type": "object", "additionalProperties": {"$ref": "#/$defs/taxonomyEntry"}},
+            "dimensions": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "required": ["instructions", "values"],
+                "properties": {
+                  "instructions": {"type": "string", "minLength": 1},
+                  "values": {"type": "object", "minProperties": 1, "additionalProperties": {"$ref": "#/$defs/taxonomyEntry"}}
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "$defs": {
+    "decisionJev": {
+      "type": "object",
+      "properties": {
+        "model": {"type": "string", "pattern": "^jev-[0-9]+\\.[0-9]+\\.[0-9]+$"},
+        "sdk_version_policy": {"enum": ["pinned", "compatible-pinned"]},
+        "timeout_seconds": {"type": "number", "minimum": 1, "maximum": 120},
+        "retry": {
+          "type": "object",
+          "properties": {
+            "max_retries": {"type": "integer", "minimum": 0, "maximum": 5},
+            "total_budget_seconds": {"type": "number", "minimum": 1, "maximum": 120}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "decisionLaya": {
+      "type": "object",
+      "properties": {
+        "transport": {"enum": ["inprocess", "local-http"]},
+        "route_mode": {"enum": ["auto", "explicit"]},
+        "explicit_model": {"enum": ["english", "multilingual", "typed-decisions", null]},
+        "model": {"enum": ["english", "multilingual", "typed-decisions"]},
+        "device": {"enum": ["auto", "cpu", "cuda", "mps"]},
+        "endpoint": {"type": "string", "format": "uri"},
+        "timeout_seconds": {"type": "number", "minimum": 1, "maximum": 600},
+        "max_loaded": {"type": "integer", "minimum": 1, "maximum": 16},
+        "max_len": {"$ref": "#/$defs/tokenBudget"},
+        "head_max_len": {"$ref": "#/$defs/tokenBudget"}
+      },
+      "additionalProperties": false
+    },
+    "classificationLaya": {
+      "type": "object",
+      "properties": {
+        "route_mode": {"enum": ["auto", "explicit"]},
+        "model": {"enum": ["english", "multilingual", "typed-decisions"]},
+        "explicit_model": {"enum": ["english", "multilingual", "typed-decisions", null]},
+        "device": {"enum": ["auto", "cpu", "cuda", "mps"]},
+        "transport": {"enum": ["inprocess", "local-http"]},
+        "endpoint": {"type": "string", "format": "uri"},
+        "timeout_seconds": {"type": "number", "minimum": 1, "maximum": 600},
+        "max_loaded": {"type": "integer", "minimum": 1, "maximum": 16},
+        "max_len": {"$ref": "#/$defs/tokenBudget"},
+        "head_max_len": {"$ref": "#/$defs/tokenBudget"}
+      },
+      "additionalProperties": true
+    },
+    "tokenBudget": {
+      "oneOf": [
+        {"type": "integer", "minimum": 1},
+        {"type": "object", "minProperties": 1, "additionalProperties": {"type": "integer", "minimum": 1}}
+      ]
+    },
+    "policyProfile": {
+      "type": "object",
+      "properties": {
+        "fields": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "target_correctness": {"type": "number", "minimum": 0, "maximum": 1}
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "taxonomyEntry": {
+      "type": "object",
+      "required": ["description", "keywords"],
+      "properties": {
+        "description": {"type": "string", "minLength": 1},
+        "keywords": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      },
+      "additionalProperties": false
+    },
+    "vocabularyBlock": {
+      "type": "object",
+      "properties": {
+        "valid_status": {"type": "array", "items": {"type": "string"}},
+        "valid_kind": {"type": "array", "items": {"type": "string"}},
+        "valid_task_kind": {"type": "array", "items": {"type": "string"}},
+        "valid_source_type": {"type": "array", "items": {"type": "string"}},
+        "valid_media_type": {"type": "array", "items": {"type": "string"}},
+        "valid_claim_kind": {"type": "array", "items": {"type": "string"}},
+        "valid_methods": {"type": "array", "items": {"type": "string"}}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}

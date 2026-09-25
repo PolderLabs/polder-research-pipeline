@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 
 import yaml
@@ -15,6 +16,7 @@ def _repository(tmp_path: Path, *, provider: str = "rules", enabled: bool = True
     config_dir = tmp_path / "knowledge-base"
     config_dir.mkdir()
     config = {
+        "schema_version": 1,
         "classification": {
             "enabled": enabled,
             "provider": provider,
@@ -36,10 +38,10 @@ def _repository(tmp_path: Path, *, provider: str = "rules", enabled: bool = True
                     }
                 },
             },
-        }
+        },
     }
     (config_dir / "research.config.yaml").write_text(yaml.safe_dump(config))
-    (tmp_path / "schemas").mkdir()
+    shutil.copytree(Path(__file__).parents[1] / "schemas", tmp_path / "schemas")
     return tmp_path
 
 

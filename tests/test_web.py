@@ -31,7 +31,7 @@ def test_dashboard_uses_real_empty_local_state(repo: Path):
     payload = dashboard_payload(repo)
 
     assert payload["system"]["config_valid"] is True
-    assert payload["providers"]["selected"] == "rules"
+    assert payload["providers"]["selected"] == "laya"
     assert payload["research"]["corpus"]["sources"] == 0
     assert payload["research"]["corpus"]["classifications"] == 0
     assert len(payload["research"]["activity_30d"]) == 30
@@ -42,8 +42,8 @@ def test_basic_settings_patch_preserves_comments_and_uses_revision(repo: Path):
     path = repo / "knowledge-base" / "research.config.yaml"
     raw = path.read_text()
     raw = raw.replace(
-        "provider: rules # rules | jev | laya; switch here",
-        "provider: rules # preserve this comment",
+        'provider: "laya" # laya is the local primary; Jev requires project and target approval',
+        'provider: "laya" # preserve this comment',
     )
     path.write_text(raw)
 
@@ -51,13 +51,13 @@ def test_basic_settings_patch_preserves_comments_and_uses_revision(repo: Path):
         repo,
         __import__("hashlib").sha256(raw.encode()).hexdigest(),
         {
-            "classification.provider": "laya",
+            "classification.provider": "rules",
             "classification.minimum_confidence": 0.81,
         },
     )
 
     updated = path.read_text()
-    assert result["config"]["classification"]["provider"] == "laya"
+    assert result["config"]["classification"]["provider"] == "rules"
     assert "# preserve this comment" in updated
     with pytest.raises(RuntimeError, match="changed since it was loaded"):
         _patch_config(repo, "stale", {"classification.provider": "rules"})

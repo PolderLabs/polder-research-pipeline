@@ -27,9 +27,26 @@ The systematic workflow is auditable within the local `.research/` store. Record
 
 ## Project status and security boundary
 
-Polder is a local-first research workspace, not a hosted service. The dashboard binds to loopback (`127.0.0.1`) and has no user authentication; do not expose it to a LAN, internet, or reverse proxy. TypeSafe/Jev sends classification input to the configured TypeSafe API when selected. Laya inference runs locally after installing its optional dependencies and model. The default provider is rules-based. Review [Security](SECURITY.md) and the [provider guide](knowledge-base/03-system/classification-providers.md) before handling sensitive material.
+Polder is a local-first research workspace, not a hosted service. The dashboard binds to loopback (`127.0.0.1`) and has no user authentication; do not expose it to a LAN, internet, or reverse proxy. Laya is the default classification provider and runs locally after installing its optional dependencies and model. TypeSafe/Jev sends classification input to the configured TypeSafe API only when explicitly selected and remotely approved. Review [Security](SECURITY.md) and the [provider guide](knowledge-base/03-system/classification-providers.md) before handling sensitive material.
 
 Python 3.14 or newer is required. Laya adds large machine-learning dependencies and model weights; it is optional. The current persistence model keeps authoritative `.research/` records local and gitignored.
+
+For an NVIDIA GPU installation, install PyTorch's CUDA 13.0 wheel before the
+Laya extra. For example, on an RTX 3060:
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cu130
+.venv/bin/python -m pip install -e '.[laya]'
+.venv/bin/python -c 'import torch; assert torch.cuda.is_available(); print(torch.cuda.get_device_name(0))'
+```
+
+Laya is configured for automatic device selection and keeps one model loaded to
+fit the GPU's 6 GB memory. Laya downloads its routed checkpoint on first
+inference. For CPU-only machines, install PyTorch with
+`--index-url https://download.pytorch.org/whl/cpu` instead. See the
+[provider setup](knowledge-base/03-system/classification-providers.md) for
+offline setup.
 
 ## Current implementation
 

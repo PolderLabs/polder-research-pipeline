@@ -11,8 +11,10 @@ tags:
 
 The evidence API classifies sources, segments, claims, and entities against the
 versioned taxonomy in `knowledge-base/research.config.yaml`. The tracked default
-uses deterministic `rules`; the project-local provider can be changed to `jev`
-or `laya` in the dashboard or YAML. No provider silently falls back to another.
+uses local Laya with automatic language routing. Deterministic `rules` remains
+available as an explicit local provider; Jev can be selected only with project
+and target approval for remote processing. No provider silently falls back to
+another.
 
 ## Jev / TypeSafe API
 
@@ -32,12 +34,26 @@ for those records; no remote fallback occurs when the local provider fails.
 
 ## Laya, fully local inference
 
-Install the optional extra with `pip install 'polder-research-pipeline[laya]'`.
-Inference uses Laya's Python `Router` inside the pipeline process. Model weights
-are downloaded separately from the dashboard and cached outside the repository.
-Inference remains local; an initial checkpoint download requires Hugging Face
-network access. For offline operation, pre-download the model and disable other
-networked pipeline actions.
+For an NVIDIA GPU, create a project environment and install the matching PyTorch
+wheel before installing Polder with Laya. The local RTX 3060 setup uses CUDA
+13.0:
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cu130
+.venv/bin/python -m pip install -e '.[laya]'
+.venv/bin/python -c 'import torch; assert torch.cuda.is_available(); print(torch.cuda.get_device_name(0))'
+.venv/bin/laya --predict --device cuda --preset router --json 'A research paper about streaming inference'
+```
+
+The repository's Laya device setting is `auto`, so CUDA is used when the active
+PyTorch build supports it; one checkpoint is kept loaded to fit the RTX 3060's
+6 GB memory. For CPU-only use, install from
+`https://download.pytorch.org/whl/cpu` instead. Inference uses Laya's Python
+`Router` inside the pipeline process. Model weights are downloaded separately
+on first inference and cached outside the repository. Inference remains local;
+checkpoint download requires Hugging Face network access. For offline
+operation, pre-download the model and disable other networked pipeline actions.
 
 Laya's checkpoints support English, multilingual, and typed decisions. Choose a
 checkpoint for the observed language mix and workload. Use the Router rather
@@ -45,6 +61,11 @@ than assuming all text is English; evaluate language routing on the project's
 own records. A high confidence score is not proof that a language route or
 classification is correct. Laya quality must be compared against human labels
 before unattended use.
+
+The RTX 3060 smoke run on 2026-09-25 loaded the English checkpoint and Laya
+reported an invalid checkpoint temperature, treating that signal as
+uncalibrated. Polder keeps every non-rules taxonomy field in
+`review_required`; it does not auto-apply Laya proposals.
 
 ## Routing and taxonomy
 

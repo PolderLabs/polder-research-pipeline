@@ -76,6 +76,7 @@
       "default": "metadata-only"
     },
     "personal_data": {"type": "boolean", "default": false},
+    "remote_processing_allowed": {"type": "boolean", "default": false},
     "redistribution_rights": {"type": "string", "default": ""},
     "tags": {
       "type": "array",

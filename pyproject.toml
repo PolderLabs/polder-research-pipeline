@@ -18,7 +18,8 @@ dev = [
     "pytest==8.3.5",
     "ruff==0.11.13",
 ]
-laya = ["laya>=0.3.20"]
+laya = ["laya==0.3.20"]
+jev = ["typesafe-sdk==0.7.1"]
 
 [project.scripts]
 polder-research = "polder_research.scripts:main"

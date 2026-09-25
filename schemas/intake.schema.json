@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://polder.dev/schemas/intake.schema.json",
+  "title": "Canonical intake registration",
+  "type": "object",
+  "required": ["id", "schema_version", "filename", "raw_location", "content_sha256", "kind", "source_id", "owner", "status", "outcome", "added_on"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {"type": "string", "pattern": "^int_[0-9a-f]{16}_[a-z0-9-]+$"},
+    "schema_version": {"const": 1},
+    "filename": {"type": "string", "minLength": 1},
+    "raw_location": {"type": "string", "minLength": 1},
+    "content_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "kind": {"enum": ["pdf", "repository", "article", "paper", "log", "transcript", "media", "url-list", "documentation", "webpage", "dataset", "benchmark", "video", "audio", "book", "standard", "issue", "discussion", "other"]},
+    "source_id": {"type": "string", "pattern": "^src_[0-9a-f-]{36}$"},
+    "owner": {"type": "string", "minLength": 1},
+    "status": {"enum": ["new", "triaged", "processing", "distilled", "filed", "rejected", "blocked"]},
+    "outcome": {"type": "string"},
+    "added_on": {"type": "string", "format": "date"}
+  }
+}

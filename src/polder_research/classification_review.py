@@ -13,8 +13,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import jsonschema
-
 from .atomic import write_atomic
 from .paths import REPO_ROOT
 from .schemas import SchemaRegistry
@@ -37,8 +35,7 @@ def _classification(root: Path, classification_id: str) -> dict[str, Any]:
         raise ValueError("classification record was not found or is malformed") from exc
     if not isinstance(record, dict) or record.get("id") != classification_id:
         raise ValueError("classification record identity does not match its filename")
-    schema = json.loads((root / "schemas" / "classification.schema.json").read_text(encoding="utf-8"))
-    jsonschema.validate(record, schema)
+    SchemaRegistry(root).validate_filename_identity("classification", path.name, record)
     return record
 
 
@@ -48,7 +45,9 @@ def _validate_value(field: str, value: Any, record: dict[str, Any]) -> None:
         if value is not None and value not in taxonomy.get("categories", {}):
             raise ValueError("reviewed category must be null or a configured category")
     elif field.startswith("tag_"):
-        if field.removeprefix("tag_") not in taxonomy.get("tags", {}) or not isinstance(value, bool):
+        if field.removeprefix("tag_") not in taxonomy.get("tags", {}) or not isinstance(
+            value, bool
+        ):
             raise ValueError("reviewed tag must identify a configured tag and use a boolean value")
     elif field.startswith("dimension_"):
         dimension = field.removeprefix("dimension_")
@@ -65,6 +64,11 @@ def record_review(
     reviewer: str,
     resolutions: dict[str, dict[str, Any]],
     repository_root: str | Path | None = None,
+    reviewer_namespace: str = "local-user",
+    reason: str | None = None,
+    supersedes_review_id: str | None = None,
+    policy_result_id: str | None = None,
+    adjudicator: str | None = None,
 ) -> dict[str, Any]:
     """Persist a review of one or more field proposals without mutating them."""
     root = _root(repository_root)
@@ -73,6 +77,25 @@ def record_review(
     if not isinstance(resolutions, dict) or not resolutions:
         raise ValueError("at least one field resolution is required")
     classification = _classification(root, classification_id)
+    if (
+        not isinstance(reviewer_namespace, str)
+        or not reviewer_namespace.strip()
+        or len(reviewer_namespace) > 80
+    ):
+        raise ValueError(
+            "reviewer_namespace must be a non-empty namespace of at most 80 characters"
+        )
+    if reason is not None and (not isinstance(reason, str) or len(reason) > 500):
+        raise ValueError("reason must be a string of at most 500 characters")
+    if supersedes_review_id is not None:
+        prior_records, _ = review_records_audit(root)
+        prior = next(
+            (item for item in prior_records if item.get("id") == supersedes_review_id), None
+        )
+        if not prior or prior.get("target_id") != classification.get("target_id"):
+            raise ValueError("superseded review must exist and belong to the same target")
+        if supersedes_review_id not in active_review_ids(prior_records):
+            raise ValueError("only an active review can be superseded")
     if classification.get("disposition") == "failed":
         raise ValueError("failed classifications do not contain reviewable proposals")
     decisions = classification.get("field_decisions", {})
@@ -94,6 +117,18 @@ def record_review(
         if action == "edit" and value == decisions[field].get("value"):
             raise ValueError("edit must differ from the proposed value")
 
+    prior_records, _ = review_records_audit(root)
+    active_ids = active_review_ids(prior_records)
+    overlapping = [
+        prior
+        for prior in prior_records
+        if prior.get("id") in active_ids
+        and prior.get("classification_id") == classification_id
+        and set(prior.get("resolutions", {})).intersection(resolutions)
+    ]
+    if overlapping and supersedes_review_id not in {prior["id"] for prior in overlapping}:
+        raise ValueError("conflicting active review exists; supersede it explicitly")
+
     review = {
         "id": f"crv_{uuid.uuid7()}",
         "schema_version": 1,
@@ -104,13 +139,24 @@ def record_review(
         "input_sha256": classification["input_sha256"],
         "taxonomy_sha256": classification["taxonomy_sha256"],
         "reviewer": reviewer.strip(),
+        "reviewer_namespace": reviewer_namespace.strip(),
+        "status": "active",
         "resolutions": resolutions,
         "created_at": datetime.now(UTC).isoformat(timespec="seconds"),
     }
+    if reason is not None:
+        review["reason"] = reason
+    if supersedes_review_id is not None:
+        review["supersedes_review_id"] = supersedes_review_id
+    if policy_result_id is not None:
+        review["policy_result_id"] = policy_result_id
+    if adjudicator is not None:
+        review["adjudicator"] = adjudicator
     output = root / ".research" / "classification_reviews"
     schema_path = root / "schemas" / "classification-review.schema.json"
     if schema_path.is_file():
-        jsonschema.validate(review, json.loads(schema_path.read_text(encoding="utf-8")))
+        registry = SchemaRegistry(root)
+        registry.validate("classification-review", review)
         write_atomic(
             output / f"{review['id']}.json",
             review,
@@ -119,6 +165,9 @@ def record_review(
         )
     else:
         raise ValueError("classification review schema is missing from this installation")
+    from .decision.projection import rebuild_effective_projection
+
+    rebuild_effective_projection(root)
     return review
 
 
@@ -138,27 +187,47 @@ def review_records_audit(
     if not directory.exists() or not any(directory.glob("*.json")):
         return [], []
     try:
-        schema = json.loads(
-            (root / "schemas" / "classification-review.schema.json").read_text(encoding="utf-8")
-        )
+        registry = SchemaRegistry(root)
+        validator = registry.validator("classification-review")
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         return [], [{"path": "schemas/classification-review.schema.json", "error": str(exc)[:300]}]
-    validator = jsonschema.Draft202012Validator(schema)
     records: list[dict[str, Any]] = []
     for path in sorted(directory.glob("crv_*.json")):
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-            errors.append({"path": f".research/classification_reviews/{path.name}", "error": str(exc)[:300]})
+            errors.append(
+                {"path": f".research/classification_reviews/{path.name}", "error": str(exc)[:300]}
+            )
             continue
-        if isinstance(record, dict) and validator.is_valid(record) and record.get("id") == path.stem:
+        if (
+            isinstance(record, dict)
+            and validator.is_valid(record)
+            and record.get("id") == path.stem
+        ):
             records.append(record)
         else:
-            errors.append({
-                "path": f".research/classification_reviews/{path.name}",
-                "error": "record failed schema validation or filename identity check",
-            })
+            errors.append(
+                {
+                    "path": f".research/classification_reviews/{path.name}",
+                    "error": "record failed schema validation or filename identity check",
+                }
+            )
     return records, errors
 
 
-__all__ = ["record_review", "review_records", "review_records_audit"]
+def active_review_ids(records: list[dict[str, Any]]) -> set[str]:
+    """Resolve supersession links deterministically without mutating history."""
+    superseded = {
+        str(record["supersedes_review_id"])
+        for record in records
+        if isinstance(record.get("supersedes_review_id"), str)
+    }
+    return {
+        str(record["id"])
+        for record in records
+        if record.get("status", "active") == "active" and record.get("id") not in superseded
+    }
+
+
+__all__ = ["active_review_ids", "record_review", "review_records", "review_records_audit"]

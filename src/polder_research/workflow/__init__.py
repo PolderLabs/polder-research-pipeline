@@ -32,6 +32,7 @@ from ..paths import (
     RESEARCH_TASKS_DIR,
     VAULT_ROOT,
 )
+from ..schemas import SchemaRegistry
 
 _RECORD_TYPES = {
     "events": ("events", "event"),
@@ -115,6 +116,7 @@ def _read_records(
     records: dict[str, list[dict[str, Any]]] = {}
     malformed: list[dict[str, str]] = []
     dirs = _collection_dirs(root)
+    schema_registry = SchemaRegistry(root or REPO_ROOT)
 
     for collection, (directory, schema_name) in _RECORD_TYPES.items():
         valid: list[dict[str, Any]] = []
@@ -122,7 +124,7 @@ def _read_records(
         if not paths:
             records[collection] = valid
             continue
-        validator = jsonschema.Draft202012Validator(_schema(root, schema_name))
+        validator = schema_registry.validator(schema_name)
         for path in paths:
             relative = f".research/{directory}/{path.name}"
             try:
@@ -131,6 +133,15 @@ def _read_records(
                 malformed.append({"collection": collection, "path": relative, "error": str(exc)})
                 continue
             errors = sorted(validator.iter_errors(record), key=lambda item: list(item.path))
+            if not errors and isinstance(record, dict) and path.name != f"{record.get('id')}.json":
+                malformed.append(
+                    {
+                        "collection": collection,
+                        "path": relative,
+                        "error": "filename identity mismatch",
+                    }
+                )
+                continue
             if errors:
                 malformed.append(
                     {
