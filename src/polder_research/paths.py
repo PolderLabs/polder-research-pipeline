@@ -6,9 +6,86 @@ and the layout never drifts between tools.
 
 from __future__ import annotations
 
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar, Token
+from dataclasses import dataclass
+from functools import wraps
 from pathlib import Path
 
 REPO_ROOT: Path = Path(__file__).resolve().parents[2]
+
+
+@dataclass(frozen=True, slots=True)
+class Workspace:
+    """Resolved paths for one research workspace."""
+
+    root: Path
+
+    def __init__(self, root: Path | str | None = None) -> None:
+        resolved = Path(root).expanduser().resolve() if root is not None else REPO_ROOT
+        object.__setattr__(self, "root", resolved)
+
+    @property
+    def research_dir(self) -> Path:
+        return self.root / ".research"
+
+    def research_path(self, name: str) -> Path:
+        if not name or Path(name).name != name or name in {".", ".."}:
+            raise ValueError(f"invalid research directory name: {name!r}")
+        return self.research_dir / name
+
+    def rebase(self, path: Path) -> Path:
+        """Map a repository-owned default path into this workspace."""
+        try:
+            relative = path.relative_to(REPO_ROOT)
+        except ValueError:
+            return path
+        return self.root / relative
+
+
+_ACTIVE_WORKSPACE: ContextVar[Workspace | None] = ContextVar("polder_workspace", default=None)
+
+
+def resolve_workspace(workspace: Workspace | Path | str | None = None) -> Workspace:
+    if isinstance(workspace, Workspace):
+        return workspace
+    if workspace is not None:
+        return Workspace(workspace)
+    return _ACTIVE_WORKSPACE.get() or Workspace()
+
+
+def active_workspace() -> Workspace | None:
+    return _ACTIVE_WORKSPACE.get()
+
+
+def workspace_path(path: Path, workspace: Workspace | Path | str | None = None) -> Path:
+    return resolve_workspace(workspace).rebase(path)
+
+
+def workspace_scoped[**P, R](function: Callable[P, R]) -> Callable[P, R]:
+    """Run a workspace-aware operation with an isolated context for nested calls."""
+
+    @wraps(function)
+    def wrapped(*args: P.args, **kwargs: P.kwargs) -> R:
+        workspace = kwargs.get("workspace")
+        if workspace is None:
+            return function(*args, **kwargs)
+        with use_workspace(workspace):
+            return function(*args, **kwargs)
+
+    return wrapped
+
+
+@contextmanager
+def use_workspace(workspace: Workspace | Path | str | None = None) -> Iterator[Workspace]:
+    selected = resolve_workspace(workspace)
+    token: Token[Workspace | None] = _ACTIVE_WORKSPACE.set(selected)
+    try:
+        yield selected
+    finally:
+        _ACTIVE_WORKSPACE.reset(token)
+
 
 # Scripts loaded by the CLI. Wheel installs carry these under the package;
 # source checkouts use their own files during development.

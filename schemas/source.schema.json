@@ -4,7 +4,21 @@
   "title": "Source record",
   "description": "One canonical record per source (AUDIT.md §11).",
   "type": "object",
-  "required": ["id", "schema_version", "source_status", "source_type", "media_type", "title", "retrieved_at", "content_sha256"],
+  "required": ["id", "schema_version", "source_status", "source_type", "media_type", "title", "retrieved_at"],
+  "allOf": [
+    {
+      "if": {
+        "properties": {"source_status": {"const": "unacquired"}},
+        "required": ["source_status"]
+      },
+      "then": {
+        "required": ["canonical_url"],
+        "properties": {"canonical_url": {"minLength": 1}},
+        "not": {"required": ["content_sha256"]}
+      },
+      "else": {"required": ["content_sha256"]}
+    }
+  ],
   "additionalProperties": false,
   "properties": {
     "id": {
@@ -16,7 +30,7 @@
       "const": 1
     },
     "source_status": {
-      "enum": ["current", "stale", "superseded", "archived", "retracted"]
+      "enum": ["current", "stale", "superseded", "archived", "retracted", "unacquired"]
     },
     "source_type": {
       "enum": [
@@ -38,6 +52,7 @@
     },
     "publisher": {"type": "string", "default": ""},
     "canonical_url": {"type": "string", "format": "uri", "default": ""},
+    "source_class": {"type": "string", "minLength": 1, "maxLength": 64},
     "alternate_urls": {
       "type": "array",
       "items": {"type": "string", "format": "uri"}

@@ -6,10 +6,20 @@ import json
 import re
 import uuid
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from ..atomic import write_atomic
-from ..paths import RESEARCH_HANDOFFS_DIR
+from ..paths import RESEARCH_HANDOFFS_DIR, Workspace, active_workspace, resolve_workspace
+
+
+def _handoffs_dir(workspace: Workspace | Path | str | None = None) -> Path:
+    selected = workspace if workspace is not None else active_workspace()
+    return (
+        RESEARCH_HANDOFFS_DIR
+        if selected is None
+        else resolve_workspace(selected).research_path("handoffs")
+    )
 
 
 def _now() -> str:
@@ -27,9 +37,11 @@ def write_handoff(
     *,
     context: dict[str, Any] | None = None,
     artifacts: list[str] | None = None,
+    workspace: Workspace | Path | str | None = None,
 ) -> str:
     """Create a new handoff record."""
-    RESEARCH_HANDOFFS_DIR.mkdir(parents=True, exist_ok=True)
+    handoffs_dir = _handoffs_dir(workspace)
+    handoffs_dir.mkdir(parents=True, exist_ok=True)
     hid = _uuid7("hnd")
     record: dict[str, Any] = {
         "id": hid,
@@ -44,13 +56,13 @@ def write_handoff(
         record["context"] = context
     if artifacts:
         record["artifacts"] = artifacts
-    write_atomic(RESEARCH_HANDOFFS_DIR.joinpath(f"{hid}.json"), record, schema_name="handoff")
+    write_atomic(handoffs_dir.joinpath(f"{hid}.json"), record, schema_name="handoff")
     return hid
 
 
-def accept_handoff(handoff_id: str) -> None:
+def accept_handoff(handoff_id: str, *, workspace: Workspace | Path | str | None = None) -> None:
     _validate_handoff_id(handoff_id)
-    p = RESEARCH_HANDOFFS_DIR / f"{handoff_id}.json"
+    p = _handoffs_dir(workspace) / f"{handoff_id}.json"
     rec = json.loads(p.read_text())
     if rec.get("id") != handoff_id:
         raise ValueError(f"handoff identity mismatch: {handoff_id!r}")
@@ -59,9 +71,14 @@ def accept_handoff(handoff_id: str) -> None:
     write_atomic(p, rec, schema_name="handoff")
 
 
-def reject_handoff(handoff_id: str, reason: str) -> None:
+def reject_handoff(
+    handoff_id: str,
+    reason: str,
+    *,
+    workspace: Workspace | Path | str | None = None,
+) -> None:
     _validate_handoff_id(handoff_id)
-    p = RESEARCH_HANDOFFS_DIR / f"{handoff_id}.json"
+    p = _handoffs_dir(workspace) / f"{handoff_id}.json"
     rec = json.loads(p.read_text())
     if rec.get("id") != handoff_id:
         raise ValueError(f"handoff identity mismatch: {handoff_id!r}")

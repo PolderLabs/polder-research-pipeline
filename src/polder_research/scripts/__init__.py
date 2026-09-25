@@ -42,6 +42,10 @@ def main(argv: list[str] | None = None) -> int:
     fix.add_argument("--apply", action="store_true")
     intake = sub.add_parser("intake-register", help="Register a raw intake item")
     intake.add_argument("--file")
+    intake.add_argument("--manifest", help="Bulk registration manifest (.csv or .jsonl)")
+    intake.add_argument(
+        "--dry-run", action="store_true", help="Show a bulk intake plan without writing"
+    )
     intake.add_argument("--kind", default="other")
     intake.add_argument("--owner", default="agent")
     intake.add_argument("--status", default="new")
@@ -158,6 +162,8 @@ def main(argv: list[str] | None = None) -> int:
             set_file=args.set_file,
             list_=args.list,
             repository_root=root,
+            manifest=args.manifest,
+            dry_run=args.dry_run,
         )
     if args.cmd == "new-note":
         return cmd_new_note(
