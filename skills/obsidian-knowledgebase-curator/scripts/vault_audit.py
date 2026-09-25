@@ -35,10 +35,10 @@ from polder_research.paths import (
     DURABLE_EXCLUDE,
     NO_ORPHAN_CHECK,
     SKIP_PARTS,
-    SKIP_PREFIXES,
     VALID_STATUS,
     VALID_TYPE,
     VAULT_DIRS,
+    in_skipped_prefix,
 )
 from polder_research.paths import (
     REPO_ROOT as CANONICAL_REPO_ROOT,
@@ -102,10 +102,7 @@ def vault_md_files(repo_root: Path | str | None = None):
         rel = p.relative_to(root)
         if any(part in SKIP_PARTS for part in rel.parts):
             continue
-        rel_str = str(rel)
-        if rel_str != "knowledge-base/90-inbox/raw/README.md" and any(
-            rel_str == prefix or rel_str.startswith(f"{prefix}/") for prefix in SKIP_PREFIXES
-        ):
+        if in_skipped_prefix(rel):
             continue
         if _is_vault_path(rel):
             out.append(p)

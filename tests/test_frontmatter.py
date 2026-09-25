@@ -73,15 +73,27 @@ def test_infer_type_from_domain(tmp_path: Path, monkeypatch):
     )
 
 
-def test_skip_prefixes_shared_with_paths():
-    """frontmatter_fix must exclude the same drop-zone paths as vault_audit.
+def test_apply_skips_the_raw_drop_zone_and_fixes_ordinary_notes(tmp_path: Path, monkeypatch):
+    """A dropped original must survive --apply; a normal note must be fixed.
 
-    Otherwise `--apply` prepends frontmatter to an unmodified original dropped
-    in 90-inbox/raw, changing the bytes its content_sha256 attests to.
+    Behavior rather than a constant-identity check: frontmatter_fix now calls
+    in_skipped_prefix() and no longer re-exports SKIP_PREFIXES, and ruff
+    correctly strips an import it does not use. The property that matters is
+    that --apply leaves the bytes a registered source's content_sha256 attests
+    to untouched, while still repairing notes that are missing frontmatter.
     """
-    from polder_research import paths as paths_mod
+    raw = tmp_path / "knowledge-base" / "90-inbox" / "raw"
+    raw.mkdir(parents=True)
+    drop = raw / "source.md"
+    drop.write_text("# Original\n\nVerbatim, no frontmatter.\n", encoding="utf-8")
+    before = drop.read_bytes()
 
-    assert _mod.SKIP_PREFIXES == paths_mod.SKIP_PREFIXES, (
-        "frontmatter_fix.SKIP_PREFIXES must match polder_research.paths.SKIP_PREFIXES"
-    )
-    assert "knowledge-base/90-inbox/raw" in _mod.SKIP_PREFIXES
+    note = tmp_path / "knowledge-base" / "00-home" / "plain.md"
+    note.parent.mkdir(parents=True)
+    note.write_text("# Plain note\n", encoding="utf-8")
+
+    monkeypatch.setattr(_mod, "REPO_ROOT", tmp_path)
+    assert _mod.main(argv=["--apply"]) == 0
+
+    assert drop.read_bytes() == before, "a dropped original was modified"
+    assert note.read_text(encoding="utf-8").startswith("---\n")
