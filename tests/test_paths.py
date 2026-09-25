@@ -208,33 +208,39 @@ def test_skipped_prefix_does_not_catch_a_sibling_directory() -> None:
     assert in_skipped_prefix(Path("knowledge-base/90-inbox/manifest.md")) is False
 
 
-def test_workspace_script_prefers_checkout(tmp_path: Path) -> None:
-    """A repository shipping the script owns the run, so edits take effect."""
-    from polder_research.paths import workspace_script
-
+def test_cli_script_uses_its_source_checkout(tmp_path: Path, monkeypatch) -> None:
+    """Development uses the source copy owned by this package checkout."""
+    monkeypatch.setattr(paths_module, "REPO_ROOT", tmp_path)
+    (tmp_path / "pyproject.toml").touch()
+    (tmp_path / "src/polder_research").mkdir(parents=True)
     script = tmp_path / "skills/obsidian-knowledgebase-curator/scripts/vault_audit.py"
     script.parent.mkdir(parents=True)
     script.write_text("# checkout copy", encoding="utf-8")
 
-    assert (
-        workspace_script("skills/obsidian-knowledgebase-curator/scripts/vault_audit.py", tmp_path)
-        == script
+    assert paths_module.cli_script("vault_audit.py") == script
+
+
+def test_cli_script_ignores_target_workspace_code(tmp_path: Path, monkeypatch) -> None:
+    """A workspace is data and cannot replace the installed CLI script."""
+    from polder_research.paths import BUNDLED_SKILLS_DIR
+
+    package_root = tmp_path / "installed-package"
+    package_root.mkdir()
+    monkeypatch.setattr(paths_module, "REPO_ROOT", package_root)
+    workspace_script = (
+        tmp_path / "workspace/skills/obsidian-knowledgebase-curator/scripts/vault_audit.py"
     )
+    workspace_script.parent.mkdir(parents=True)
+    workspace_script.write_text("raise RuntimeError('untrusted workspace code')", encoding="utf-8")
+
+    assert paths_module.cli_script("vault_audit.py") == BUNDLED_SKILLS_DIR / "vault_audit.py"
 
 
-def test_workspace_script_falls_back_to_bundled(tmp_path: Path) -> None:
-    """Without a checkout the resolver must point at the packaged location.
+def test_cli_script_rejects_unknown_names() -> None:
+    import pytest
 
-    Whether that file exists is verified by the wheel-smoke CI job, which
-    installs the built wheel; a source checkout has no _bundled directory.
-    """
-    from polder_research.paths import BUNDLED_SKILLS_DIR, workspace_script
-
-    resolved = workspace_script(
-        "skills/obsidian-knowledgebase-curator/scripts/vault_audit.py", tmp_path
-    )
-
-    assert resolved == BUNDLED_SKILLS_DIR / "vault_audit.py"
+    with pytest.raises(ValueError, match="unsupported CLI script"):
+        paths_module.cli_script("intake_register.py")
 
 
 def test_bundled_dir_sits_beside_this_module() -> None:

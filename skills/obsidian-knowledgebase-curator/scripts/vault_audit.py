@@ -43,7 +43,7 @@ from polder_research.paths import (
 from polder_research.paths import (
     REPO_ROOT as CANONICAL_REPO_ROOT,
 )
-from polder_research.schemas import registry as schema_registry
+from polder_research.schemas import registry_for_root
 
 # Retained as the script's default target so existing callers can override it.
 REPO_ROOT = CANONICAL_REPO_ROOT
@@ -279,7 +279,7 @@ def audit(repo_root: Path | str | None = None):
         "wiki_bad": wiki_bad,
     }
 
-    frontmatter_registry = schema_registry()
+    frontmatter_registry = registry_for_root(root, allow_package_fallback=True)
     for path in files:
         rel = str(path.relative_to(root))
         try:

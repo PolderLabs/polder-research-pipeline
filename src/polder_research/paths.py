@@ -10,23 +10,31 @@ from pathlib import Path
 
 REPO_ROOT: Path = Path(__file__).resolve().parents[2]
 
-# Scripts the CLI loads by path. A wheel install carries these under the
-# package instead of beside it, mirroring the bundled canonical schemas.
+# Scripts loaded by the CLI. Wheel installs carry these under the package;
+# source checkouts use their own files during development.
 BUNDLED_SKILLS_DIR: Path = Path(__file__).resolve().parent / "_bundled" / "skills"
 
+_CURATOR_SCRIPTS = Path("skills/obsidian-knowledgebase-curator/scripts")
+_CLI_SCRIPT_NAMES = frozenset({"vault_audit.py", "frontmatter_fix.py"})
 
-def workspace_script(relative: str, repository_root: Path | str) -> Path:
-    """Resolve a workspace script, preferring an editable checkout's copy.
 
-    A repository that ships the script owns the run, so local edits take
-    effect. Otherwise fall back to the packaged copy; without this a
-    non-editable install cannot run ``vault-audit`` or ``frontmatter-fix``
-    at all, because ``skills/`` is not part of the wheel.
+def cli_script(name: str) -> Path:
+    """Resolve a trusted package script or its source-checkout copy.
+
+    Only use repository files when this package is running from its own source
+    checkout. A command's target workspace is data, not a source of executable
+    code; wheel installs always use the copies shipped with the package.
     """
-    candidate = Path(repository_root) / relative
-    if candidate.is_file():
-        return candidate
-    return BUNDLED_SKILLS_DIR / Path(relative).name
+    if name not in _CLI_SCRIPT_NAMES:
+        raise ValueError(f"unsupported CLI script: {name}")
+
+    checkout = REPO_ROOT / _CURATOR_SCRIPTS / name
+    source_checkout = (REPO_ROOT / "pyproject.toml").is_file() and (
+        REPO_ROOT / "src" / "polder_research"
+    ).is_dir()
+    if source_checkout and checkout.is_file():
+        return checkout
+    return BUNDLED_SKILLS_DIR / name
 
 
 def default_workspace_root() -> Path:

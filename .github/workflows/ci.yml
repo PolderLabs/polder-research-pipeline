@@ -100,9 +100,16 @@ jobs:
           cp -r "$GITHUB_WORKSPACE/schemas" "$bare/schemas"
           mkdir -p "$bare/knowledge-base"
           cp "$GITHUB_WORKSPACE/knowledge-base/research.config.yaml" "$bare/knowledge-base/"
+          mkdir -p "$bare/knowledge-base/90-inbox/processing"
+          printf '# Wheel smoke fixture\n' > "$bare/knowledge-base/90-inbox/processing/wheel-smoke.md"
           test ! -d "$bare/skills"
+          if ( cd "$bare" && env -u PYTHONPATH "$environment/bin/polder-research" vault-audit ); then
+            echo "vault-audit unexpectedly accepted invalid frontmatter" >&2
+            exit 1
+          fi
+          ( cd "$bare" && env -u PYTHONPATH "$environment/bin/polder-research" frontmatter-fix --apply )
+          grep -q '^type: inbox$' "$bare/knowledge-base/90-inbox/processing/wheel-smoke.md"
           ( cd "$bare" && env -u PYTHONPATH "$environment/bin/polder-research" vault-audit )
-          ( cd "$bare" && env -u PYTHONPATH "$environment/bin/polder-research" frontmatter-fix )
 
   vault-audit:
     name: Vault audit (clean = exit 0)

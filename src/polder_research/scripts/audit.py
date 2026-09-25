@@ -6,18 +6,17 @@ import importlib.util
 import sys
 from pathlib import Path
 
-from ..paths import BUNDLED_SKILLS_DIR, workspace_script
+from ..paths import BUNDLED_SKILLS_DIR, REPO_ROOT, cli_script
 
 
 def cmd_vault_audit(repository_root: Path) -> int:
     """Run vault_audit. Exit code 0 = clean."""
-    script = workspace_script(
-        "skills/obsidian-knowledgebase-curator/scripts/vault_audit.py", repository_root
-    )
+    script = cli_script("vault_audit.py")
     if not script.is_file():
+        checkout_script = REPO_ROOT / "skills/obsidian-knowledgebase-curator/scripts/vault_audit.py"
         print(
-            f"error: vault-audit script not found: looked in {repository_root} "
-            f"and {BUNDLED_SKILLS_DIR}",
+            "error: vault-audit script not found; expected package copy at "
+            f"{BUNDLED_SKILLS_DIR / 'vault_audit.py'} or source-checkout copy at {checkout_script}",
             file=sys.stderr,
         )
         return 2

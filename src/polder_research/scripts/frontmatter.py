@@ -6,17 +6,19 @@ import importlib.util
 import sys
 from pathlib import Path
 
-from ..paths import BUNDLED_SKILLS_DIR, workspace_script
+from ..paths import BUNDLED_SKILLS_DIR, REPO_ROOT, cli_script
 
 
 def cmd_frontmatter_fix(apply: bool = False, repository_root: Path | None = None) -> int:
     root = repository_root or Path.cwd()
-    script = workspace_script(
-        "skills/obsidian-knowledgebase-curator/scripts/frontmatter_fix.py", root
-    )
+    script = cli_script("frontmatter_fix.py")
     if not script.is_file():
+        checkout_script = (
+            REPO_ROOT / "skills/obsidian-knowledgebase-curator/scripts/frontmatter_fix.py"
+        )
         print(
-            f"error: frontmatter-fix script not found: looked in {root} and {BUNDLED_SKILLS_DIR}",
+            "error: frontmatter-fix script not found; expected package copy at "
+            f"{BUNDLED_SKILLS_DIR / 'frontmatter_fix.py'} or source-checkout copy at {checkout_script}",
             file=sys.stderr,
         )
         return 2

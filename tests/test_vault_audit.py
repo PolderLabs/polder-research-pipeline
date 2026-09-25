@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -175,6 +176,31 @@ def test_vault_audit_explicit_root_does_not_mutate_module_default(tmp_vault: Pat
 
     assert isinstance(result["frontmatter_issues"], list)
     assert _vault_audit.REPO_ROOT == _REPO_ROOT
+
+
+def test_vault_audit_uses_workspace_frontmatter_schema(tmp_path: Path):
+    _write_frontmatter_schema(tmp_path)
+    schema_path = tmp_path / "schemas/frontmatter.schema.json"
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    schema["required"].append("workspace_marker")
+    schema["properties"]["workspace_marker"] = {"const": "workspace"}
+    schema_path.write_text(json.dumps(schema), encoding="utf-8")
+
+    inbox = tmp_path / "knowledge-base/90-inbox/processing"
+    inbox.mkdir(parents=True)
+    note = inbox / "workspace-schema.md"
+    note.write_text(
+        "---\ntype: inbox\nstatus: current\ntags:\n  - test\n---\n# Workspace schema\n",
+        encoding="utf-8",
+    )
+
+    result = _vault_audit.audit(tmp_path)
+
+    assert any(
+        "knowledge-base/90-inbox/processing/workspace-schema.md" in issue
+        and "canonical frontmatter schema rejected" in issue
+        for issue in result["frontmatter_issues"]
+    )
 
 
 def test_raw_drop_zone_excludes_dropped_markdown(tmp_path: Path, monkeypatch):
