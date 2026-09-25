@@ -208,7 +208,7 @@ def run_decision(
         }
     )
 
-    registry = registry_for_root(root)
+    registry = registry_for_root(root, allow_package_fallback=True)
     attempts_dir = root / ".research" / "decision_attempts"
     prior: list[dict[str, Any]] = []
     for path in sorted(attempts_dir.glob("dpa_*.json")) if attempts_dir.exists() else []:

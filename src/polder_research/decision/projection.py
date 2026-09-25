@@ -25,7 +25,7 @@ def build_effective_projection(repository_root: str | Path) -> dict[str, Any]:
     change effective metadata through this projection.
     """
     root = Path(repository_root)
-    registry = registry_for_root(root)
+    registry = registry_for_root(root, allow_package_fallback=True)
     classifications: dict[str, dict[str, Any]] = {}
     directory = root / ".research" / "classifications"
     for path in sorted(directory.glob("cls_*.json")) if directory.exists() else []:

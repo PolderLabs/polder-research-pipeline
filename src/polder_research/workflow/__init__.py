@@ -32,7 +32,7 @@ from ..paths import (
     RESEARCH_TASKS_DIR,
     VAULT_ROOT,
 )
-from ..schemas import SchemaRegistry
+from ..schemas import registry_for_root
 
 _RECORD_TYPES = {
     "events": ("events", "event"),
@@ -116,7 +116,7 @@ def _read_records(
     records: dict[str, list[dict[str, Any]]] = {}
     malformed: list[dict[str, str]] = []
     dirs = _collection_dirs(root)
-    schema_registry = SchemaRegistry(root or REPO_ROOT)
+    schema_registry = registry_for_root(root or REPO_ROOT, allow_package_fallback=True)
 
     for collection, (directory, schema_name) in _RECORD_TYPES.items():
         valid: list[dict[str, Any]] = []

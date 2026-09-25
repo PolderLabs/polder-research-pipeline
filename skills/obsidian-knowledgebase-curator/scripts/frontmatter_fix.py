@@ -33,14 +33,15 @@ def parse_frontmatter(text):
     return m.group(1) if m else None
 
 
-def infer_type(path: Path) -> str:
+def infer_type(path: Path, repository_root: Path | None = None) -> str:
     """Return the conventional type for ``path`` based on its vault domain.
 
     Works both before the vault move (domain is the first path segment)
     and after (domain is the second segment under ``knowledge-base/``).
     """
+    root = repository_root or REPO_ROOT
     try:
-        parts = path.relative_to(REPO_ROOT).parts
+        parts = path.relative_to(root).parts
     except ValueError:
         parts = path.parts
     if not parts:
@@ -81,21 +82,23 @@ def needs_frontmatter(path: Path) -> bool:
     return parse_frontmatter(text) is None
 
 
-def build_minimal_frontmatter(path: Path, today: str) -> str:
-    inferred = infer_type(path) or "guide"
+def build_minimal_frontmatter(path: Path, today: str, repository_root: Path | None = None) -> str:
+    inferred = infer_type(path, repository_root) or "guide"
     return fm_block(inferred, today)
 
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--root", type=Path, default=None, help="Research workspace root")
     ap.add_argument("--apply", action="store_true", help="write changes")
     args = ap.parse_args(argv)
+    root = args.root.resolve() if args.root is not None else REPO_ROOT
 
     today = datetime.date.today().isoformat()
     pending = []
 
-    for p in REPO_ROOT.rglob("*.md"):
-        rel = p.relative_to(REPO_ROOT)
+    for p in root.rglob("*.md"):
+        rel = p.relative_to(root)
         if any(part in SKIP_PARTS for part in rel.parts):
             continue
         # The vault root is the first path segment (``knowledge-base``);
@@ -116,7 +119,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.apply:
         print(f"would fill frontmatter in {len(pending)} note(s) (dry run):")
         for p in pending[:20]:
-            print(f"  {p.relative_to(REPO_ROOT)}")
+            print(f"  {p.relative_to(root)}")
         if len(pending) > 20:
             print(f"  ... and {len(pending) - 20} more")
         return 0
@@ -127,7 +130,7 @@ def main(argv: list[str] | None = None) -> int:
             body = p.read_text(encoding="utf-8", errors="replace")
         except Exception:
             continue
-        frontmatter = build_minimal_frontmatter(p, today)
+        frontmatter = build_minimal_frontmatter(p, today, root)
         new_text = frontmatter + "\n" + body.lstrip()
         p.write_text(new_text, encoding="utf-8")
         written += 1
