@@ -38,6 +38,7 @@ from polder_research.paths import (
     VALID_STATUS,
     VALID_TYPE,
     VAULT_DIRS,
+    in_skipped_prefix,
 )
 from polder_research.paths import (
     REPO_ROOT as CANONICAL_REPO_ROOT,
@@ -100,6 +101,8 @@ def vault_md_files(repo_root: Path | str | None = None):
     for p in root.rglob("*.md"):
         rel = p.relative_to(root)
         if any(part in SKIP_PARTS for part in rel.parts):
+            continue
+        if in_skipped_prefix(rel):
             continue
         if _is_vault_path(rel):
             out.append(p)

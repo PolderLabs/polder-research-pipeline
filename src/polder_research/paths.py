@@ -119,6 +119,35 @@ NO_ORPHAN_CHECK: frozenset[str] = frozenset(
     {"knowledge-base/90-inbox", "knowledge-base/99-templates"}
 )
 
+# The raw drop zone holds unmodified originals: a dropped .md is a *source
+# artifact*, not a vault note. Requiring frontmatter there would force edits
+# to originals and break the content-hash provenance of registered sources,
+# so it is excluded from the vault graph by path (see 90-inbox/raw/README.md,
+# which invites small text files to be dropped verbatim).
+SKIP_PREFIXES: frozenset[str] = frozenset({"knowledge-base/90-inbox/raw"})
+
+# The drop zone's own README is a vault note: 90-inbox/README.md links to it,
+# so excluding the whole directory would turn that link into a broken one.
+SKIP_PREFIX_KEEP: frozenset[str] = frozenset({"knowledge-base/90-inbox/raw/README.md"})
+
+
+def in_skipped_prefix(relative: Path | str) -> bool:
+    """Return True when a vault-relative path lives in an excluded prefix.
+
+    Accepts a string as well as a Path so a Windows-shaped path can be
+    exercised from any host: ``Path(PureWindowsPath(x))`` collapses to a
+    native PosixPath on Linux, which would hide the very bug this guards.
+
+    Compared via ``as_posix()`` because ``SKIP_PREFIXES`` is slash-delimited
+    and ``str(Path)`` yields backslashes on Windows, where the comparison
+    would silently never match and the exclusion would not apply.
+    """
+    posix = (relative if isinstance(relative, str) else str(relative)).replace("\\", "/")
+    if posix in SKIP_PREFIX_KEEP:
+        return False
+    return any(posix == prefix or posix.startswith(f"{prefix}/") for prefix in SKIP_PREFIXES)
+
+
 # Root-level files excluded from orphan check — the navigation durable pages.
 DURABLE_EXCLUDE: frozenset[str] = frozenset(
     {"AGENTS.md", "CLAUDE.md", "README.md", "knowledge-base/AUDIT.md", "knowledge-base/index.md"}

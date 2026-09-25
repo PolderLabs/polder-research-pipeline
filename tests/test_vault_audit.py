@@ -175,3 +175,26 @@ def test_vault_audit_explicit_root_does_not_mutate_module_default(tmp_vault: Pat
 
     assert isinstance(result["frontmatter_issues"], list)
     assert _vault_audit.REPO_ROOT == _REPO_ROOT
+
+
+def test_raw_drop_zone_excludes_dropped_markdown(tmp_path: Path, monkeypatch):
+    """A dropped .md in the raw drop zone is a source artifact, not a note.
+
+    90-inbox/raw/README.md invites small text files to be dropped verbatim, so
+    the audit must not require frontmatter there. It must also keep that
+    README itself in the graph, because 90-inbox/README.md links to it.
+    """
+    vault = tmp_path / "knowledge-base"
+    raw = vault / "90-inbox" / "raw"
+    raw.mkdir(parents=True)
+    (raw / "dropped-source.md").write_text("# Original\n\nNo frontmatter.\n", encoding="utf-8")
+    (raw / "README.md").write_text(
+        "---\ntype: inbox\nstatus: current\ntags:\n  - intake\n---\n\n# Drop Zone\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(_vault_audit, "REPO_ROOT", tmp_path)
+
+    scoped = {str(p.relative_to(tmp_path)) for p in _vault_audit.vault_md_files(tmp_path)}
+
+    assert "knowledge-base/90-inbox/raw/dropped-source.md" not in scoped
+    assert "knowledge-base/90-inbox/raw/README.md" in scoped

@@ -167,3 +167,41 @@ def test_no_orphan_check_set_is_frozenset():
 def test_canonical_paths_exist():
     assert SCHEMAS_DIR.is_dir()
     assert AGENTS_DIR.is_dir()
+
+
+def test_skipped_prefix_matches_windows_separators() -> None:
+    """str(Path) yields backslashes on Windows; the prefix rule must not care.
+
+    The exclusion silently failed there, so `frontmatter_fix --apply` could
+    rewrite a registered original. Assert against a backslash path directly
+    so this fails on any host platform, not only on Windows.
+    """
+    from polder_research.paths import in_skipped_prefix
+
+    # A raw backslash string: on Windows this is the native form, and on any
+    # other host it still must match, or the exclusion silently lapses.
+    windows_style = "knowledge-base\\90-inbox\\raw\\source.md"
+    assert in_skipped_prefix(windows_style) is True
+
+
+def test_skipped_prefix_is_separator_independent() -> None:
+    from polder_research.paths import in_skipped_prefix
+
+    posix = "knowledge-base/90-inbox/raw/source.md"
+    windows = "knowledge-base\\90-inbox\\raw\\source.md"
+    assert in_skipped_prefix(posix) is in_skipped_prefix(windows) is True
+
+
+def test_skipped_prefix_keeps_the_drop_zone_readme() -> None:
+    """90-inbox/README.md links to it, so excluding it breaks that link."""
+    from polder_research.paths import in_skipped_prefix
+
+    assert in_skipped_prefix(Path("knowledge-base/90-inbox/raw/README.md")) is False
+
+
+def test_skipped_prefix_does_not_catch_a_sibling_directory() -> None:
+    """A prefix rule must not swallow `raw-notes/`."""
+    from polder_research.paths import in_skipped_prefix
+
+    assert in_skipped_prefix(Path("knowledge-base/90-inbox/raw-notes/note.md")) is False
+    assert in_skipped_prefix(Path("knowledge-base/90-inbox/manifest.md")) is False
