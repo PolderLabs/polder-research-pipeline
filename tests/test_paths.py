@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import polder_research.paths as paths_module
 from polder_research.paths import (
     AGENTS_DIR,
     DOMAIN_TYPE,
@@ -205,3 +206,45 @@ def test_skipped_prefix_does_not_catch_a_sibling_directory() -> None:
 
     assert in_skipped_prefix(Path("knowledge-base/90-inbox/raw-notes/note.md")) is False
     assert in_skipped_prefix(Path("knowledge-base/90-inbox/manifest.md")) is False
+
+
+def test_workspace_script_prefers_checkout(tmp_path: Path) -> None:
+    """A repository shipping the script owns the run, so edits take effect."""
+    from polder_research.paths import workspace_script
+
+    script = tmp_path / "skills/obsidian-knowledgebase-curator/scripts/vault_audit.py"
+    script.parent.mkdir(parents=True)
+    script.write_text("# checkout copy", encoding="utf-8")
+
+    assert (
+        workspace_script("skills/obsidian-knowledgebase-curator/scripts/vault_audit.py", tmp_path)
+        == script
+    )
+
+
+def test_workspace_script_falls_back_to_bundled(tmp_path: Path) -> None:
+    """Without a checkout the resolver must point at the packaged location.
+
+    Whether that file exists is verified by the wheel-smoke CI job, which
+    installs the built wheel; a source checkout has no _bundled directory.
+    """
+    from polder_research.paths import BUNDLED_SKILLS_DIR, workspace_script
+
+    resolved = workspace_script(
+        "skills/obsidian-knowledgebase-curator/scripts/vault_audit.py", tmp_path
+    )
+
+    assert resolved == BUNDLED_SKILLS_DIR / "vault_audit.py"
+
+
+def test_bundled_dir_sits_beside_this_module() -> None:
+    """A wrong parent level silently resolves outside the package.
+
+    REPO_ROOT is the checkout root in an editable install but site-packages
+    in a wheel install, so it cannot anchor this. The package directory can:
+    BUNDLED_SKILLS_DIR must live under the directory containing paths.py.
+    """
+    from polder_research.paths import BUNDLED_SKILLS_DIR
+
+    package_dir = Path(paths_module.__file__).resolve().parent
+    assert BUNDLED_SKILLS_DIR.parent.parent == package_dir

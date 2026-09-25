@@ -91,6 +91,18 @@ jobs:
           env -u PYTHONPATH "$environment/bin/polder-research" --root "$GITHUB_WORKSPACE" new-note --domain 02-research --title "Wheel smoke check" --dry-run
           env -u PYTHONPATH "$environment/bin/polder-research" --root "$GITHUB_WORKSPACE" vault-audit
           env -u PYTHONPATH "$environment/bin/polder-research" --root "$GITHUB_WORKSPACE" frontmatter-fix
+          # The commands above run against a checkout, which supplies skills/.
+          # A pip-installed user has no checkout, so prove the packaged copies
+          # resolve and both commands run against a workspace without skills/.
+          env -u PYTHONPATH "$environment/bin/python" -c "from polder_research.paths import BUNDLED_SKILLS_DIR as d; import sys; names=('vault_audit.py','frontmatter_fix.py'); missing=[n for n in names if not (d/n).is_file()]; assert not missing, (str(d), missing); print(f'Packaged skill scripts present: {d}')"
+          bare="$RUNNER_TEMP/polder-bare-workspace"
+          mkdir -p "$bare"
+          cp -r "$GITHUB_WORKSPACE/schemas" "$bare/schemas"
+          mkdir -p "$bare/knowledge-base"
+          cp "$GITHUB_WORKSPACE/knowledge-base/research.config.yaml" "$bare/knowledge-base/"
+          test ! -d "$bare/skills"
+          ( cd "$bare" && env -u PYTHONPATH "$environment/bin/polder-research" vault-audit )
+          ( cd "$bare" && env -u PYTHONPATH "$environment/bin/polder-research" frontmatter-fix )
 
   vault-audit:
     name: Vault audit (clean = exit 0)

@@ -33,5 +33,6 @@ packages = ["src/polder_research"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "schemas" = "polder_research/_bundled/schemas"
+"skills/obsidian-knowledgebase-curator/scripts" = "polder_research/_bundled/skills"
 
 [tool.pytest.ini_options]
