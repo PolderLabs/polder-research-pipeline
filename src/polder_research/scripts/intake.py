@@ -207,7 +207,13 @@ def _canonical_source_for_raw(
                 directory_name="sources",
                 repository_root=repo,
             )
-            if source.get("acquisition_status") == "unacquired":
+            if (
+                source.get(
+                    "acquisition_status",
+                    "unacquired" if source.get("source_status") == "unacquired" else "acquired",
+                )
+                == "unacquired"
+            ):
                 acquire_source(
                     duplicate,
                     raw_bytes,

@@ -251,7 +251,13 @@ def evaluate_maintenance(
     maintenance_thresholds = thresholds(root)
 
     acquired_sources = [
-        source for source in sources if source.get("acquisition_status") == "acquired"
+        source
+        for source in sources
+        if source.get(
+            "acquisition_status",
+            "unacquired" if source.get("source_status") == "unacquired" else "acquired",
+        )
+        == "acquired"
     ]
     fresh_sources = sum(
         1 for source in acquired_sources if source.get("source_status") == "current"
