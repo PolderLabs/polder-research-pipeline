@@ -748,6 +748,16 @@ def cmd_intake_register(
         if outcome != "—":
             cells[5] = outcome
 
+        intake_dir = repo / RESEARCH_INTAKE_DIR.relative_to(REPO_ROOT)
+        record_path = _find_intake_record_by_filename(intake_dir, set_file)
+        if record_path is None:
+            print(
+                f"error: no canonical intake record for '{set_file}'; "
+                f"register it first with --file '{set_file}'",
+                file=sys.stderr,
+            )
+            return 2
+
         lines = text.splitlines(True)
         data_count = 0
         for index, line in enumerate(lines):
@@ -758,17 +768,8 @@ def cmd_intake_register(
             ):
                 if data_count == data_index:
                     lines[index] = "| " + " | ".join(cells) + " |\n"
+                    _sync_intake_record_status(record_path, status=status, outcome=outcome)
                     manifest_path.write_text("".join(lines), encoding="utf-8")
-                    intake_dir = repo / RESEARCH_INTAKE_DIR.relative_to(REPO_ROOT)
-                    record_path = _find_intake_record_by_filename(intake_dir, set_file)
-                    if record_path is None:
-                        print(
-                            f"warning: no canonical intake record for '{set_file}'; "
-                            "the manifest row is authoritative for this item",
-                            file=sys.stderr,
-                        )
-                    else:
-                        _sync_intake_record_status(record_path, status=status, outcome=outcome)
                     print(f"updated {set_file} -> status={status}")
                     return 0
                 data_count += 1

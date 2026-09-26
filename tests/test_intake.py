@@ -180,8 +180,12 @@ class TestSetSyncsCanonicalRecord:
         )
         assert self._record(repository_root)["status"] == "new"
 
-    def test_set_without_record_warns_but_updates_manifest(self, tmp_path, capsys):
+    def test_set_without_record_fails_and_leaves_manifest_untouched(self, tmp_path, capsys):
+        """The record is authoritative, so a missing one is an error, not a warning."""
         repository_root = self._workspace(tmp_path, with_row=True)
+        before = (repository_root / "knowledge-base/90-inbox/manifest.md").read_text(
+            encoding="utf-8"
+        )
         assert (
             cmd_intake_register(
                 None,
@@ -189,14 +193,13 @@ class TestSetSyncsCanonicalRecord:
                 status="triaged",
                 repository_root=repository_root,
             )
-            == 0
+            == 2
         )
         assert "no canonical intake record" in capsys.readouterr().err
-        rows = parse_rows(
-            (repository_root / "knowledge-base/90-inbox/manifest.md").read_text(encoding="utf-8")
+        after = (repository_root / "knowledge-base/90-inbox/manifest.md").read_text(
+            encoding="utf-8"
         )
-        assert rows[0][3] == "triaged"
-        assert not (repository_root / ".research" / "intake").exists()
+        assert after == before
 
     def test_unknown_item_still_fails(self, tmp_path):
         repository_root = self._workspace(tmp_path, with_row=True)
