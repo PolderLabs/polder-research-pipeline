@@ -215,7 +215,7 @@ def run_decision(
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
             registry.validate_filename_identity("provider-attempt", path.name, record)
-        except OSError, UnicodeError, json.JSONDecodeError, SchemaError:
+        except (OSError, UnicodeError, json.JSONDecodeError, SchemaError):
             continue
         if record.get("request_fingerprint") == request_fingerprint:
             prior.append(record)
@@ -229,7 +229,7 @@ def run_decision(
                         registry.validate_filename_identity(
                             "decision-policy-result", policy_path.name, policy_record
                         )
-                    except OSError, UnicodeError, json.JSONDecodeError, SchemaError:
+                    except (OSError, UnicodeError, json.JSONDecodeError, SchemaError):
                         continue
                     if policy_record.get("attempt_id") == record["id"]:
                         return _attempt_model(record), _policy_model(policy_record)

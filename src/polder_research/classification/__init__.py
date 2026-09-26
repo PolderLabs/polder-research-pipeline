@@ -164,7 +164,7 @@ def _saved_api_key(key_env: str, repository_root: Path | None = None) -> str | N
     path = root / ".research" / "web-secrets.json"
     try:
         values = json.loads(path.read_text(encoding="utf-8"))
-    except OSError, json.JSONDecodeError:
+    except (OSError, json.JSONDecodeError):
         return None
     value = values.get(key_env) if isinstance(values, dict) else None
     return value if isinstance(value, str) and value else None
@@ -592,7 +592,7 @@ def _classify_text_unlocked(
     for path in directory.glob("cls_*.json"):
         try:
             old = json.loads(path.read_text(encoding="utf-8"))
-        except OSError, json.JSONDecodeError:
+        except (OSError, json.JSONDecodeError):
             continue
         if old.get("record_key") == record_key:
             prior_attempts.append(old)

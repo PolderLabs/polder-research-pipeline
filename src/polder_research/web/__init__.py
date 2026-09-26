@@ -88,7 +88,7 @@ def _secret_status(root: Path, config: dict[str, Any]) -> dict[str, Any]:
     try:
         values = json.loads(_secret_path(root).read_text(encoding="utf-8"))
         file_set = isinstance(values, dict) and bool(values.get(key_env))
-    except OSError, json.JSONDecodeError:
+    except (OSError, json.JSONDecodeError):
         pass
     return {
         "configured": env_set or file_set,
@@ -383,7 +383,7 @@ def _save_secret(root: Path, key_env: str, secret: str | None) -> None:
             current = json.loads(path.read_text(encoding="utf-8"))
             if isinstance(current, dict):
                 values = {str(k): str(v) for k, v in current.items()}
-        except OSError, json.JSONDecodeError:
+        except (OSError, json.JSONDecodeError):
             pass
         if secret:
             values[key_env] = secret
@@ -401,14 +401,14 @@ def _records(root: Path, collection: str, schema_name: str) -> tuple[list[dict[s
     directory = root / ".research" / collection
     try:
         validator = registry_for_root(root, allow_package_fallback=True).validator(schema_name)
-    except OSError, SchemaError, KeyError:
+    except (OSError, SchemaError, KeyError):
         return [], 0
     rows: list[dict[str, Any]] = []
     malformed = 0
     for path in sorted(directory.glob("*.json")) if directory.exists() else []:
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
-        except OSError, UnicodeError, json.JSONDecodeError:
+        except (OSError, UnicodeError, json.JSONDecodeError):
             malformed += 1
             continue
         if (
@@ -450,7 +450,7 @@ def _provider_health(root: Path, config: dict[str, Any]) -> dict[str, Any]:
         cuda_available = torch.cuda.is_available()
         if cuda_available:
             gpu_name = torch.cuda.get_device_name(0)
-    except ImportError, OSError, RuntimeError:
+    except (ImportError, OSError, RuntimeError):
         pass
     cached = False
     cache_path = None
@@ -461,7 +461,7 @@ def _provider_health(root: Path, config: dict[str, Any]) -> dict[str, Any]:
             cached_file = try_to_load_from_cache(_MODEL_REPOS[model], "model.safetensors")
             cached = isinstance(cached_file, str) and Path(cached_file).is_file()
             cache_path = str(constants.HF_HUB_CACHE) if cached else None
-        except ImportError, OSError, ValueError:
+        except (ImportError, OSError, ValueError):
             pass
     key = _secret_status(root, classification)
     with _DOWNLOAD_LOCK:
@@ -761,7 +761,7 @@ def _classification_preview(root: Path, kind: str, target_id: str) -> dict[str, 
         record = json.loads(
             (root / ".research" / directory / f"{target_id}.json").read_text(encoding="utf-8")
         )
-    except OSError, json.JSONDecodeError:
+    except (OSError, json.JSONDecodeError):
         return {
             "title": "Record unavailable",
             "text": "The linked local evidence record could not be read.",

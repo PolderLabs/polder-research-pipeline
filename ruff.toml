@@ -2,7 +2,7 @@
 # See pyproject.toml for full [tool.ruff] configuration
 
 line-length = 100
-target-version = "py314"
+target-version = "py313"
 
 [lint]
 select = [

@@ -85,7 +85,7 @@ def get_code_revision(cwd: str | Path | None = None) -> str:
         )
         if result.returncode == 0:
             return result.stdout.strip()
-    except OSError, subprocess.TimeoutExpired:
+    except (OSError, subprocess.TimeoutExpired):
         pass
     return "unknown"
 
