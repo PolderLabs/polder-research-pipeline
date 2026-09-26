@@ -32,7 +32,7 @@ def build_effective_projection(repository_root: str | Path) -> dict[str, Any]:
         try:
             record = json.loads(path.read_text(encoding="utf-8"))
             registry.validate_filename_identity("classification", path.name, record)
-        except OSError, UnicodeError, json.JSONDecodeError, SchemaError:
+        except (OSError, UnicodeError, json.JSONDecodeError, SchemaError):
             continue
         classifications[record["id"]] = record
     reviews, _ = review_records_audit(root)
@@ -49,7 +49,7 @@ def build_effective_projection(repository_root: str | Path) -> dict[str, Any]:
             try:
                 record = json.loads(path.read_text(encoding="utf-8"))
                 registry.validate_filename_identity(kind, path.name, record)
-            except OSError, UnicodeError, json.JSONDecodeError, SchemaError:
+            except (OSError, UnicodeError, json.JSONDecodeError, SchemaError):
                 continue
             values: dict[str, Any] = {}
             target_classifications = [

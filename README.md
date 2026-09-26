@@ -29,7 +29,7 @@ The systematic workflow is auditable within the local `.research/` store. Record
 
 Polder is a local-first research workspace, not a hosted service. The dashboard binds to loopback (`127.0.0.1`) and has no user authentication; do not expose it to a LAN, internet, or reverse proxy. Laya is the default classification provider and runs locally after installing its optional dependencies and model. TypeSafe/Jev sends classification input to the configured TypeSafe API only when explicitly selected and remotely approved. Review [Security](SECURITY.md) and the [provider guide](knowledge-base/03-system/classification-providers.md) before handling sensitive material.
 
-Python 3.14 or newer is required. Laya adds large machine-learning dependencies and model weights; it is optional. The current persistence model keeps authoritative `.research/` records local and gitignored.
+Python 3.14 or newer is required at runtime. CI also parses the source, scripts, and tests with Python 3.13 to catch syntax that a style-only change could accidentally narrow. That check does not make Python 3.13 a supported runtime. Laya adds large machine-learning dependencies and model weights; it is optional. The current persistence model keeps authoritative `.research/` records local and gitignored.
 
 For an NVIDIA GPU installation, install PyTorch's CUDA 13.0 wheel before the
 Laya extra. For example, on an RTX 3060:
