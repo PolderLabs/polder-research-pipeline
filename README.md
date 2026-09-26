@@ -79,7 +79,20 @@ cd ./my-research
 .venv/bin/polder-research serve
 ```
 
-The installer downloads a source archive, not a Git clone. It installs the entire repository file tree, replaces the repository-specific project brief with a blank research brief, builds a project-local virtual environment, and initializes a new local Git repository with a starter commit and no upstream remote. Research records, credentials, and generated state stay local in ignored `.research/`; application code, guides, agent roles, schemas, and commands remain in the workspace for users to customize. It refuses non-empty targets. Laya is installed by default as the primary classifier; the installer selects the CUDA 13.0 PyTorch wheel when it detects a working NVIDIA GPU and otherwise installs the CPU wheel. Use `--without-laya` to skip Laya and its machine-learning dependencies; `--with-laya` remains accepted for compatibility. Laya model weights are downloaded separately from the dashboard. Use `--with-dev` for pytest and Ruff. For reviewable installs, inspect `install.sh` and pin `--ref` to a release tag or commit. Set `POLDER_RESEARCH_REPOSITORY=OWNER/REPOSITORY` to install a fork. See [install.sh](install.sh) for all options.
+The installer downloads a source archive, not a Git clone. It installs the entire repository file tree, replaces the repository-specific project brief with a blank research brief, builds a project-local virtual environment, and initializes a new local Git repository with a starter commit and no upstream remote. Research records, credentials, and generated state stay local in ignored `.research/`; application code, guides, agent roles, schemas, and commands remain in the workspace for users to customize. It refuses non-empty targets. Laya is installed by default as the primary classifier; the installer selects the CUDA 13.0 PyTorch wheel when it detects a working NVIDIA GPU and otherwise installs the CPU wheel. Use `--without-laya` to skip Laya and its machine-learning dependencies; `--with-laya` remains accepted for compatibility. Laya model weights are downloaded separately from the dashboard. Use `--with-dev` for pytest and Ruff. Set `POLDER_RESEARCH_REPOSITORY=OWNER/REPOSITORY` to install a fork. See [install.sh](install.sh) for all options.
+
+By default, the installer resolves and downloads the latest published GitHub
+release. To install the newest in-progress code from the repository's `main`
+branch, opt in with `--unstable`:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/PolderLabs/polder-research-pipeline/main/install.sh \
+  | sh -s -- --unstable --target ./my-research-unstable
+```
+
+Use `--ref BRANCH_TAG_OR_COMMIT` to install a specific source snapshot instead. The
+`--unstable` and `--ref` options cannot be combined. When installing a fork,
+latest-release resolution uses that fork's GitHub releases.
 
 ## Local control panel
 

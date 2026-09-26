@@ -9,7 +9,7 @@
 # runtime currently consumes every setting; see README and AUDIT.md for limits.
 
 schema_version: 1
-pipeline_version: "0.1.0"
+pipeline_version: "0.2.0"
 
 # ─── Automatic classification ────────────────────────────────────────────────
 # Jev calls TypeSafe's hosted API. Laya runs in-process with local model

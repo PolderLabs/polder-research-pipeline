@@ -1,6 +1,6 @@
 [project]
 name = "polder-research-pipeline"
-version = "0.1.0"
+version = "0.2.0"
 description = "Repository-native framework for structured, agent-driven research."
 readme = "README.md"
 requires-python = ">=3.14"
