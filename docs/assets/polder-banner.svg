@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" role="img" aria-labelledby="title description">
+  <title id="title">Polder Research Pipeline</title>
+  <desc id="description">A map-like illustration of fields and waterways beside the words Source-backed research, ready to pick up again.</desc>
+  <rect width="1200" height="320" rx="18" fill="#19352c"/>
+
+  <g fill="none" stroke-linecap="round" stroke-linejoin="round" opacity=".78">
+    <path d="M648 0c-13 39-8 63 15 91s26 54 5 87-27 57-11 87 20 39 19 55" stroke="#86b89a" stroke-width="7"/>
+    <path d="M840 0c-20 35-23 65-5 94s18 53 1 82-25 61-8 91 18 37 15 53" stroke="#86b89a" stroke-width="7"/>
+    <path d="M1036 0c-8 31-4 58 16 84s25 54 8 84-23 59-6 88 17 42 11 64" stroke="#86b89a" stroke-width="7"/>
+    <path d="M1200 65c-42 13-83 13-121 0s-76-13-114 1-83 15-132 2-85-13-116 2" stroke="#86b89a" stroke-width="7"/>
+    <path d="M1200 218c-49-15-88-15-123-2s-79 16-124 2-83-14-123 2-78 17-121 2-75-14-105 0" stroke="#86b89a" stroke-width="7"/>
+  </g>
+
+  <g fill="#355b48" opacity=".96">
+    <path d="M674 18c45-13 91-11 136 5l8 38c-47 12-94 10-139-5z"/>
+    <path d="M683 110c41-14 87-14 137-1l-3 66c-47 13-91 10-137-5z"/>
+    <path d="M680 228c44-13 88-13 133 1l-3 58c-44 12-86 10-126-7z"/>
+    <path d="M866 18c49-11 99-8 151 8l12 34c-50 14-101 12-154-6z"/>
+    <path d="M858 111c51-13 105-11 164 7l-4 75c-53 10-105 6-158-13z"/>
+    <path d="M862 242c51-16 103-15 156 4l-11 47c-50 9-98 3-148-17z"/>
+    <path d="M1058 23c46-9 91-5 137 11l5 27c-47 12-92 10-137-8z"/>
+    <path d="M1054 116c48-12 96-9 144 9l2 68c-48 8-94 3-140-16z"/>
+    <path d="M1054 244c45-14 91-12 138 6l-8 42c-44 5-86-2-126-21z"/>
+  </g>
+
+  <g fill="#d5c18c" opacity=".9">
+    <circle cx="1115" cy="97" r="3"/><circle cx="1130" cy="103" r="2"/><circle cx="1101" cy="108" r="2"/>
+    <circle cx="911" cy="211" r="3"/><circle cx="927" cy="204" r="2"/><circle cx="938" cy="215" r="2"/>
+    <circle cx="747" cy="197" r="2"/><circle cx="760" cy="203" r="3"/><circle cx="775" cy="196" r="2"/>
+  </g>
+
+  <g fill="#e8eddf">
+    <text x="66" y="116" font-family="Georgia, 'Times New Roman', serif" font-size="55" letter-spacing="-.8">Polder</text>
+    <text x="68" y="158" font-family="Arial, Helvetica, sans-serif" font-size="19" letter-spacing="2.4" fill="#b8d2bd">RESEARCH PIPELINE</text>
+    <path d="M68 189h64" stroke="#d5c18c" stroke-width="3"/>
+    <text x="68" y="224" font-family="Arial, Helvetica, sans-serif" font-size="20">Source-backed research,</text>
+    <text x="68" y="253" font-family="Arial, Helvetica, sans-serif" font-size="20">ready to pick up again.</text>
+  </g>
+</svg>
