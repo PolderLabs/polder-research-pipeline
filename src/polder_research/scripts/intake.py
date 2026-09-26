@@ -343,6 +343,7 @@ def _parse_manifest_item(
         "source_type",
         "media_type",
         "retrieved_at",
+        "discovered_at",
         "tags",
         "notes",
         "source_class",
@@ -420,15 +421,25 @@ def _parse_manifest_item(
     if invalid_tag is not None:
         raise ValueError(f"row {row_number}: invalid tag '{invalid_tag}'")
 
-    retrieved_at = get_text("retrieved_at") or (
-        datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
+    retrieved_at = get_text("retrieved_at")
+    discovered_at = get_text("discovered_at")
+    if raw_url and retrieved_at and discovered_at:
+        raise ValueError(f"row {row_number}: use only one of retrieved_at or discovered_at")
+    recorded_at = (
+        (discovered_at if raw_url else retrieved_at)
+        or retrieved_at
+        or (
+            datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
+        )
     )
     try:
-        parsed_date = datetime.datetime.fromisoformat(retrieved_at.replace("Z", "+00:00"))
+        parsed_date = datetime.datetime.fromisoformat(recorded_at.replace("Z", "+00:00"))
     except ValueError as exc:
-        raise ValueError(f"row {row_number}: invalid retrieved_at '{retrieved_at}'") from exc
+        raise ValueError(
+            f"row {row_number}: invalid discovery/retrieval timestamp '{recorded_at}'"
+        ) from exc
     if parsed_date.tzinfo is None:
-        raise ValueError(f"row {row_number}: retrieved_at must include a timezone")
+        raise ValueError(f"row {row_number}: discovery/retrieval timestamp must include a timezone")
 
     probe: dict[str, object] = {
         "id": "src_00000000-0000-7000-8000-000000000001",
@@ -441,9 +452,9 @@ def _parse_manifest_item(
     }
     if raw_bytes is not None:
         probe["content_sha256"] = compute_content_hash(raw_bytes)
-        probe["retrieved_at"] = retrieved_at
+        probe["retrieved_at"] = recorded_at
     else:
-        probe["discovered_at"] = retrieved_at
+        probe["discovered_at"] = recorded_at
     if canonical_url:
         probe["canonical_url"] = canonical_url
     if source_class:
@@ -464,7 +475,7 @@ def _parse_manifest_item(
         local_file=local_file or None,
         source_class=source_class,
         tags=tags,
-        retrieved_at=retrieved_at,
+        retrieved_at=recorded_at,
         notes=get_text("notes"),
         raw_bytes=raw_bytes,
     )

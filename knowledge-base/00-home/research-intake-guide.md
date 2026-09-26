@@ -38,7 +38,8 @@ requires `title` and exactly one of `canonical_url` or `local_file`. A URL-only
 row is recorded with `acquisition_status: unacquired`; it has no content hash until you acquire the
 material. A local file must already be inside `90-inbox/raw/` and is hashed
 when registered. Optional columns are `source_type`, `media_type`,
-`retrieved_at`, `tags`, `source_class`, and `notes`. Tags can be separated by
+`retrieved_at` (acquired files) or `discovered_at` (URL references), `tags`,
+`source_class`, and `notes`. Tags can be separated by
 commas or semicolons in CSV. Types are checked against the source schema, and
 invalid rows stop the batch before records are written.
 
