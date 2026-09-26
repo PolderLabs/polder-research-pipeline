@@ -4,19 +4,26 @@
   "title": "Source record",
   "description": "One canonical record per source (AUDIT.md §11).",
   "type": "object",
-  "required": ["id", "schema_version", "source_status", "acquisition_status", "source_type", "media_type", "title"],
+  "required": ["id", "schema_version", "source_status", "source_type", "media_type", "title"],
   "allOf": [
     {
       "if": {
-        "properties": {"acquisition_status": {"const": "unacquired"}},
-        "required": ["acquisition_status"]
+        "anyOf": [
+          {
+            "properties": {"acquisition_status": {"const": "unacquired"}},
+            "required": ["acquisition_status"]
+          },
+          {
+            "properties": {"source_status": {"const": "unacquired"}},
+            "required": ["source_status"],
+            "not": {"required": ["acquisition_status"]}
+          }
+        ]
       },
       "then": {
-        "required": ["canonical_url", "discovered_at"],
-        "properties": {
-          "canonical_url": {"minLength": 1},
-          "discovered_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(Z|[+-][0-9]{2}:[0-9]{2})$"}
-        },
+        "required": ["canonical_url"],
+        "properties": {"canonical_url": {"minLength": 1}},
+        "anyOf": [{"required": ["discovered_at"]}, {"required": ["retrieved_at"]}],
         "not": {"required": ["content_sha256"]}
       },
       "else": {"required": ["content_sha256", "retrieved_at"]}
@@ -33,7 +40,7 @@
       "const": 1
     },
     "source_status": {
-      "enum": ["current", "stale", "superseded", "archived", "retracted"]
+      "enum": ["current", "stale", "superseded", "archived", "retracted", "unacquired"]
     },
     "acquisition_status": {"enum": ["acquired", "unacquired"]},
     "source_type": {

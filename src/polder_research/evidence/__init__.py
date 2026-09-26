@@ -107,6 +107,12 @@ def _now() -> str:
     return datetime.now(UTC).isoformat(timespec="seconds")
 
 
+def _source_is_acquired(source: dict[str, Any]) -> bool:
+    """Read modern acquisition state and legacy source_status records."""
+    default = "unacquired" if source.get("source_status") == "unacquired" else "acquired"
+    return source.get("acquisition_status", default) == "acquired"
+
+
 def _uuid7(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid7()}"
 
@@ -205,6 +211,9 @@ def register_source(
         raise ValueError("personal_data must be a boolean")
     if not isinstance(remote_processing_allowed, bool):
         raise ValueError("remote_processing_allowed must be a boolean")
+    if source_status == "unacquired":
+        source_status = "current"
+        acquisition_status = "unacquired"
     if source_status not in {"current", "stale", "superseded", "archived", "retracted"}:
         raise ValueError(f"invalid source_status: {source_status!r}")
     if acquisition_status not in {"acquired", "unacquired"}:
@@ -342,7 +351,7 @@ def acquire_source(
         directory_name="sources",
         repository_root=repository_root,
     )
-    if source.get("acquisition_status") != "unacquired":
+    if _source_is_acquired(source):
         raise ValueError(f"source is not unacquired: {source_id}")
     digest = compute_content_hash(raw_bytes)
     duplicate_id = find_duplicate_source(
@@ -424,7 +433,7 @@ def register_segment(
         directory_name="sources",
         repository_root=repository_root,
     )
-    if source_record.get("acquisition_status") == "unacquired":
+    if not _source_is_acquired(source_record):
         raise ValueError("cannot register a segment from an unacquired source")
     ensure_evidence_dirs(repository_root=repository_root)
     seg_id = _uuid7("seg")
@@ -494,7 +503,7 @@ def register_claim(
             directory_name="sources",
             repository_root=repository_root,
         )
-        if source_record.get("acquisition_status") == "unacquired":
+        if not _source_is_acquired(source_record):
             raise ValueError("claims require acquired sources")
         source_records.append(source_record)
     ensure_evidence_dirs(repository_root=repository_root)
@@ -745,7 +754,7 @@ def register_evidence_edge(
         directory_name="sources",
         repository_root=repository_root,
     )
-    if source_record.get("acquisition_status") == "unacquired":
+    if not _source_is_acquired(source_record):
         raise ValueError("evidence edges require acquired sources")
 
     edge_locator: dict[str, str]

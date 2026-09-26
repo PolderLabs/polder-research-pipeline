@@ -835,12 +835,22 @@ def _analytics(root: Path) -> dict[str, Any]:
             tag_counts.update(tag for tag in record.get("tags", []) if isinstance(tag, str))
     source_types = Counter(str(source.get("source_type", "unknown")) for source in sources)
     acquisition_statuses = Counter(
-        str(source.get("acquisition_status", "unknown")) for source in sources
+        str(
+            source.get(
+                "acquisition_status",
+                "unacquired" if source.get("source_status") == "unacquired" else "acquired",
+            )
+        )
+        for source in sources
     )
     source_statuses = Counter(
         str(source.get("source_status", "unknown"))
         for source in sources
-        if source.get("acquisition_status") == "acquired"
+        if source.get(
+            "acquisition_status",
+            "unacquired" if source.get("source_status") == "unacquired" else "acquired",
+        )
+        == "acquired"
     )
     reviews, review_errors = review_records_audit(root)
     malformed += len(review_errors)
@@ -856,7 +866,11 @@ def _analytics(root: Path) -> dict[str, Any]:
         *(
             (item, "sources", "retrieved_at")
             for item in sources
-            if item.get("acquisition_status", "acquired") == "acquired"
+            if item.get(
+                "acquisition_status",
+                "unacquired" if item.get("source_status") == "unacquired" else "acquired",
+            )
+            == "acquired"
         ),
         *((item, "classifications", "created_at") for item in classifications),
     ):

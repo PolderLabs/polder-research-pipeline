@@ -67,7 +67,6 @@ class TestSchemaRegistry:
                 "id": "src_00000000-0000-7000-8000-000000000001",
                 "schema_version": 1,
                 "source_status": "current",
-                "acquisition_status": "acquired",
                 "source_type": "paper",
                 "media_type": "pdf",
                 "title": "Test",
@@ -92,6 +91,21 @@ class TestSchemaRegistry:
                     "content_sha256": "a" * 64,
                 },
             )
+
+    def test_validate_legacy_unacquired_source(self):
+        validate(
+            "source",
+            {
+                "id": "src_00000000-0000-7000-8000-000000000001",
+                "schema_version": 1,
+                "source_status": "unacquired",
+                "source_type": "webpage",
+                "media_type": "html",
+                "title": "Reference",
+                "canonical_url": "https://example.com",
+                "retrieved_at": "2026-09-22T00:00:00Z",
+            },
+        )
 
     def test_validate_task_minimal(self):
         validate(
