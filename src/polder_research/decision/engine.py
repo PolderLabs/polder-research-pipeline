@@ -56,7 +56,7 @@ def _runtime(provider: str) -> dict[str, str | None]:
     try:
         polder = importlib.metadata.version("polder-research-pipeline")
     except importlib.metadata.PackageNotFoundError:
-        polder = "0.2.0"
+        polder = "0.3.0"
     return {
         "polder_version": polder,
         "provider_package": package,

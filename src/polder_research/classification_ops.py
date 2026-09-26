@@ -217,7 +217,7 @@ def _replay_manifest(config: dict[str, Any], root: Path) -> dict[str, Any]:
     try:
         polder_version = importlib.metadata.version("polder-research-pipeline")
     except importlib.metadata.PackageNotFoundError:
-        polder_version = "0.2.0"
+        polder_version = "0.3.0"
     runtime: dict[str, str | None] = {"polder_version": polder_version}
     for _provider, package in providers.items():
         if package:
