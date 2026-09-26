@@ -71,6 +71,18 @@ _MEDIA_TYPES = frozenset(
 )
 _TAG_PATTERN = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
+_SEPARATOR_ROW = re.compile(r"^\|(?:\|?[-: ]+)+\|$")
+
+
+def _is_separator_row(line: str) -> bool:
+    """Return True for a Markdown table separator row.
+
+    Readers and writers must agree on this test. A reader that skips the
+    separator while a writer counts it as data shifts every data row by one
+    and makes an in-place update land on the wrong line.
+    """
+    return bool(_SEPARATOR_ROW.match(line.strip()))
+
 
 def parse_rows(text: str) -> list[list[str]]:
     """Parse manifest table data rows, skipping header and separator rows."""
@@ -78,8 +90,7 @@ def parse_rows(text: str) -> list[list[str]]:
     for line in text.splitlines():
         if not line.startswith("|"):
             continue
-        stripped = line.strip()
-        if re.match(r"^\|(?:\|?[-: ]+)+\|$", stripped):
+        if _is_separator_row(line):
             continue
         cells = [cell.strip() for cell in line.strip("|").split("|")]
         if cells and cells[0] not in ("Item", "Column"):
@@ -763,7 +774,7 @@ def cmd_intake_register(
         for index, line in enumerate(lines):
             if (
                 line.startswith("|")
-                and not re.match(r"^\|[\s\-]+\|$", line)
+                and not _is_separator_row(line)
                 and not line.startswith("| Item |")
             ):
                 if data_count == data_index:

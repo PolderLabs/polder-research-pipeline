@@ -6,6 +6,8 @@ import json
 import re
 from pathlib import Path
 
+import pytest
+
 from polder_research.scripts.intake import (
     VALID_KIND,
     VALID_STATUS,
@@ -209,3 +211,67 @@ class TestSetSyncsCanonicalRecord:
             )
             == 2
         )
+
+
+class TestSetUpdatesTheIntendedRow:
+    """``--set`` must rewrite the row it names, not a neighbouring line.
+
+    ``parse_rows`` excluded the table separator while the writer counted it as
+    a data row, so every in-place update was off by one: the separator was
+    overwritten by a stray data row and the real row kept its old status.
+    """
+
+    @staticmethod
+    def _manifest(tmp_path: Path) -> Path:
+        """Build a three-row queue, registering each item so `--set` finds its record."""
+        inbox_dir = tmp_path / "knowledge-base" / "90-inbox"
+        raw_dir = inbox_dir / "raw"
+        raw_dir.mkdir(parents=True)
+        for name in ("a.pdf", "b.pdf", "c.pdf"):
+            (raw_dir / name).write_bytes(f"content-{name}".encode())
+        manifest = inbox_dir / "manifest.md"
+        manifest.write_text(
+            "---\ntype: inbox\nstatus: current\ntags: [intake]\n---\n\n"
+            "# Intake Manifest\n\n"
+            "## Queue\n\n"
+            "| Item | Kind | Added | Status | Owner | Outcome |\n"
+            "|---|---|---|---|---|---|\n",
+            encoding="utf-8",
+        )
+        for name in ("a.pdf", "b.pdf", "c.pdf"):
+            assert (
+                cmd_intake_register(name, kind="pdf", owner="curator", repository_root=tmp_path)
+                == 0
+            )
+        return manifest
+
+    def test_separator_survives_and_target_row_changes(self, tmp_path: Path):
+        manifest = self._manifest(tmp_path)
+        assert (
+            cmd_intake_register(
+                None,
+                set_file="b.pdf",
+                status="distilled",
+                outcome="knowledge-base/02-research/b.md",
+                repository_root=tmp_path,
+            )
+            == 0
+        )
+        text = manifest.read_text(encoding="utf-8")
+        assert "|---|---|---|---|---|---|" in text.splitlines()
+        rows = parse_rows(text)
+        assert len(rows) == 3, "an in-place update must not add or drop a row"
+        assert [r[3] for r in rows] == ["new", "distilled", "new"]
+        assert rows[1][5] == "knowledge-base/02-research/b.md"
+
+    @pytest.mark.parametrize("target", ["a.pdf", "b.pdf", "c.pdf"])
+    def test_every_row_index_maps_to_its_own_line(self, tmp_path: Path, target: str):
+        manifest = self._manifest(tmp_path)
+        assert (
+            cmd_intake_register(None, set_file=target, status="triaged", repository_root=tmp_path)
+            == 0
+        )
+        rows = parse_rows(manifest.read_text(encoding="utf-8"))
+        assert len(rows) == 3
+        for row in rows:
+            assert row[3] == ("triaged" if row[0] == target else "new"), rows
