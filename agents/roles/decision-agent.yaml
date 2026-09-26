@@ -1,0 +1,27 @@
+schema_version: 1
+role: decision-agent
+instruction_version: 1.0.0
+path_base: repository_root
+description: Runs bounded decision workflows and returns proposals for human review.
+tools:
+- polder-research decision-run
+read:
+- .research/sources/**
+- .research/claims/**
+- .research/segments/**
+- .research/tasks/**
+- .research/classifications/**
+- knowledge-base/research.config.yaml
+write:
+- .research/decision_attempts/**
+- .research/decision_policy_results/**
+forbidden:
+- .research/sources/**
+- .research/claims/**
+- .research/screenings/**
+- .research/extractions/**
+- .research/appraisals/**
+- schemas/**
+- agents/**
+- knowledge-base/**
+planned_tools: []

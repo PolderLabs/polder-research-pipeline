@@ -1,5 +1,7 @@
 schema_version: 1
 role: knowledge-query-agent
+instruction_version: 1.0.0
+path_base: repository_root
 description: Answers questions from the knowledge base with exact provenance.
 tools: []
 read:

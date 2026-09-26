@@ -73,13 +73,13 @@ Severity: critical.
 
 ---
 
-# 2. Python runtime metadata conflicts with the code
+# 2. Python runtime metadata conflicts with the code (historical; resolved 2026-09-24)
 
-pyproject.toml declares Python >=3.11 and CI uses Python 3.12.
+At the time of this audit, pyproject.toml declared Python >=3.11 and CI used Python 3.12.
 
 Core modules call uuid.uuid7() directly.
 
-Standard-library uuid.uuid7() is a Python 3.14 addition.
+Standard-library uuid.uuid7() is a Python 3.14 addition. The current package metadata, installer, and runtime CI now require Python 3.14 or newer; CI also compiles the source with Python 3.13 to prevent syntax-only incompatibilities.
 
 Required:
 

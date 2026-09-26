@@ -39,18 +39,26 @@ How the Polder Research Pipeline tracks where knowledge comes from and who touch
 
 Where implemented, state-changing actions emit typed events to `.research/events/`; events are append-only. Event emission is not yet integrated into every research-method writer, so do not rely on the event log alone to reconstruct a systematic review.
 
-Required fields per event:
+The event schema requires these fields:
 - `id` (evt_ UUIDv7)
 - `event_type`: run.* | task.* | source.* | segment.* | claim.* | entity.* | gap.* | ...
 - `actor`: who performed the action
 - `role`: which role the actor was operating as
 - `timestamp`: ISO 8601 UTC
-- `instruction_version`, `config_version`, `code_revision`
+- `instruction_version`, `code_revision`
 - `run_id`, `task_id`
 - `action`, `inputs`, `targets`
 - `summary`, `result`: ok | warning | error | skipped
 - `artifacts[]`
 - `error.sanitized_message`, `error.category`
+
+The current writer also records the role's declared instruction version (or
+`unassigned` for an actor without a role), the current Git revision, and a
+SHA-256 `config_version` for the workspace configuration when available. An
+absent configuration is recorded as `unavailable`. The schema keeps
+`config_version` optional so older event records remain valid. Events do not
+yet capture every tool input, artifact, runtime, schema set, or policy version,
+and not every state-changing operation emits an event.
 
 ## Claim provenance trace
 

@@ -1,5 +1,7 @@
 schema_version: 1
 role: knowledge-maintenance-agent
+instruction_version: 1.0.0
+path_base: repository_root
 description: Keeps the knowledge base current via freshness enforcement.
 tools:
 - polder_research.maintenance.evaluate_maintenance

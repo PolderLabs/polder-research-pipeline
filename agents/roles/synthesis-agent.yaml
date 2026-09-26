@@ -1,5 +1,7 @@
 schema_version: 1
 role: synthesis-agent
+instruction_version: 1.0.0
+path_base: repository_root
 description: Produces final research reports from verified claims.
 tools:
 - polder_research.research_methods.generate_review_report
@@ -18,14 +20,14 @@ read:
 - .research/appraisals/**
 - .research/reports/**
 write:
-- 02-research/**
+- knowledge-base/02-research/**
 - .research/events/**
 - .research/runs/**
 - .research/reports/**
 forbidden:
 - schemas/**
 - agents/**
-- 01-project/**
-- 04-decisions/**
+- knowledge-base/01-project/**
+- knowledge-base/04-decisions/**
 planned_tools:
 - general-purpose synthesis and provenance tracing for arbitrary claims

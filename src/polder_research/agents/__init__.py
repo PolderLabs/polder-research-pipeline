@@ -23,7 +23,7 @@ from typing import Any
 from ..paths import AGENTS_DIR
 
 ROLES_DIR: Path = AGENTS_DIR / "roles"
-DEFAULT_INSTRUCTION_VERSION = "0.1.0"
+DEFAULT_INSTRUCTION_VERSION = "unassigned"
 
 
 def _minimal_yaml_load(text: str) -> dict[str, Any]:

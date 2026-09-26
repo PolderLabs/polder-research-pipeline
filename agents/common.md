@@ -10,6 +10,9 @@ tags:
 
 Every agent in the Polder Research Pipeline — human or autonomous — MUST follow this contract. The contract defines how agents discover state, claim work, record provenance, and hand off to other roles.
 
+Role pages describe intended behavior for an external agent runtime. This
+repository does not launch those agents; check the [[knowledge-base/03-system/agent-capabilities|capability map]] for implemented interfaces and limits.
+
 ## Principles
 
 1. **Structured state is authoritative.** The `.research/` directory holds JSON records. Markdown notes are a human-facing projection of that state, never the reverse.
@@ -18,7 +21,9 @@ Every agent in the Polder Research Pipeline — human or autonomous — MUST fol
 4. **Idempotency by design.** Use an `idempotency_key` where the task API supports it. This is not a guarantee that every research-method operation is replay-idempotent.
 5. **Leases reduce collisions.** Use task leases where the workflow supports them. They do not currently provide a general authorization boundary for all record writers.
 6. **Respect role scopes.** `polder_research.agents.require_role` checks declared action names when a caller invokes it. It does not enforce every filesystem path or ensure all writers call it; role manifests do not execute tools.
-7. **Do not overstate runtime support.** Before promising an agent a tool, check the Python API, CLI, or dashboard route. See [[knowledge-base/03-system/agent-capabilities]] for the current role-to-runtime map.
+7. **Use repository-root-relative manifest paths.** Vault paths include the `knowledge-base/` prefix; `.research/` paths are relative to the workspace root. These declarations describe intended scope and are not filesystem enforcement.
+8. **Version role instructions.** Each role manifest declares an `instruction_version`; update it when that role's guidance changes materially.
+9. **Do not overstate runtime support.** Before promising an agent a tool, check the Python API, CLI, or dashboard route. See [[knowledge-base/03-system/agent-capabilities]] for the current role-to-runtime map.
 
 ## State layers
 
@@ -28,8 +33,9 @@ Every agent in the Polder Research Pipeline — human or autonomous — MUST fol
 | Evidence and provenance | `.research/sources/`, `.research/segments/`, `.research/claims/`, `.research/entities/`, `.research/edges/`, `.research/gaps/`, `.research/conflicts/` | Authoritative |
 | Review method | `.research/protocols/`, `.research/searches/`, `.research/candidates/`, `.research/screenings/`, `.research/extractions/`, `.research/appraisals/` | Authoritative, local-only |
 | Classification | `.research/classifications/`, `.research/classification_reviews/`, `.research/classification-jobs/`, `.research/locks/` | Predictions, human decisions, replay manifests, and coordination locks |
+| Bounded decisions | `.research/decision_attempts/`, `.research/decision_policy_results/` | Provider attempts and deterministic policy results; proposals only |
 | Reports and snapshots | `.research/reports/`, `.research/state.json`, `.research/health.json` | Reports are generated audit indexes; state/health are derived |
-| Human projection | `00-home/`, `01-project/`, `02-research/`, … | Projection only |
+| Human projection | `knowledge-base/00-home/`, `knowledge-base/01-project/`, `knowledge-base/02-research/`, … | Projection only |
 
 ## Task lifecycle
 
@@ -58,5 +64,5 @@ Wikilinks in notes (`[[note]]`) are informational projections. Agents MUST use s
 Any tool invoked by an agent MUST:
 - Be named in the agent's role manifest.
 - Validate all inputs against schemas before writing.
-- Emit a `tool.called` or `tool.failed` event when the event interface is available; do not claim that every current API emits tool events.
+- Emit `tool.called` or `tool.failed` when the agent runtime supports tool lifecycle events. The current Python APIs do not emit these automatically; role instructions and manifests do not execute or authorize tools by themselves.
 - Never suppress errors — surface them to the calling agent.

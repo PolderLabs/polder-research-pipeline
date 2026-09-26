@@ -25,6 +25,7 @@ EXPECTED_ROLES = {
     "knowledge-query-agent",
     "synthesis-agent",
     "evolution-agent",
+    "decision-agent",
 }
 
 
@@ -50,6 +51,8 @@ def test_role_manifests_parse_as_yaml():
         manifest = yaml.safe_load(path.read_text())
         assert manifest["schema_version"] == 1
         assert manifest["role"] == role
+        assert manifest["instruction_version"]
+        assert manifest["path_base"] == "repository_root"
         assert "read" in manifest
         assert "write" in manifest
         assert "forbidden" in manifest
@@ -67,6 +70,27 @@ def test_role_manifests_forbid_schemas():
         assert "schemas/**" in manifest["forbidden"], (
             f"role {role} must forbid writing to schemas/**"
         )
+
+
+def test_vault_paths_in_role_manifests_are_repository_relative():
+    vault_roots = (
+        "00-home/",
+        "01-project/",
+        "02-research/",
+        "03-system/",
+        "04-decisions/",
+        "05-operations/",
+        "06-sources/",
+        "90-inbox/",
+        "99-templates/",
+    )
+    for path in ROLES_DIR.glob("*.yaml"):
+        manifest = yaml.safe_load(path.read_text())
+        for key in ("read", "write", "forbidden"):
+            for scope in manifest[key]:
+                assert not scope.startswith(vault_roots), (
+                    f"{path}: {scope} must include knowledge-base/"
+                )
 
 
 def test_common_contract_frontmatter():

@@ -1,5 +1,7 @@
 schema_version: 1
 role: pipeline-processing-agent
+instruction_version: 1.0.0
+path_base: repository_root
 description: Parses raw sources into segments, entities, and draft claims.
 tools:
 - polder_research.evidence.register_source
