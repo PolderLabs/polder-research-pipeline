@@ -1,5 +1,7 @@
 schema_version: 1
 role: classification-agent
+instruction_version: 1.0.0
+path_base: repository_root
 description: Classifies structured evidence and routes uncertain metadata decisions
   for review.
 tools:

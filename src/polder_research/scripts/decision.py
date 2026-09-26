@@ -38,4 +38,4 @@ def cmd_decision_run(
         research_method=research_method,
     )
     print(json.dumps({"attempt": asdict(attempt), "policy_result": asdict(policy)}, indent=2))
-    return 0
+    return {"completed": 0, "failed": 1, "blocked": 2}[attempt.status]

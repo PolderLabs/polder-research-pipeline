@@ -27,7 +27,7 @@
         "protocol.frozen", "search.executed", "candidate.discovered", "candidate.deduplicated",
         "screening.recorded", "screening.adjudicated", "appraisal.completed",
         "schema.proposed", "schema.applied", "schema.rejected",
-        "state.rebuilt", "health.computed"
+        "state.rebuilt", "health.computed", "tool.called", "tool.failed"
       ]
     },
     "actor": {"type": "string", "minLength": 1},

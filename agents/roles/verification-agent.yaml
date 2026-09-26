@@ -1,5 +1,7 @@
 schema_version: 1
 role: verification-agent
+instruction_version: 1.0.0
+path_base: repository_root
 description: Verifies high-impact claims against primary evidence.
 tools:
 - polder_research.research_methods.record_screening_decision
@@ -25,8 +27,8 @@ write:
 forbidden:
 - schemas/**
 - agents/**
-- 01-project/**
-- 02-research/**
+- knowledge-base/01-project/**
+- knowledge-base/02-research/**
 planned_tools:
 - general claim verification
 - disconfirming search connector

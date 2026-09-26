@@ -1,5 +1,7 @@
 schema_version: 1
 role: research-agent
+instruction_version: 1.0.0
+path_base: repository_root
 description: Executes a research run end-to-end using specialist sub-agents.
 tools:
 - polder_research.research_methods.create_protocol
@@ -43,7 +45,7 @@ write:
 - .research/events/**
 - .research/sources/**
 - .research/claims/**
-- 02-research/**
+- knowledge-base/02-research/**
 forbidden:
 - schemas/**
 planned_tools:

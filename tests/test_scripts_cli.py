@@ -1,8 +1,12 @@
 """CLI workspace-root routing tests."""
 
+from dataclasses import dataclass
 from pathlib import Path
 
+import pytest
+
 import polder_research.scripts as scripts
+import polder_research.scripts.decision as decision_cli
 
 
 def test_workspace_root_option_works_before_or_after_command(tmp_path, monkeypatch):
@@ -42,3 +46,39 @@ def test_intake_manifest_cli_options_reach_workspace(tmp_path, capsys):
     )
     assert "dry run" in capsys.readouterr().out
     assert not (tmp_path / ".research").exists()
+
+
+@pytest.mark.parametrize(("status", "expected"), [("completed", 0), ("failed", 1), ("blocked", 2)])
+def test_decision_run_exit_code_surfaces_attempt_status(
+    tmp_path, monkeypatch, capsys, status, expected
+):
+    @dataclass
+    class Attempt:
+        status: str
+
+    @dataclass
+    class Policy:
+        fields: dict
+
+    monkeypatch.setattr(
+        decision_cli, "run_workflow", lambda *args, **kwargs: (Attempt(status), Policy({}))
+    )
+    state_file = tmp_path / "state.json"
+    state_file.write_text("{}", encoding="utf-8")
+
+    result = decision_cli.cmd_decision_run(
+        workflow="intake-triage",
+        target_kind="source",
+        target_id="src_example",
+        state_file=str(state_file),
+        root=str(tmp_path),
+        provider="laya",
+        roles=[],
+        sensitivity="public",
+        personal_data=False,
+        remote_processing_allowed=False,
+        research_method="continuous_intelligence",
+    )
+
+    assert result == expected
+    assert f'"status": "{status}"' in capsys.readouterr().out

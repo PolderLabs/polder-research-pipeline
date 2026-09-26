@@ -220,6 +220,7 @@ class TestSchemaRegistry:
                 "actor": "orchestrator",
                 "timestamp": "2026-09-22T00:00:00Z",
                 "instruction_version": "0.1.0",
+                "config_version": "unavailable",
                 "code_revision": "abc123",
             },
         )

@@ -58,6 +58,8 @@ Laya is the default classifier and runs locally after its model is downloaded. Y
 
 - [Knowledge base dashboard](knowledge-base/index.md) for the vault’s home page and navigation.
 - [Control panel guide](knowledge-base/03-system/control-panel.md) for dashboard setup and settings.
+- [Decision workflow guide](knowledge-base/03-system/decision-workflows.md) for bounded triage and prioritization proposals.
+- [Decision workflow guide](knowledge-base/03-system/decision-workflows.md) for bounded triage and prioritization proposals.
 - [Provenance model](knowledge-base/00-home/provenance-model.md) for how Polder records where information came from.
 - [Agent roles](agents/) for the documented research responsibilities and capabilities.
 - [Audit and roadmap](knowledge-base/AUDIT.md) for current limitations and planned work.

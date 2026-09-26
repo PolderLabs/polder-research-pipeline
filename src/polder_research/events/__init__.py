@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -9,7 +10,7 @@ from typing import Any
 
 from ..agents import get_code_revision, get_instruction_version
 from ..atomic import write_atomic
-from ..paths import RESEARCH_EVENTS_DIR, Workspace, active_workspace, resolve_workspace
+from ..paths import REPO_ROOT, RESEARCH_EVENTS_DIR, Workspace, active_workspace, resolve_workspace
 
 
 def _now() -> str:
@@ -18,6 +19,16 @@ def _now() -> str:
 
 def _uuid7(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid7()}"
+
+
+def _config_version(workspace: Workspace | Path | str | None) -> str:
+    root = resolve_workspace(workspace).root if workspace is not None else REPO_ROOT
+    config = root / "knowledge-base" / "research.config.yaml"
+    try:
+        digest = hashlib.sha256(config.read_bytes()).hexdigest()
+    except OSError:
+        return "unavailable"
+    return f"sha256:{digest}"
 
 
 def write_event(
@@ -50,7 +61,8 @@ def write_event(
         "event_type": event_type,
         "actor": actor,
         "timestamp": _now(),
-        "instruction_version": get_instruction_version(role) if role else "0.1.0",
+        "instruction_version": get_instruction_version(role) if role else "unassigned",
+        "config_version": _config_version(selected),
         "code_revision": get_code_revision(),
     }
     if role:

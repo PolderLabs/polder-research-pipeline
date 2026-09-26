@@ -69,13 +69,23 @@ class TestEvents:
         write_event(
             event_type="task.created",
             actor="acquisition-agent",
+            role="acquisition-agent",
             summary="task created",
         )
         rec = json.loads(list(RESEARCH_EVENTS_DIR.glob("*.json"))[0].read_text())
         assert "id" in rec
         assert "timestamp" in rec
         assert "instruction_version" in rec
+        assert "config_version" in rec
         assert "code_revision" in rec
+        assert rec["instruction_version"] == "1.0.0"
+        assert rec["config_version"].startswith("sha256:")
+
+    def test_tool_lifecycle_events_are_valid(self):
+        from polder_research.events import write_event
+
+        write_event(event_type="tool.called", actor="agent", action="inspect")
+        write_event(event_type="tool.failed", actor="agent", action="inspect", result="error")
 
 
 class TestTasks:

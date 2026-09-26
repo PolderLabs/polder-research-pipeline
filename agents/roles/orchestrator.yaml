@@ -1,5 +1,7 @@
 schema_version: 1
 role: orchestrator
+instruction_version: 1.0.0
+path_base: repository_root
 description: Top-level coordinator — creates runs, decomposes briefs, assigns tasks.
 tools:
 - polder_research.runs.write_run

@@ -12,6 +12,8 @@ See [[03-system/classification-providers|Classification providers]] for switchab
 
 See [[03-system/agent-capabilities|Agent role and runtime capability map]] for implemented APIs versus role-contract or external-tool work.
 
+See [[03-system/decision-workflows|Bounded decision workflows]] for CLI use, privacy handling, persisted records, and status codes.
+
 Architecture, performance, transports, deployment, and runtime. Notes here describe how the system is built and how it runs.
 
 ## Architecture

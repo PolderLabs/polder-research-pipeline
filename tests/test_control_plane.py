@@ -116,6 +116,7 @@ def _event(event_id: str, event_type: str, timestamp: str, **extras) -> dict:
         "actor": "test",
         "timestamp": timestamp,
         "instruction_version": "0.1.0",
+        "config_version": "unavailable",
         "code_revision": "HEAD",
     }
     record.update(extras)
