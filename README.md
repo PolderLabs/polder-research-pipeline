@@ -6,124 +6,80 @@ tags:
   - research-pipeline
 ---
 
-# Polder Research Pipeline
+<p align="center">
+  <img src="docs/assets/polder-banner.svg" alt="Illustrated waterways and fields" width="100%">
+</p>
 
-[![CI](https://github.com/PolderLabs/polder-research-pipeline/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/PolderLabs/polder-research-pipeline/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Python 3.14+](https://img.shields.io/badge/python-3.14%2B-blue.svg)](pyproject.toml)
+<p align="center">
+  <a href="https://github.com/PolderLabs/polder-research-pipeline/actions/workflows/ci.yml"><img src="https://github.com/PolderLabs/polder-research-pipeline/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
+  <a href="https://github.com/PolderLabs/polder-research-pipeline/releases/latest"><img src="https://img.shields.io/github/v/release/PolderLabs/polder-research-pipeline?label=latest%20release" alt="Latest release"></a>
+  <a href="https://www.python.org/downloads/"><img src="https://img.shields.io/badge/python-3.14%2B-377e68.svg" alt="Python 3.14 or newer"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-377e68.svg" alt="MIT License"></a>
+</p>
 
-> **Status: Alpha.** The repository is public and the installer is available, but this software has not had an independent security audit or production certification. Validate research outputs before relying on them for consequential decisions.
+<h1 align="center">Polder Research Pipeline</h1>
 
-Polder is a repository-native system for source-backed research, evidence management, and knowledge maintenance. It combines typed Python records and schemas with human-readable Markdown notes and documented agent roles.
+Polder gives your research a place to live. Keep sources, notes, evidence, and review decisions together in a workspace you can inspect, edit, and carry forward.
 
-## Research modes
+It is built for people doing ongoing research as well as teams who need a documented, protocol-led evidence review. The project is in alpha, so take a look around and check important findings against their sources.
 
-The pipeline supports two modes with different evidence claims:
+## Get started
 
-- **Continuous intelligence** supports ongoing, bounded discovery, source processing, verification, and knowledge maintenance. It does not claim exhaustive search or systematic screening.
-- **Systematic evidence review** requires a prespecified, frozen protocol; exact search logging and saved result exports; explicit candidate and duplicate records; independent human screening and extraction; adjudication; structured appraisal; and a generated, hash-indexed audit report before completion.
-
-The systematic workflow is auditable within the local `.research/` store. Records and saved search exports are gitignored, reviewer IDs are not identity-authenticated, event coverage is incomplete, duplicate appraisal is not required by the completion gate, and the report is an index of hashes rather than a portable archive. PRISMA and Cochrane inform reporting and review controls; the implementation does not certify PRISMA compliance. See [Research methods](knowledge-base/00-home/research-methods.md) for the procedure, API, standards, and limits.
-
-## Project status and security boundary
-
-Polder is a local-first research workspace, not a hosted service. The dashboard binds to loopback (`127.0.0.1`) and has no user authentication; do not expose it to a LAN, internet, or reverse proxy. Laya is the default classification provider and runs locally after installing its optional dependencies and model. TypeSafe/Jev sends classification input to the configured TypeSafe API only when explicitly selected and remotely approved. Review [Security](SECURITY.md) and the [provider guide](knowledge-base/03-system/classification-providers.md) before handling sensitive material.
-
-Python 3.14 or newer is required at runtime. CI also parses the source, scripts, and tests with Python 3.13 to catch syntax that a style-only change could accidentally narrow. That check does not make Python 3.13 a supported runtime. Laya adds large machine-learning dependencies and model weights; it is optional. The current persistence model keeps authoritative `.research/` records local and gitignored.
-
-For an NVIDIA GPU installation, install PyTorch's CUDA 13.0 wheel before the
-Laya extra. For example, on an RTX 3060:
+You’ll need Python 3.14 or newer, Git, and `curl`. This installs the latest published release into a new directory, sets up a local environment, and starts a fresh research workspace:
 
 ```sh
-python3 -m venv .venv
-.venv/bin/python -m pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cu130
-.venv/bin/python -m pip install -e '.[laya]'
-.venv/bin/python -c 'import torch; assert torch.cuda.is_available(); print(torch.cuda.get_device_name(0))'
-```
+curl -fsSL https://raw.githubusercontent.com/PolderLabs/polder-research-pipeline/main/install.sh \
+  | sh -s -- --target ./my-research
 
-Laya is configured for automatic device selection and keeps one model loaded to
-fit the GPU's 6 GB memory. Laya downloads its routed checkpoint on first
-inference. For CPU-only machines, install PyTorch with
-`--index-url https://download.pytorch.org/whl/cpu` instead. See the
-[provider setup](knowledge-base/03-system/classification-providers.md) for
-offline setup.
-
-## Current implementation
-
-- Typed schemas and Python APIs for runs, tasks, events, sources, segments, claims, entities, evidence, classifications, conflicts, gaps, handoffs, and maintenance.
-- Automatic field-level enrichment of sources, claims, entities, and segments using categories, tags, and controlled research dimensions. Jev uses TypeSafe's API; Laya inference runs locally. Sensitive records are routed to local providers. See [provider setup](knowledge-base/03-system/classification-providers.md) and [evaluation and review standards](knowledge-base/03-system/classification-operations.md).
-- Replay existing classifications, compare provider agreement, evaluate predictions against held-out human gold labels, and record append-only field reviews from the local dashboard.
-- Protocol-first systematic-review records for protocols, searches, candidates, screening, extraction, appraisal, and review reports.
-- Atomic schema-validated record writes and derived state/health builders.
-- Obsidian-compatible vault, intake templates, note scaffolding, and vault integrity audit.
-- A loopback-only browser control panel for configuration, provider credentials, Laya model setup, operational health, and research analytics.
-- Documented role contracts under `agents/` and role capability manifests under `agents/roles/`. These are contracts; they do not imply that an autonomous multi-agent runtime or runtime permission enforcement is deployed.
-- GitHub Actions checks tests, Ruff formatting/lint, schemas, vault integrity, deterministic derived-state generation, and Git history for secrets. The badge above reflects the latest workflow status; it does not certify research quality or production readiness.
-
-## Start here
-
-- [AGENTS.md](AGENTS.md): repository operating guide, local state bootstrap, validators, and intake.
-- [Research methods](knowledge-base/00-home/research-methods.md): method selection and systematic-review lifecycle.
-- [Evidence model](knowledge-base/00-home/evidence-model.md) and [provenance model](knowledge-base/00-home/provenance-model.md): record relationships and traceability.
-- [Agent roles](agents/): responsibilities and capability manifests.
-- [Audit and roadmap](knowledge-base/AUDIT.md): integration findings, known limitations, and planned work. Historical findings are labeled with their inspection date.
-- [Knowledge base dashboard](knowledge-base/index.md): human-facing Obsidian entry point.
-
-## Install a research workspace
-
-From a POSIX shell with curl, Git, and Python 3.14+, install the complete project tree (knowledge base, schemas, agents, pipeline, dashboard, docs, and development files) into a new directory:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/PolderLabs/polder-research-pipeline/main/install.sh | sh -s -- --target ./my-research
 cd ./my-research
 .venv/bin/polder-research serve
 ```
 
-The installer downloads a source archive, not a Git clone. It installs the entire repository file tree, replaces the repository-specific project brief with a blank research brief, builds a project-local virtual environment, and initializes a new local Git repository with a starter commit and no upstream remote. Research records, credentials, and generated state stay local in ignored `.research/`; application code, guides, agent roles, schemas, and commands remain in the workspace for users to customize. It refuses non-empty targets. Laya is installed by default as the primary classifier; the installer selects the CUDA 13.0 PyTorch wheel when it detects a working NVIDIA GPU and otherwise installs the CPU wheel. Use `--without-laya` to skip Laya and its machine-learning dependencies; `--with-laya` remains accepted for compatibility. Laya model weights are downloaded separately from the dashboard. Use `--with-dev` for pytest and Ruff. Set `POLDER_RESEARCH_REPOSITORY=OWNER/REPOSITORY` to install a fork. See [install.sh](install.sh) for all options.
+Open the local address printed in your terminal. The dashboard listens on `127.0.0.1` and helps you configure your workspace, manage the Laya model, and review research activity.
 
-By default, the installer resolves and downloads the latest published GitHub
-release. To install the newest in-progress code from the repository's `main`
-branch, opt in with `--unstable`:
+Want the newest changes from `main` instead of a published release? Add `--unstable`:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/PolderLabs/polder-research-pipeline/main/install.sh \
-  | sh -s -- --unstable --target ./my-research-unstable
+  | sh -s -- --unstable --target ./my-research
 ```
 
-Use `--ref BRANCH_TAG_OR_COMMIT` to install a specific source snapshot instead. The
-`--unstable` and `--ref` options cannot be combined. When installing a fork,
-latest-release resolution uses that fork's GitHub releases.
+The installer keeps the new workspace independent: it creates a local Git repository without a remote, and starts you with a blank project brief. See [`install.sh`](install.sh) for options such as `--without-laya`, `--with-dev`, and installing from a fork.
 
-## Local control panel
+## Pick a research workflow
 
-Install the project, then run `polder-research serve` from the repository root and open the printed `http://127.0.0.1:8765` address. Use `--port` to select another local port. The interface edits the complete research configuration, stores an optional TypeSafe key in `.research/web-secrets.json` with owner-only permissions, and can download/load the selected Laya checkpoint into the server process. The service binds only to loopback. See [the control panel guide](knowledge-base/03-system/control-panel.md) for provider, privacy, and model setup details.
-
-## Manual intake
-
-For an individual artifact, place the original in `knowledge-base/90-inbox/raw/`, register it in the manifest, process it from the intake template, and link distilled notes to the source catalog. This workflow does not establish systematic search coverage or independent screening. Follow [the intake guide](knowledge-base/00-home/research-intake-guide.md); for a prespecified review, start with [Research methods](knowledge-base/00-home/research-methods.md) before searching.
-
-## Multiple research workspaces
-
-Pass `--root /path/to/workspace` to the CLI to route reads and writes to a
-separate research folder. The Python workflow APIs also accept a
-`polder_research.paths.Workspace` for event, task, run, handoff, and systematic
-review operations. Workspace-specific search exports must be stored under
-that workspace root.
-
-## Repository map
-
-| Path | Purpose |
+| If you’re… | Start here |
 |---|---|
-| `src/polder_research/` | Typed record and workflow APIs, including `research_methods`. |
-| `schemas/` | Canonical JSON Schemas for authoritative records. |
-| `agents/` | Role instructions and machine-readable capability manifests. |
-| `tests/` | Behavioral and schema tests. |
-| `knowledge-base/` | Obsidian vault, guides, templates, research notes, and audit. |
-| `.research/` | Local runtime records and exports; gitignored by the current persistence policy. |
+| Keeping up with a topic over time | Use the continuous research and knowledge-maintenance workflow. It supports bounded discovery and source processing; it does not claim exhaustive coverage. |
+| Planning a systematic evidence review | Read [Research methods](knowledge-base/00-home/research-methods.md) first. Freeze your protocol before searching, then record searches, screening, extraction, and appraisal as you go. |
+| Filing one paper, report, or other source | Follow the [research intake guide](knowledge-base/00-home/research-intake-guide.md) to register the original and connect your notes to it. |
 
-## Validation
+Polder keeps source records and evidence in structured, validated files, with Markdown notes alongside them. The [evidence model](knowledge-base/00-home/evidence-model.md) explains how those pieces connect.
 
-Run from the repository root with Python 3.14 or newer:
+## Your workspace and your data
+
+Polder runs on your machine. Research records, search exports, generated state, and local credentials live in the ignored `.research/` directory. The dashboard is for local use and has no login, so keep it on your own machine rather than exposing it to a network.
+
+Laya is the default classifier and runs locally after its model is downloaded. You can skip its large machine-learning dependencies during installation with `--without-laya`. A remote TypeSafe/Jev provider is available when you choose and configure it; classification data sent to that provider leaves your machine. Read the [provider guide](knowledge-base/03-system/classification-providers.md) and [security policy](SECURITY.md) before working with sensitive material.
+
+## A few useful places to look
+
+- [Knowledge base dashboard](knowledge-base/index.md) for the vault’s home page and navigation.
+- [Control panel guide](knowledge-base/03-system/control-panel.md) for dashboard setup and settings.
+- [Provenance model](knowledge-base/00-home/provenance-model.md) for how Polder records where information came from.
+- [Agent roles](agents/) for the documented research responsibilities and capabilities.
+- [Audit and roadmap](knowledge-base/AUDIT.md) for current limitations and planned work.
+- [Contributing](CONTRIBUTING.md) if you’d like to improve the project.
+
+## What Polder can and can’t claim
+
+Polder helps you keep a review trail, but it does not certify research quality or PRISMA compliance. Reviewers enter their own IDs; the software does not verify identities or independence. A generated review report indexes records and hashes, rather than packaging all the underlying evidence. See [Research methods](knowledge-base/00-home/research-methods.md) for the full process and its limits.
+
+The project is in alpha and has not had an independent security audit. Validate findings against the original sources, especially before using them for consequential decisions.
+
+## Working on the project
+
+To set up a development environment, install the package and its development tools, then run the checks:
 
 ```sh
 python -m pip install -r requirements-ci.txt
@@ -131,30 +87,6 @@ python -m pip install -e .
 ruff check .
 ruff format --check .
 PYTHONPATH=src pytest -q
-python3 skills/obsidian-knowledgebase-curator/scripts/vault_audit.py
-python3 scripts/generate_derived.py
-python3 scripts/emit_implementation_status.py
-git diff --check
 ```
 
-CI also parses every role manifest and JSON schema and scans Git history for secrets. Check the workflow badge or Actions page for hosted CI results; local checks do not certify research quality.
-
-## Current boundaries
-
-- Authoritative `.research` records and search exports are local-only. A fresh clone does not contain a completed review record set.
-- Reviewer IDs are self-asserted labels, not authenticated identities or proof of reviewer independence.
-- Search exports must be available under the repository root and are verified by SHA-256 at search recording and run completion.
-- A generated review report is a deterministic audit index of record IDs and hashes, not a bundled copy of all evidence.
-- Agent role manifests describe capability boundaries, but the current implementation does not enforce them as a runtime authorization layer.
-- Systematic-review completion requires a protocol-defined appraisal when marked required, but does not require duplicate independent appraisal or validate custom instrument logic.
-- Automated source discovery, general-purpose autonomous workers, a shared durable backend, and portable review exports remain future work.
-
-## Research standards
-
-The method guide links to primary standards and handbooks, including PRISMA 2020, PRISMA-S, Cochrane Handbook guidance, W3C PROV-DM, and FAIR principles. These references inform workflow design; select and justify a framework suited to the question and evidence base rather than treating one framework as universal.
-
-## Community and license
-
-- [Contributing](CONTRIBUTING.md) explains how to report issues and submit changes.
-- [Security policy](SECURITY.md) explains how to report vulnerabilities.
-- This project is licensed under the [MIT License](LICENSE).
+Polder is available under the [MIT License](LICENSE).
