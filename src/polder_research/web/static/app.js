@@ -121,8 +121,9 @@ function renderOverview(payload) {
 function renderResearch(research) {
   document.querySelectorAll("[data-review-candidate][open]").forEach((item) => state.expandedReviews.add(item.dataset.reviewCandidate));
   const c = research.corpus;
+  const acquisition = research.acquisition_statuses || {};
   $("#research-metrics").innerHTML = [
-    metric("Sources", c.sources || 0, `${total(research.source_statuses)} with recorded status`),
+    metric("Sources", c.sources || 0, `${acquisition.acquired || 0} acquired · ${acquisition.unacquired || 0} references`),
     metric("Segments", c.segments || 0, "Pinned source passages"),
     metric("Claims", c.claims || 0, `${c.edges || 0} evidence links`),
     metric("Entities", c.entities || 0, `${c.gaps || 0} open research gaps recorded`),

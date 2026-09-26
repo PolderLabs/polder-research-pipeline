@@ -834,7 +834,14 @@ def _analytics(root: Path) -> dict[str, Any]:
                 topic_counts[str(record["topic"])] += 1
             tag_counts.update(tag for tag in record.get("tags", []) if isinstance(tag, str))
     source_types = Counter(str(source.get("source_type", "unknown")) for source in sources)
-    source_statuses = Counter(str(source.get("source_status", "unknown")) for source in sources)
+    acquisition_statuses = Counter(
+        str(source.get("acquisition_status", "unknown")) for source in sources
+    )
+    source_statuses = Counter(
+        str(source.get("source_status", "unknown"))
+        for source in sources
+        if source.get("acquisition_status") == "acquired"
+    )
     reviews, review_errors = review_records_audit(root)
     malformed += len(review_errors)
     classification_metrics = _classification_analytics(classifications, reviews)
@@ -877,6 +884,7 @@ def _analytics(root: Path) -> dict[str, Any]:
         "corpus": {name: len(items) for name, items in evidence.items()},
         "source_types": dict(sorted(source_types.items())),
         "source_statuses": dict(sorted(source_statuses.items())),
+        "acquisition_statuses": dict(sorted(acquisition_statuses.items())),
         "topics": dict(sorted(topic_counts.items())),
         "tags": dict(sorted(tag_counts.items())),
         "classifications": {

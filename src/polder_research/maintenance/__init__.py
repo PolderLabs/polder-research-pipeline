@@ -250,8 +250,13 @@ def evaluate_maintenance(
 
     maintenance_thresholds = thresholds(root)
 
-    fresh_sources = sum(1 for source in sources if source.get("source_status") == "current")
-    stale_sources = sum(1 for source in sources if source.get("source_status") == "stale")
+    acquired_sources = [
+        source for source in sources if source.get("acquisition_status") == "acquired"
+    ]
+    fresh_sources = sum(
+        1 for source in acquired_sources if source.get("source_status") == "current"
+    )
+    stale_sources = sum(1 for source in acquired_sources if source.get("source_status") == "stale")
 
     open_critical_conflicts = sum(
         1
