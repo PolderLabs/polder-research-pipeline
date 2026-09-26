@@ -129,6 +129,47 @@ def intake_id(*, content_sha256: str, kind: str) -> str:
     return f"int_{content_sha256[:16]}_{kind}"
 
 
+def _find_intake_record_by_filename(intake_dir: Path, filename: str) -> Path | None:
+    """Return the canonical intake record path whose ``filename`` matches.
+
+    The record ID is derived from the content hash, so the record cannot be
+    recomputed from the manifest row alone; locate it by its recorded
+    ``filename`` field instead. Returns ``None`` when the item was never
+    registered as a structured record (for example a hand-written row).
+    """
+    if not intake_dir.is_dir():
+        return None
+    for path in sorted(intake_dir.glob("int_*.json")):
+        try:
+            record = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            continue
+        if record.get("filename") == filename:
+            return path
+    return None
+
+
+def _sync_intake_record_status(
+    record_path: Path,
+    *,
+    status: str,
+    outcome: str,
+) -> None:
+    """Mirror a manifest status/outcome update onto the canonical record.
+
+    The manifest is a human projection; the record under ``.research/intake``
+    is authoritative. Updating only the projection leaves the two
+    disagreeing, so every lifecycle transition must be written to both.
+    ``owner`` is deliberately left alone: ``--set`` does not change it in the
+    manifest either, so both surfaces stay in step.
+    """
+    record = json.loads(record_path.read_text(encoding="utf-8"))
+    record["status"] = status
+    if outcome != "—":
+        record["outcome"] = outcome
+    write_atomic(record_path, record, schema_name="intake")
+
+
 def _intake_record_path(intake_dir: Path, item_id: str) -> Path:
     """Return the canonical intake record path for ``item_id``."""
     return intake_dir / f"{item_id}.json"
@@ -718,6 +759,16 @@ def cmd_intake_register(
                 if data_count == data_index:
                     lines[index] = "| " + " | ".join(cells) + " |\n"
                     manifest_path.write_text("".join(lines), encoding="utf-8")
+                    intake_dir = repo / RESEARCH_INTAKE_DIR.relative_to(REPO_ROOT)
+                    record_path = _find_intake_record_by_filename(intake_dir, set_file)
+                    if record_path is None:
+                        print(
+                            f"warning: no canonical intake record for '{set_file}'; "
+                            "the manifest row is authoritative for this item",
+                            file=sys.stderr,
+                        )
+                    else:
+                        _sync_intake_record_status(record_path, status=status, outcome=outcome)
                     print(f"updated {set_file} -> status={status}")
                     return 0
                 data_count += 1
