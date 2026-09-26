@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
 
 from polder_research.scripts.intake import (
     VALID_KIND,
     VALID_STATUS,
     _find_row,
+    cmd_intake_register,
     parse_rows,
 )
 
@@ -97,4 +100,112 @@ class TestIntakeId:
         sha = "b" * 64
         assert intake_id(content_sha256=sha, kind="paper") != intake_id(
             content_sha256=sha, kind="dataset"
+        )
+
+
+class TestSetSyncsCanonicalRecord:
+    """``--set`` must not leave the manifest and the canonical record disagreeing.
+
+    The record under ``.research/intake`` is authoritative; ``manifest.md`` is
+    a human projection of it. A status flip that only rewrites the projection
+    makes the two surfaces report different lifecycle states for the same item.
+    """
+
+    @staticmethod
+    def _workspace(tmp_path: Path, *, with_row: bool) -> Path:
+        inbox_dir = tmp_path / "knowledge-base" / "90-inbox"
+        raw_dir = inbox_dir / "raw"
+        raw_dir.mkdir(parents=True)
+        (raw_dir / "paper.pdf").write_bytes(b"paper-content")
+        row = "| paper.pdf | pdf | 2026-09-26 | new | curator | — |\n" if with_row else ""
+        (inbox_dir / "manifest.md").write_text(
+            "---\ntype: inbox\nstatus: current\ntags: [intake]\n---\n\n"
+            "# Intake Manifest\n\n"
+            "## Queue\n\n"
+            "| Item | Kind | Added | Status | Owner | Outcome |\n"
+            "|---|---|---|---|---|---|\n" + row,
+            encoding="utf-8",
+        )
+        return tmp_path
+
+    @staticmethod
+    def _record(tmp_path: Path) -> dict:
+        records = list((tmp_path / ".research" / "intake").glob("int_*.json"))
+        assert len(records) == 1
+        return json.loads(records[0].read_text(encoding="utf-8"))
+
+    def test_set_updates_both_manifest_and_record(self, tmp_path: Path):
+        repository_root = self._workspace(tmp_path, with_row=False)
+        assert (
+            cmd_intake_register(
+                "paper.pdf", kind="pdf", owner="curator", repository_root=repository_root
+            )
+            == 0
+        )
+        assert self._record(repository_root)["status"] == "new"
+
+        assert (
+            cmd_intake_register(
+                None,
+                set_file="paper.pdf",
+                status="distilled",
+                outcome="knowledge-base/02-research/paper.md",
+                repository_root=repository_root,
+            )
+            == 0
+        )
+
+        record = self._record(repository_root)
+        assert record["status"] == "distilled"
+        assert record["outcome"] == "knowledge-base/02-research/paper.md"
+
+        rows = parse_rows(
+            (repository_root / "knowledge-base/90-inbox/manifest.md").read_text(encoding="utf-8")
+        )
+        assert rows[0][3] == "distilled"
+        assert rows[0][5] == "knowledge-base/02-research/paper.md"
+        assert record["status"] == rows[0][3]
+        assert record["outcome"] == rows[0][5]
+
+    def test_set_still_validates_status(self, tmp_path: Path):
+        repository_root = self._workspace(tmp_path, with_row=False)
+        cmd_intake_register(
+            "paper.pdf", kind="pdf", owner="curator", repository_root=repository_root
+        )
+        assert (
+            cmd_intake_register(
+                None, set_file="paper.pdf", status="bogus", repository_root=repository_root
+            )
+            == 2
+        )
+        assert self._record(repository_root)["status"] == "new"
+
+    def test_set_without_record_fails_and_leaves_manifest_untouched(self, tmp_path, capsys):
+        """The record is authoritative, so a missing one is an error, not a warning."""
+        repository_root = self._workspace(tmp_path, with_row=True)
+        before = (repository_root / "knowledge-base/90-inbox/manifest.md").read_text(
+            encoding="utf-8"
+        )
+        assert (
+            cmd_intake_register(
+                None,
+                set_file="paper.pdf",
+                status="triaged",
+                repository_root=repository_root,
+            )
+            == 2
+        )
+        assert "no canonical intake record" in capsys.readouterr().err
+        after = (repository_root / "knowledge-base/90-inbox/manifest.md").read_text(
+            encoding="utf-8"
+        )
+        assert after == before
+
+    def test_unknown_item_still_fails(self, tmp_path):
+        repository_root = self._workspace(tmp_path, with_row=True)
+        assert (
+            cmd_intake_register(
+                None, set_file="absent.pdf", status="triaged", repository_root=repository_root
+            )
+            == 2
         )
