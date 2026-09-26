@@ -195,7 +195,7 @@ def _require_acquired_source(source_id: str) -> dict[str, Any]:
         default_dir=workspace_path(EVIDENCE_SOURCES_DIR),
         directory_name="sources",
     )
-    if source.get("source_status") == "unacquired":
+    if source.get("acquisition_status") == "unacquired":
         raise ResearchMethodError(f"source {source_id} must be acquired before this operation")
     return source
 

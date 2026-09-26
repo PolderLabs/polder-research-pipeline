@@ -194,6 +194,7 @@ def register_source(
     tags: list[str] | None = None,
     source_class: str | None = None,
     source_status: str = "current",
+    acquisition_status: str = "acquired",
     retrieved_at: str | None = None,
     repository_root: Path | None = None,
 ) -> str:
@@ -204,25 +205,20 @@ def register_source(
         raise ValueError("personal_data must be a boolean")
     if not isinstance(remote_processing_allowed, bool):
         raise ValueError("remote_processing_allowed must be a boolean")
-    if source_status not in {
-        "current",
-        "stale",
-        "superseded",
-        "archived",
-        "retracted",
-        "unacquired",
-    }:
+    if source_status not in {"current", "stale", "superseded", "archived", "retracted"}:
         raise ValueError(f"invalid source_status: {source_status!r}")
+    if acquisition_status not in {"acquired", "unacquired"}:
+        raise ValueError(f"invalid acquisition_status: {acquisition_status!r}")
     if canonical_url:
         canonical_url = normalize_url(canonical_url)
-    if source_status == "unacquired":
+    if acquisition_status == "unacquired":
         if not canonical_url:
             raise ValueError("unacquired sources require a canonical_url")
         if raw_bytes is not None or content_sha256 is not None:
             raise ValueError("unacquired sources cannot include content bytes or a hash")
     if raw_bytes is not None:
         content_sha256 = compute_content_hash(raw_bytes)
-    if source_status != "unacquired" and not content_sha256:
+    if acquisition_status == "acquired" and not content_sha256:
         raise ValueError("acquired sources require content_sha256 or raw_bytes")
     if content_sha256 is not None and (
         not isinstance(content_sha256, str) or not _SHA256_PATTERN.match(content_sha256)
@@ -236,11 +232,15 @@ def register_source(
         "id": sid,
         "schema_version": 1,
         "source_status": source_status,
+        "acquisition_status": acquisition_status,
         "source_type": source_type,
         "media_type": media_type,
         "title": title,
-        "retrieved_at": retrieved_at or _now(),
     }
+    if acquisition_status == "unacquired":
+        record["discovered_at"] = retrieved_at or _now()
+    else:
+        record["retrieved_at"] = retrieved_at or _now()
     if content_sha256 is not None:
         record["content_sha256"] = content_sha256
     if doi:
@@ -264,7 +264,7 @@ def register_source(
         f"{sid}.json"
     )
     _persist(source_path, record, schema_name="source", repository_root=repository_root)
-    if source_status != "unacquired":
+    if acquisition_status == "acquired":
         try:
             _classify_record(
                 record,
@@ -342,11 +342,21 @@ def acquire_source(
         directory_name="sources",
         repository_root=repository_root,
     )
-    if source.get("source_status") != "unacquired":
+    if source.get("acquisition_status") != "unacquired":
         raise ValueError(f"source is not unacquired: {source_id}")
     digest = compute_content_hash(raw_bytes)
+    duplicate_id = find_duplicate_source(
+        doi=source.get("doi"),
+        canonical_url=None,
+        content_sha256=digest,
+        repository_root=repository_root,
+    )
+    if duplicate_id is not None and duplicate_id != source_id:
+        raise ValueError(f"acquired content duplicates existing source {duplicate_id}")
     source["source_status"] = "current"
+    source["acquisition_status"] = "acquired"
     source["content_sha256"] = digest
+    source.pop("discovered_at", None)
     source["retrieved_at"] = retrieved_at or _now()
     source["byte_size"] = len(raw_bytes)
     if raw_location is not None:
@@ -354,6 +364,26 @@ def acquire_source(
     source_path = (
         _record_dir(EVIDENCE_SOURCES_DIR, repository_root, "sources") / f"{source_id}.json"
     )
+    try:
+        _classify_record(
+            source,
+            build_state_for_target("source", source).state,
+            target_kind="source",
+            target_id=source_id,
+            repository_root=repository_root,
+            policy_metadata={
+                "sensitivity": source.get("sensitivity", "public"),
+                "personal_data": source.get("personal_data", False),
+                "remote_processing_allowed": source.get("remote_processing_allowed", False),
+            },
+            output_dir=_record_dir(EVIDENCE_SOURCES_DIR, repository_root, "sources").parent
+            / "classifications",
+        )
+    except (OSError, ValueError, RuntimeError):
+        source["classification_status"] = "failed"
+        source["classification_error"] = (
+            "Classification could not complete; inspect provider configuration and classification records."
+        )
     _persist(source_path, source, schema_name="source", repository_root=repository_root)
 
     from ..events import write_event
@@ -366,7 +396,8 @@ def acquire_source(
         summary=f"Acquired source {source_id}",
         targets=[source_id],
         metadata={
-            "previous_status": "unacquired",
+            "previous_acquisition_status": "unacquired",
+            "acquisition_status": "acquired",
             "source_status": "current",
             "content_sha256": digest,
         },
@@ -393,7 +424,7 @@ def register_segment(
         directory_name="sources",
         repository_root=repository_root,
     )
-    if source_record.get("source_status") == "unacquired":
+    if source_record.get("acquisition_status") == "unacquired":
         raise ValueError("cannot register a segment from an unacquired source")
     ensure_evidence_dirs(repository_root=repository_root)
     seg_id = _uuid7("seg")
@@ -463,7 +494,7 @@ def register_claim(
             directory_name="sources",
             repository_root=repository_root,
         )
-        if source_record.get("source_status") == "unacquired":
+        if source_record.get("acquisition_status") == "unacquired":
             raise ValueError("claims require acquired sources")
         source_records.append(source_record)
     ensure_evidence_dirs(repository_root=repository_root)
@@ -714,7 +745,7 @@ def register_evidence_edge(
         directory_name="sources",
         repository_root=repository_root,
     )
-    if source_record.get("source_status") == "unacquired":
+    if source_record.get("acquisition_status") == "unacquired":
         raise ValueError("evidence edges require acquired sources")
 
     edge_locator: dict[str, str]

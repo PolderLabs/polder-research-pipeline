@@ -846,7 +846,11 @@ def _analytics(root: Path) -> dict[str, Any]:
         day = today - timedelta(days=offset)
         by_day[day.isoformat()] = {"sources": 0, "classifications": 0}
     for record, key, field in (
-        *((item, "sources", "retrieved_at") for item in sources),
+        *(
+            (item, "sources", "retrieved_at")
+            for item in sources
+            if item.get("acquisition_status", "acquired") == "acquired"
+        ),
         *((item, "classifications", "created_at") for item in classifications),
     ):
         timestamp = record.get(field)

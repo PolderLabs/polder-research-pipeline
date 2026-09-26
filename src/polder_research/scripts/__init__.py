@@ -22,7 +22,7 @@ from .classification import (
     cmd_classify_existing,
 )
 from .decision import cmd_decision_run
-from .intake import cmd_intake_register
+from .intake import cmd_intake_register, cmd_source_acquire
 from .new_note import cmd_new_note
 from .state import cmd_build_health, cmd_build_state
 
@@ -52,6 +52,9 @@ def main(argv: list[str] | None = None) -> int:
     intake.add_argument("--outcome", default="—")
     intake.add_argument("--set", dest="set_file")
     intake.add_argument("--list", action="store_true")
+    acquire = sub.add_parser("source-acquire", help="Acquire content for a registered URL source")
+    acquire.add_argument("--source-id", required=True)
+    acquire.add_argument("--file", required=True, help="File relative to 90-inbox/raw")
     new = sub.add_parser("new-note", help="Scaffold a vault note")
     new.add_argument("--domain", required=True)
     new.add_argument("--title", required=True)
@@ -165,6 +168,8 @@ def main(argv: list[str] | None = None) -> int:
             manifest=args.manifest,
             dry_run=args.dry_run,
         )
+    if args.cmd == "source-acquire":
+        return cmd_source_acquire(args.source_id, args.file, repository_root=root)
     if args.cmd == "new-note":
         return cmd_new_note(
             domain=args.domain,

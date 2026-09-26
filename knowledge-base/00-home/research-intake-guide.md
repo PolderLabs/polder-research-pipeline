@@ -35,7 +35,7 @@ The manifest tracks the item through its entire lifecycle.
 
 For a seed list, use `--manifest` with a CSV or JSON Lines file. Each row
 requires `title` and exactly one of `canonical_url` or `local_file`. A URL-only
-row is recorded as `unacquired`; it has no content hash until you acquire the
+row is recorded with `acquisition_status: unacquired`; it has no content hash until you acquire the
 material. A local file must already be inside `90-inbox/raw/` and is hashed
 when registered. Optional columns are `source_type`, `media_type`,
 `retrieved_at`, `tags`, `source_class`, and `notes`. Tags can be separated by
@@ -53,6 +53,18 @@ The command reports each planned registration. Re-running the same manifest
 reuses canonical sources and does not add duplicate queue rows. `source_class`
 is an optional project-specific triage label; it is not a trust or appraisal
 rating.
+
+Acquire a previously registered URL reference after placing its downloaded artifact in
+`90-inbox/raw/`:
+
+```bash
+polder-research --root /path/to/workspace source-acquire \
+  --source-id src_<uuid> --file downloaded-page.html
+```
+
+Acquisition records its content hash and retrieval time, performs source
+classification, and refuses promotion when that content hash already belongs
+to another source record.
 
 ### 3. Triage
 

@@ -17,8 +17,10 @@ from polder_research.paths import Workspace
 from polder_research.research_methods import _export_path
 from polder_research.runs import update_run_status, write_run
 from polder_research.schemas import SchemaError, validate
+from polder_research.scripts import main as scripts_main
 from polder_research.scripts.intake import cmd_intake_register, parse_rows
 from polder_research.tasks import acquire_lease, release_lease, update_task_status, write_task
+from polder_research.urls import normalize_url
 
 
 def _intake_workspace(root: Path) -> Path:
@@ -63,7 +65,9 @@ def test_manifest_dry_run_then_registers_local_and_reference_sources(
     reference = next(record for record in records if record["title"] == "Web reference")
     assert local["source_class"] == "first-party"
     assert local["tags"] == ["primary", "recent"]
-    assert reference["source_status"] == "unacquired"
+    assert reference["source_status"] == "current"
+    assert reference["acquisition_status"] == "unacquired"
+    assert "discovered_at" in reference
     assert reference["canonical_url"] == "https://example.com/path"
     assert "content_sha256" not in reference
 
@@ -78,6 +82,7 @@ def test_source_schema_requires_hash_except_for_unacquired(tmp_path: Path) -> No
         "id": "src_00000000-0000-7000-8000-000000000001",
         "schema_version": 1,
         "source_status": "current",
+        "acquisition_status": "acquired",
         "source_type": "paper",
         "media_type": "pdf",
         "title": "Paper",
@@ -85,12 +90,22 @@ def test_source_schema_requires_hash_except_for_unacquired(tmp_path: Path) -> No
     }
     with pytest.raises(SchemaError):
         validate("source", source)
-
-    source.update(source_status="unacquired", canonical_url="https://example.com")
+    source.update(
+        acquisition_status="unacquired",
+        canonical_url="https://example.com",
+        discovered_at="2026-09-25T00:00:00Z",
+    )
+    source.pop("retrieved_at")
     validate("source", source)
     source["content_sha256"] = "0" * 64
     with pytest.raises(SchemaError):
         validate("source", source)
+
+
+def test_url_normalization_preserves_userinfo_and_port_case() -> None:
+    assert normalize_url("HTTPS://User:Token@EXAMPLE.COM:8443/path/#section") == (
+        "https://User:Token@example.com:8443/path"
+    )
 
 
 def test_manifest_invalid_enum_reports_row_before_writing(tmp_path: Path, capsys) -> None:
@@ -111,7 +126,7 @@ def test_unacquired_source_acquisition_hashes_and_records_event(tmp_path: Path) 
         source_type="webpage",
         media_type="html",
         canonical_url="https://example.com/article",
-        source_status="unacquired",
+        acquisition_status="unacquired",
         repository_root=tmp_path,
     )
 
@@ -120,6 +135,7 @@ def test_unacquired_source_acquisition_hashes_and_records_event(tmp_path: Path) 
     source = json.loads((tmp_path / ".research" / "sources" / f"{source_id}.json").read_text())
     assert source["source_status"] == "current"
     assert len(source["content_sha256"]) == 64
+    assert source["classification_status"] in {"disabled", "failed", "accepted", "review_required"}
     events = [
         json.loads(path.read_text())
         for path in (tmp_path / ".research" / "events").glob("evt_*.json")
@@ -129,13 +145,69 @@ def test_unacquired_source_acquisition_hashes_and_records_event(tmp_path: Path) 
     assert events[0]["targets"] == [source_id]
 
 
+def test_acquisition_rejects_content_already_registered(tmp_path: Path) -> None:
+    digest_source = register_source(
+        title="Existing",
+        source_type="webpage",
+        media_type="html",
+        raw_bytes=b"same bytes",
+        repository_root=tmp_path,
+    )
+    reference_id = register_source(
+        title="Reference",
+        source_type="webpage",
+        media_type="html",
+        canonical_url="https://example.com/article",
+        acquisition_status="unacquired",
+        repository_root=tmp_path,
+    )
+
+    with pytest.raises(ValueError, match=f"duplicates existing source {digest_source}"):
+        acquire_source(reference_id, b"same bytes", repository_root=tmp_path)
+
+    reference = json.loads(
+        (tmp_path / ".research" / "sources" / f"{reference_id}.json").read_text()
+    )
+    assert reference["acquisition_status"] == "unacquired"
+    assert "content_sha256" not in reference
+
+
+def test_source_acquire_cli_uses_raw_inbox(tmp_path: Path, capsys) -> None:
+    _intake_workspace(tmp_path)
+    (tmp_path / "knowledge-base" / "90-inbox" / "raw" / "download.html").write_bytes(b"downloaded")
+    source_id = register_source(
+        title="Reference",
+        source_type="webpage",
+        media_type="html",
+        canonical_url="https://example.com/article",
+        acquisition_status="unacquired",
+        repository_root=tmp_path,
+    )
+
+    assert (
+        scripts_main(
+            [
+                "--root",
+                str(tmp_path),
+                "source-acquire",
+                "--source-id",
+                source_id,
+                "--file",
+                "download.html",
+            ]
+        )
+        == 0
+    )
+    assert f"acquired {source_id}" in capsys.readouterr().out
+
+
 def test_unacquired_source_cannot_support_claims_or_segments(tmp_path: Path) -> None:
     source_id = register_source(
         title="Reference",
         source_type="webpage",
         media_type="html",
         canonical_url="https://example.com/article",
-        source_status="unacquired",
+        acquisition_status="unacquired",
         repository_root=tmp_path,
     )
     with pytest.raises(ValueError, match="claims require acquired sources"):

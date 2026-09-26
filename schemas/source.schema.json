@@ -4,19 +4,22 @@
   "title": "Source record",
   "description": "One canonical record per source (AUDIT.md §11).",
   "type": "object",
-  "required": ["id", "schema_version", "source_status", "source_type", "media_type", "title", "retrieved_at"],
+  "required": ["id", "schema_version", "source_status", "acquisition_status", "source_type", "media_type", "title"],
   "allOf": [
     {
       "if": {
-        "properties": {"source_status": {"const": "unacquired"}},
-        "required": ["source_status"]
+        "properties": {"acquisition_status": {"const": "unacquired"}},
+        "required": ["acquisition_status"]
       },
       "then": {
-        "required": ["canonical_url"],
-        "properties": {"canonical_url": {"minLength": 1}},
+        "required": ["canonical_url", "discovered_at"],
+        "properties": {
+          "canonical_url": {"minLength": 1},
+          "discovered_at": {"type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(Z|[+-][0-9]{2}:[0-9]{2})$"}
+        },
         "not": {"required": ["content_sha256"]}
       },
-      "else": {"required": ["content_sha256"]}
+      "else": {"required": ["content_sha256", "retrieved_at"]}
     }
   ],
   "additionalProperties": false,
@@ -30,8 +33,9 @@
       "const": 1
     },
     "source_status": {
-      "enum": ["current", "stale", "superseded", "archived", "retracted", "unacquired"]
+      "enum": ["current", "stale", "superseded", "archived", "retracted"]
     },
+    "acquisition_status": {"enum": ["acquired", "unacquired"]},
     "source_type": {
       "enum": [
         "paper", "documentation", "repository", "webpage", "article",
@@ -64,6 +68,10 @@
     "published_at": {"type": "string", "default": ""},
     "updated_at": {"type": "string", "default": ""},
     "retrieved_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "discovered_at": {
       "type": "string",
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(Z|[+-][0-9]{2}:[0-9]{2})$"
     },

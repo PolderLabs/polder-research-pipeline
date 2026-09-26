@@ -29,17 +29,18 @@ systematic review protocol (prm_)
 One canonical record per distinct research artifact. Fields:
 - `id` (src_ UUIDv7)
 - `schema_version`
-- `source_status`: current | stale | superseded | archived | retracted
+- `acquisition_status`: acquired | unacquired
+- `source_status`: current | stale | superseded | archived | retracted (freshness/lifecycle)
 - `source_type`: paper | documentation | repository | webpage | dataset | benchmark | ...
 - `media_type`: pdf | html | markdown | text | json | csv | ...
 - `content_sha256` — computed from raw bytes
 - `byte_size`, `mime_type`
-- `retrieved_at`, `last_checked_at`
+- `discovered_at` for URL references; `retrieved_at` and `last_checked_at` for acquired artifacts
 - `freshness.volatility`, `freshness.review_after`
 - `lineage[]`: cites | mirrors | republishes | summarizes | forks | derives_from | ...
 - `independence_group`: sources with shared authorship/editorial control
 
-Search hits are not sources until an artifact has been acquired and hashed. Systematic-review candidate, screening, extraction, appraisal, and report records preserve the pre-acquisition selection history.
+URL references may be recorded before acquisition with `acquisition_status: unacquired` and a `discovered_at` timestamp. They cannot support segments, claims, or systematic-review extraction. After content is acquired and hashed, `acquisition_status` becomes `acquired` and `retrieved_at` records that time. `source_status` remains the separate freshness/lifecycle field. Systematic-review candidate, screening, extraction, appraisal, and report records preserve the pre-acquisition selection history.
 
 ## Segment
 

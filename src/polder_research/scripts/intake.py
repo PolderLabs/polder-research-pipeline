@@ -207,7 +207,7 @@ def _canonical_source_for_raw(
                 directory_name="sources",
                 repository_root=repo,
             )
-            if source.get("source_status") == "unacquired":
+            if source.get("acquisition_status") == "unacquired":
                 acquire_source(
                     duplicate,
                     raw_bytes,
@@ -433,14 +433,17 @@ def _parse_manifest_item(
     probe: dict[str, object] = {
         "id": "src_00000000-0000-7000-8000-000000000001",
         "schema_version": 1,
-        "source_status": "current" if raw_bytes is not None else "unacquired",
+        "source_status": "current",
+        "acquisition_status": "acquired" if raw_bytes is not None else "unacquired",
         "source_type": source_type,
         "media_type": media_type,
         "title": title,
-        "retrieved_at": retrieved_at,
     }
     if raw_bytes is not None:
         probe["content_sha256"] = compute_content_hash(raw_bytes)
+        probe["retrieved_at"] = retrieved_at
+    else:
+        probe["discovered_at"] = retrieved_at
     if canonical_url:
         probe["canonical_url"] = canonical_url
     if source_class:
@@ -556,7 +559,7 @@ def _register_manifest(
                     source_type=item.source_type,
                     media_type=item.media_type,
                     canonical_url=item.canonical_url,
-                    source_status="unacquired",
+                    acquisition_status="unacquired",
                     source_class=item.source_class,
                     tags=list(item.tags),
                     retrieved_at=item.retrieved_at,
@@ -755,6 +758,41 @@ def cmd_intake_register(
         encoding="utf-8",
     )
     print(f"registered: {file} [id={item_id}] [source={source_id}] [{kind}] {status} by {owner}")
+    return 0
+
+
+def cmd_source_acquire(
+    source_id: str,
+    file: str,
+    *,
+    repository_root: Path,
+) -> int:
+    """Acquire a registered URL source from a file in the raw inbox."""
+    raw_dir = (Path(repository_root) / "knowledge-base" / "90-inbox" / "raw").resolve()
+    candidate = Path(file)
+    if candidate.is_absolute():
+        print("error: --file must be relative to knowledge-base/90-inbox/raw", file=sys.stderr)
+        return 2
+    resolved = (raw_dir / candidate).resolve()
+    try:
+        resolved.relative_to(raw_dir)
+    except ValueError:
+        print("error: --file escapes knowledge-base/90-inbox/raw", file=sys.stderr)
+        return 2
+    if not resolved.is_file():
+        print(f"error: file not found: {file}", file=sys.stderr)
+        return 2
+    try:
+        digest = acquire_source(
+            source_id,
+            resolved.read_bytes(),
+            raw_location=str(resolved.relative_to(Path(repository_root).resolve())),
+            repository_root=repository_root,
+        )
+    except (OSError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    print(f"acquired {source_id} ({digest})")
     return 0
 
 
