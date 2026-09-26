@@ -1,11 +1,3 @@
----
-type: guide
-status: current
-tags:
-  - knowledge-base
-  - research-pipeline
----
-
 <p align="center">
   <img src="docs/assets/polder-banner.svg" alt="Illustrated waterways and fields" width="100%">
 </p>
