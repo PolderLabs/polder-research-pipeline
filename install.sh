@@ -2,7 +2,9 @@
 set -eu
 
 REPOSITORY=${POLDER_RESEARCH_REPOSITORY:-PolderLabs/polder-research-pipeline}
-REF=main
+REF=
+REF_EXPLICIT=0
+UNSTABLE=0
 TARGET=
 WITH_DEV=0
 WITH_LAYA=1
@@ -13,10 +15,12 @@ Install Polder Research Pipeline as a new, independent research workspace.
 
 Usage:
   curl -fsSL https://raw.githubusercontent.com/PolderLabs/polder-research-pipeline/main/install.sh | sh -s -- --target ./my-research
+  curl -fsSL https://raw.githubusercontent.com/PolderLabs/polder-research-pipeline/main/install.sh | sh -s -- --unstable --target ./my-research
 
 Options:
   --target DIR   New directory for the complete pipeline and research workspace (required)
-  --ref REF      GitHub branch, tag, or commit to use as the template (default: main)
+  --unstable     Install the latest main branch instead of the latest published release
+  --ref REF      Install a specific GitHub branch, tag, or commit instead of the latest release
   --with-dev     Also install pytest and Ruff
   --with-laya    Install the default local Laya classifier (kept for compatibility)
   --without-laya Skip Laya and its machine-learning dependencies
@@ -43,7 +47,12 @@ while [ "$#" -gt 0 ]; do
     --ref)
       [ "$#" -ge 2 ] || fail '--ref requires a branch, tag, or commit'
       REF=$2
+      REF_EXPLICIT=1
       shift 2
+      ;;
+    --unstable)
+      UNSTABLE=1
+      shift
       ;;
     --with-dev)
       WITH_DEV=1
@@ -68,15 +77,13 @@ while [ "$#" -gt 0 ]; do
 done
 
 [ -n "$TARGET" ] || fail 'choose an install location with --target DIR'
+[ "$UNSTABLE" -eq 0 ] || [ "$REF_EXPLICIT" -eq 0 ] || fail '--unstable cannot be combined with --ref'
 command -v curl >/dev/null 2>&1 || fail 'curl is required to download the source archive'
 command -v git >/dev/null 2>&1 || fail 'Git is required to initialize the local workspace'
 command -v python3 >/dev/null 2>&1 || fail 'Python 3.14 or newer is required; python3 was not found'
 PYTHON_VERSION=$(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])')
 python3 -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 14) else 1)' || fail "Python 3.14 or newer is required; found $PYTHON_VERSION"
 
-case "$REF" in
-  ''|/*|-*|*..*|*//*|*/|*[!A-Za-z0-9._/-]*) fail 'ref may contain only letters, digits, dot, underscore, hyphen, and slash; path traversal is not allowed' ;;
-esac
 REPOSITORY_OWNER=${REPOSITORY%%/*}
 REPOSITORY_NAME=${REPOSITORY#*/}
 case "$REPOSITORY" in
@@ -88,6 +95,22 @@ case "$REPOSITORY_NAME" in
 esac
 case "$REPOSITORY_OWNER" in
   ''|*[!A-Za-z0-9._-]*) fail 'repository owner is invalid' ;;
+esac
+
+if [ "$UNSTABLE" -eq 1 ]; then
+  REF=main
+elif [ "$REF_EXPLICIT" -eq 0 ]; then
+  RELEASE_API=https://api.github.com/repos/$REPOSITORY/releases/latest
+  printf 'Resolving the latest published release for %s…\n' "$REPOSITORY"
+  RELEASE_JSON=$(curl --fail --location --silent --show-error \
+    -H 'Accept: application/vnd.github+json' \
+    -H 'X-GitHub-Api-Version: 2022-11-28' \
+    "$RELEASE_API") || fail 'could not query the latest GitHub release; use --unstable or --ref to select a source explicitly'
+  REF=$(printf '%s' "$RELEASE_JSON" | python3 -c 'import json, sys; value = json.load(sys.stdin); print(value.get("tag_name", ""))') || fail 'GitHub returned invalid latest-release metadata'
+  [ -n "$REF" ] || fail 'repository has no published release; use --unstable or --ref to select a source explicitly'
+fi
+case "$REF" in
+  ''|/*|-*|*..*|*//*|*/|*[!A-Za-z0-9._/-]*) fail 'ref may contain only letters, digits, dot, underscore, hyphen, and slash; path traversal is not allowed' ;;
 esac
 
 TARGET_PARENT=$(dirname "$TARGET")
