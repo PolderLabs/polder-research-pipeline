@@ -14,7 +14,6 @@ import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlsplit, urlunsplit
 
 from ..atomic import write_atomic
 from ..evidence import assert_record_exists
@@ -32,8 +31,14 @@ from ..paths import (
     RESEARCH_RUNS_DIR,
     RESEARCH_SCREENINGS_DIR,
     RESEARCH_SEARCHES_DIR,
+    Workspace,
+    active_workspace,
+    resolve_workspace,
+    workspace_path,
+    workspace_scoped,
 )
 from ..schemas import SchemaError, validate
+from ..urls import normalize_url
 
 
 class ResearchMethodError(ValueError):
@@ -66,20 +71,26 @@ def _require_timestamp(value: str, field: str) -> datetime:
     return parsed
 
 
-def _export_path(location: str) -> Path:
+def _export_path(location: str, workspace: Workspace | Path | str | None = None) -> Path:
+    selected = workspace if workspace is not None else active_workspace()
+    root = resolve_workspace(selected).root if selected is not None else REPO_ROOT
     path = Path(location)
     if not path.is_absolute():
-        path = REPO_ROOT / path
+        path = root / path
     resolved = path.resolve()
     try:
-        resolved.relative_to(REPO_ROOT.resolve())
+        resolved.relative_to(root.resolve())
     except ValueError as exc:
-        raise ResearchMethodError("search exports must be stored inside the repository") from exc
+        raise ResearchMethodError("search exports must be stored inside the workspace") from exc
     return resolved
 
 
-def _verify_export(location: str, expected_sha256: str) -> None:
-    path = _export_path(location)
+def _verify_export(
+    location: str,
+    expected_sha256: str,
+    workspace: Workspace | Path | str | None = None,
+) -> None:
+    path = _export_path(location, workspace)
     try:
         actual = hashlib.sha256(path.read_bytes()).hexdigest()
     except OSError as exc:
@@ -171,10 +182,22 @@ def _protocol_content_hash(protocol: dict[str, Any]) -> str:
 
 
 def _run(run_id: str) -> dict[str, Any]:
-    run = _record(RESEARCH_RUNS_DIR, run_id)
+    run = _record(workspace_path(RESEARCH_RUNS_DIR), run_id)
     if run.get("id") != run_id:
         raise ResearchMethodError(f"run identity mismatch for {run_id!r}")
     return run
+
+
+def _require_acquired_source(source_id: str) -> dict[str, Any]:
+    source = assert_record_exists(
+        source_id,
+        prefix="src",
+        default_dir=workspace_path(EVIDENCE_SOURCES_DIR),
+        directory_name="sources",
+    )
+    if source.get("acquisition_status") == "unacquired":
+        raise ResearchMethodError(f"source {source_id} must be acquired before this operation")
+    return source
 
 
 def _frozen_for_run(
@@ -188,7 +211,7 @@ def _frozen_for_run(
     protocol_id = run.get("protocol_id")
     if not protocol_id:
         raise ResearchMethodError(f"run {run_id} has no frozen protocol")
-    protocol = _record(RESEARCH_PROTOCOLS_DIR, protocol_id)
+    protocol = _record(workspace_path(RESEARCH_PROTOCOLS_DIR), protocol_id)
     if protocol.get("id") != protocol_id or protocol.get("run_id") != run_id:
         raise ResearchMethodError("protocol identity or run reference does not match")
     if protocol.get("status") != "frozen":
@@ -199,7 +222,14 @@ def _frozen_for_run(
     return run, protocol
 
 
-def create_protocol(run_id: str, protocol: dict[str, Any], *, created_by: str) -> str:
+@workspace_scoped
+def create_protocol(
+    run_id: str,
+    protocol: dict[str, Any],
+    *,
+    created_by: str,
+    workspace: Workspace | Path | str | None = None,
+) -> str:
     """Create a draft protocol for a draft systematic-review run."""
     run = _run(run_id)
     if run.get("research_method") != "systematic_evidence_review":
@@ -240,13 +270,18 @@ def create_protocol(run_id: str, protocol: dict[str, Any], *, created_by: str) -
         raise ResearchMethodError("protocol query IDs must be unique")
     if record["question"].strip() != run.get("brief", {}).get("question", "").strip():
         raise ResearchMethodError("protocol question must match the run brief question")
-    write_atomic(RESEARCH_PROTOCOLS_DIR / f"{record['id']}.json", record, schema_name="protocol")
+    write_atomic(
+        workspace_path(RESEARCH_PROTOCOLS_DIR) / f"{record['id']}.json",
+        record,
+        schema_name="protocol",
+    )
     return record["id"]
 
 
-def freeze_protocol(protocol_id: str) -> str:
+@workspace_scoped
+def freeze_protocol(protocol_id: str, *, workspace: Workspace | Path | str | None = None) -> str:
     """Freeze a draft protocol and bind its digest to the run before activation."""
-    protocol = _record(RESEARCH_PROTOCOLS_DIR, protocol_id)
+    protocol = _record(workspace_path(RESEARCH_PROTOCOLS_DIR), protocol_id)
     run_id = protocol.get("run_id")
     if not isinstance(run_id, str):
         raise ResearchMethodError("protocol has no run_id")
@@ -263,19 +298,25 @@ def freeze_protocol(protocol_id: str) -> str:
         digest = _protocol_content_hash(protocol)
         protocol["content_sha256"] = digest
         write_atomic(
-            RESEARCH_PROTOCOLS_DIR / f"{protocol_id}.json", protocol, schema_name="protocol"
+            workspace_path(RESEARCH_PROTOCOLS_DIR) / f"{protocol_id}.json",
+            protocol,
+            schema_name="protocol",
         )
     run["protocol_id"] = protocol_id
     run["protocol_sha256"] = digest
-    write_atomic(RESEARCH_RUNS_DIR / f"{run_id}.json", run, schema_name="run")
+    write_atomic(workspace_path(RESEARCH_RUNS_DIR) / f"{run_id}.json", run, schema_name="run")
     return digest
 
 
-def verify_run_protocol(run_id: str) -> tuple[dict[str, Any], dict[str, Any]]:
+@workspace_scoped
+def verify_run_protocol(
+    run_id: str, *, workspace: Workspace | Path | str | None = None
+) -> tuple[dict[str, Any], dict[str, Any]]:
     """Check the frozen protocol binding; used by run lifecycle transitions."""
     return _frozen_for_run(run_id, require_active=False)
 
 
+@workspace_scoped
 def record_search(
     run_id: str,
     *,
@@ -288,6 +329,7 @@ def record_search(
     tool_name: str = "",
     tool_version: str = "",
     notes: str = "",
+    workspace: Workspace | Path | str | None = None,
 ) -> str:
     """Record a search exactly as prespecified in the frozen protocol."""
     _, protocol = _frozen_for_run(run_id)
@@ -331,7 +373,9 @@ def record_search(
         record["export_sha256"] = export_sha256
     if export_location is not None:
         record["export_location"] = export_location
-    write_atomic(RESEARCH_SEARCHES_DIR / f"{record['id']}.json", record, schema_name="search")
+    write_atomic(
+        workspace_path(RESEARCH_SEARCHES_DIR) / f"{record['id']}.json", record, schema_name="search"
+    )
     return record["id"]
 
 
@@ -343,22 +387,14 @@ def _dedupe_key(title: str, identifiers: list[str], url: str | None) -> str:
                 value = value[4:]
             return hashlib.sha256(f"id:{value}".encode()).hexdigest()
     if url:
-        parsed = urlsplit(url.strip())
-        normalized = urlunsplit(
-            (
-                parsed.scheme.lower(),
-                parsed.netloc.lower(),
-                parsed.path.rstrip("/"),
-                parsed.query,
-                "",
-            )
-        )
+        normalized = normalize_url(url)
         if normalized:
             return hashlib.sha256(f"url:{normalized}".encode()).hexdigest()
     normalized_title = re.sub(r"\s+", " ", title).strip().casefold()
     return hashlib.sha256(f"title:{normalized_title}".encode()).hexdigest()
 
 
+@workspace_scoped
 def register_candidate(
     run_id: str,
     *,
@@ -369,10 +405,11 @@ def register_candidate(
     published_at: str = "",
     url: str | None = None,
     abstract: str = "",
+    workspace: Workspace | Path | str | None = None,
 ) -> str:
     """Record one returned search hit; duplicates remain explicit candidates."""
     _, protocol = _frozen_for_run(run_id)
-    search = _record(RESEARCH_SEARCHES_DIR, search_id)
+    search = _record(workspace_path(RESEARCH_SEARCHES_DIR), search_id)
     if (
         search.get("run_id") != run_id
         or search.get("protocol_sha256") != protocol["content_sha256"]
@@ -382,7 +419,7 @@ def register_candidate(
     key = _dedupe_key(title, identifiers, url)
     duplicates = [
         candidate
-        for candidate in _records(RESEARCH_CANDIDATES_DIR, "can_", run_id)
+        for candidate in _records(workspace_path(RESEARCH_CANDIDATES_DIR), "can_", run_id)
         if candidate.get("dedupe_key") == key
     ]
     canonical = next(
@@ -409,10 +446,15 @@ def register_candidate(
         record["abstract"] = abstract
     if canonical:
         record["duplicate_of"] = canonical["id"]
-    write_atomic(RESEARCH_CANDIDATES_DIR / f"{record['id']}.json", record, schema_name="candidate")
+    write_atomic(
+        workspace_path(RESEARCH_CANDIDATES_DIR) / f"{record['id']}.json",
+        record,
+        schema_name="candidate",
+    )
     return record["id"]
 
 
+@workspace_scoped
 def record_screening_decision(
     run_id: str,
     *,
@@ -424,10 +466,11 @@ def record_screening_decision(
     exclusion_reason: str | None = None,
     source_id: str | None = None,
     decided_at: str | None = None,
+    workspace: Workspace | Path | str | None = None,
 ) -> str:
     """Append a prespecified independent human screening decision."""
     _, protocol = _frozen_for_run(run_id)
-    candidate = _record(RESEARCH_CANDIDATES_DIR, candidate_id)
+    candidate = _record(workspace_path(RESEARCH_CANDIDATES_DIR), candidate_id)
     if candidate.get("run_id") != run_id or candidate.get("status") != "unique":
         raise ResearchMethodError("screening requires a unique candidate from this run")
     reviewers = {item["id"]: item for item in protocol["screening_plan"]["reviewers"]}
@@ -443,7 +486,7 @@ def record_screening_decision(
     if stage == "full_text":
         prior = [
             decision
-            for decision in _records(RESEARCH_SCREENINGS_DIR, "scr_", run_id)
+            for decision in _records(workspace_path(RESEARCH_SCREENINGS_DIR), "scr_", run_id)
             if decision.get("candidate_id") == candidate_id
             and decision.get("stage") == "title_abstract"
         ]
@@ -453,17 +496,23 @@ def record_screening_decision(
             )
     if stage == "full_text" and outcome == "include" and not source_id:
         raise ResearchMethodError("full-text inclusion requires an acquired source_id")
+    if stage == "full_text" and outcome == "include" and source_id:
+        _require_acquired_source(source_id)
     if source_id:
         _require_id(source_id, "src")
-        assert_record_exists(
-            source_id, prefix="src", default_dir=EVIDENCE_SOURCES_DIR, directory_name="sources"
-        )
+        if not (stage == "full_text" and outcome == "include"):
+            assert_record_exists(
+                source_id,
+                prefix="src",
+                default_dir=workspace_path(EVIDENCE_SOURCES_DIR),
+                directory_name="sources",
+            )
     if outcome == "exclude" and not exclusion_reason:
         raise ResearchMethodError("excluded records require a prespecified exclusion reason")
     if exclusion_reason and exclusion_reason not in protocol["screening_plan"]["exclusion_reasons"]:
         raise ResearchMethodError("exclusion reason is not in the frozen protocol")
     _require_timestamp(decided_at or _now(), "screening.decided_at")
-    for existing in _records(RESEARCH_SCREENINGS_DIR, "scr_", run_id):
+    for existing in _records(workspace_path(RESEARCH_SCREENINGS_DIR), "scr_", run_id):
         if (
             existing.get("run_id"),
             existing.get("candidate_id"),
@@ -490,10 +539,15 @@ def record_screening_decision(
         record["exclusion_reason"] = exclusion_reason
     if source_id:
         record["source_id"] = source_id
-    write_atomic(RESEARCH_SCREENINGS_DIR / f"{record['id']}.json", record, schema_name="screening")
+    write_atomic(
+        workspace_path(RESEARCH_SCREENINGS_DIR) / f"{record['id']}.json",
+        record,
+        schema_name="screening",
+    )
     return record["id"]
 
 
+@workspace_scoped
 def adjudicate_screening(
     run_id: str,
     *,
@@ -504,13 +558,14 @@ def adjudicate_screening(
     rationale: str,
     exclusion_reason: str | None = None,
     source_id: str | None = None,
+    workspace: Workspace | Path | str | None = None,
 ) -> str:
     """Append an adjudication only when two independent decisions disagree."""
     _, protocol = _frozen_for_run(run_id)
     screening_plan = protocol["screening_plan"]
     if adjudicator_id != screening_plan["adjudicator"]["id"]:
         raise ResearchMethodError("adjudicator does not match the frozen protocol")
-    candidate = _record(RESEARCH_CANDIDATES_DIR, candidate_id)
+    candidate = _record(workspace_path(RESEARCH_CANDIDATES_DIR), candidate_id)
     if candidate.get("run_id") != run_id or candidate.get("status") != "unique":
         raise ResearchMethodError("adjudication requires a unique candidate from this run")
     if stage not in {"title_abstract", "full_text"} or outcome not in {
@@ -521,7 +576,7 @@ def adjudicate_screening(
         raise ResearchMethodError("invalid adjudication stage or outcome")
     decisions = [
         _read(path)
-        for path in sorted(RESEARCH_SCREENINGS_DIR.glob("scr_*.json"))
+        for path in sorted(workspace_path(RESEARCH_SCREENINGS_DIR).glob("scr_*.json"))
         if (decision := _read(path)).get("run_id") == run_id
         and decision.get("candidate_id") == candidate_id
         and decision.get("stage") == stage
@@ -531,7 +586,7 @@ def adjudicate_screening(
         raise ResearchMethodError("adjudication requires disagreeing independent decisions")
     prior_records = [
         _read(path)
-        for path in RESEARCH_SCREENINGS_DIR.glob("scr_*.json")
+        for path in workspace_path(RESEARCH_SCREENINGS_DIR).glob("scr_*.json")
         if (item := _read(path)).get("run_id") == run_id
         and item.get("candidate_id") == candidate_id
         and item.get("stage") == stage
@@ -544,11 +599,17 @@ def adjudicate_screening(
         raise ResearchMethodError("adjudicated exclusion reason is not in the frozen protocol")
     if stage == "full_text" and outcome == "include" and not source_id:
         raise ResearchMethodError("full-text adjudication inclusion requires an acquired source_id")
+    if stage == "full_text" and outcome == "include" and source_id:
+        _require_acquired_source(source_id)
     if source_id:
         _require_id(source_id, "src")
-        assert_record_exists(
-            source_id, prefix="src", default_dir=EVIDENCE_SOURCES_DIR, directory_name="sources"
-        )
+        if not (stage == "full_text" and outcome == "include"):
+            assert_record_exists(
+                source_id,
+                prefix="src",
+                default_dir=workspace_path(EVIDENCE_SOURCES_DIR),
+                directory_name="sources",
+            )
     record: dict[str, Any] = {
         "id": _uuid7("scr"),
         "schema_version": 1,
@@ -568,10 +629,15 @@ def adjudicate_screening(
         record["exclusion_reason"] = exclusion_reason
     if source_id:
         record["source_id"] = source_id
-    write_atomic(RESEARCH_SCREENINGS_DIR / f"{record['id']}.json", record, schema_name="screening")
+    write_atomic(
+        workspace_path(RESEARCH_SCREENINGS_DIR) / f"{record['id']}.json",
+        record,
+        schema_name="screening",
+    )
     return record["id"]
 
 
+@workspace_scoped
 def record_appraisal(
     run_id: str,
     *,
@@ -582,16 +648,15 @@ def record_appraisal(
     overall_judgement: str,
     domains: list[dict[str, str]],
     limitations: list[str] | None = None,
+    workspace: Workspace | Path | str | None = None,
 ) -> str:
     """Record domain-level critical appraisal without collapsing it to a score."""
     _, protocol = _frozen_for_run(run_id)
-    candidate = _record(RESEARCH_CANDIDATES_DIR, candidate_id)
+    candidate = _record(workspace_path(RESEARCH_CANDIDATES_DIR), candidate_id)
     if candidate.get("run_id") != run_id or candidate.get("status") != "unique":
         raise ResearchMethodError("appraisal candidate does not belong to this run")
     _require_id(source_id, "src")
-    assert_record_exists(
-        source_id, prefix="src", default_dir=EVIDENCE_SOURCES_DIR, directory_name="sources"
-    )
+    _require_acquired_source(source_id)
     if instrument != protocol["appraisal_plan"]["instrument"]:
         raise ResearchMethodError("appraisal instrument does not match the frozen protocol")
     instrument_version = protocol["appraisal_plan"]["instrument_version"]
@@ -603,7 +668,7 @@ def record_appraisal(
         raise ResearchMethodError("appraisal reviewer must be a protocol-listed human reviewer")
     full_text_decisions = [
         item
-        for item in _records(RESEARCH_SCREENINGS_DIR, "scr_", run_id)
+        for item in _records(workspace_path(RESEARCH_SCREENINGS_DIR), "scr_", run_id)
         if item.get("candidate_id") == candidate_id and item.get("stage") == "full_text"
     ]
     if _final_decision(full_text_decisions) != "include":
@@ -629,10 +694,15 @@ def record_appraisal(
         "limitations": list(limitations or []),
         "completed_at": _now(),
     }
-    write_atomic(RESEARCH_APPRAISALS_DIR / f"{record['id']}.json", record, schema_name="appraisal")
+    write_atomic(
+        workspace_path(RESEARCH_APPRAISALS_DIR) / f"{record['id']}.json",
+        record,
+        schema_name="appraisal",
+    )
     return record["id"]
 
 
+@workspace_scoped
 def record_extraction(
     run_id: str,
     *,
@@ -644,10 +714,11 @@ def record_extraction(
     rationale: str,
     value: str | None = None,
     segment_id: str | None = None,
+    workspace: Workspace | Path | str | None = None,
 ) -> str:
     """Record one independent protocol-defined extraction field."""
     _, protocol = _frozen_for_run(run_id)
-    candidate = _record(RESEARCH_CANDIDATES_DIR, candidate_id)
+    candidate = _record(workspace_path(RESEARCH_CANDIDATES_DIR), candidate_id)
     if candidate.get("run_id") != run_id or candidate.get("status") != "unique":
         raise ResearchMethodError("extraction candidate does not belong to this run")
     if field not in protocol["extraction_plan"]["fields"]:
@@ -660,12 +731,10 @@ def record_extraction(
             "independent extraction requires a protocol-listed human reviewer"
         )
     _require_id(source_id, "src")
-    assert_record_exists(
-        source_id, prefix="src", default_dir=EVIDENCE_SOURCES_DIR, directory_name="sources"
-    )
+    _require_acquired_source(source_id)
     full_text = [
         item
-        for item in _records(RESEARCH_SCREENINGS_DIR, "scr_", run_id)
+        for item in _records(workspace_path(RESEARCH_SCREENINGS_DIR), "scr_", run_id)
         if item.get("candidate_id") == candidate_id and item.get("stage") == "full_text"
     ]
     if _final_decision(full_text) != "include" or source_id not in {
@@ -681,11 +750,14 @@ def record_extraction(
     if segment_id:
         _require_id(segment_id, "seg")
         segment = assert_record_exists(
-            segment_id, prefix="seg", default_dir=EVIDENCE_SEGMENTS_DIR, directory_name="segments"
+            segment_id,
+            prefix="seg",
+            default_dir=workspace_path(EVIDENCE_SEGMENTS_DIR),
+            directory_name="segments",
         )
         if segment.get("source_id") != source_id:
             raise ResearchMethodError("extraction segment does not belong to the acquired source")
-    for existing in _records(RESEARCH_EXTRACTIONS_DIR, "ext_", run_id):
+    for existing in _records(workspace_path(RESEARCH_EXTRACTIONS_DIR), "ext_", run_id):
         if (
             existing.get("candidate_id"),
             existing.get("field"),
@@ -713,11 +785,14 @@ def record_extraction(
     if segment_id:
         record["segment_id"] = segment_id
     write_atomic(
-        RESEARCH_EXTRACTIONS_DIR / f"{record['id']}.json", record, schema_name="extraction"
+        workspace_path(RESEARCH_EXTRACTIONS_DIR) / f"{record['id']}.json",
+        record,
+        schema_name="extraction",
     )
     return record["id"]
 
 
+@workspace_scoped
 def adjudicate_extraction(
     run_id: str,
     *,
@@ -729,23 +804,22 @@ def adjudicate_extraction(
     rationale: str,
     value: str | None = None,
     segment_id: str | None = None,
+    workspace: Workspace | Path | str | None = None,
 ) -> str:
     """Resolve discrepant independent extraction while retaining both inputs."""
     _, protocol = _frozen_for_run(run_id)
     if adjudicator_id != protocol["screening_plan"]["adjudicator"]["id"]:
         raise ResearchMethodError("adjudicator does not match the frozen protocol")
-    candidate = _record(RESEARCH_CANDIDATES_DIR, candidate_id)
+    candidate = _record(workspace_path(RESEARCH_CANDIDATES_DIR), candidate_id)
     if candidate.get("run_id") != run_id or candidate.get("status") != "unique":
         raise ResearchMethodError("extraction adjudication candidate does not belong to this run")
     if field not in protocol["extraction_plan"]["fields"]:
         raise ResearchMethodError("extraction field is not in the frozen protocol")
     _require_id(source_id, "src")
-    assert_record_exists(
-        source_id, prefix="src", default_dir=EVIDENCE_SOURCES_DIR, directory_name="sources"
-    )
+    _require_acquired_source(source_id)
     existing = [
         item
-        for item in _records(RESEARCH_EXTRACTIONS_DIR, "ext_", run_id)
+        for item in _records(workspace_path(RESEARCH_EXTRACTIONS_DIR), "ext_", run_id)
         if item.get("candidate_id") == candidate_id and item.get("field") == field
     ]
     if any(item["record_kind"] == "adjudication" for item in existing):
@@ -780,13 +854,16 @@ def adjudicate_extraction(
     if segment_id:
         _require_id(segment_id, "seg")
         segment = assert_record_exists(
-            segment_id, prefix="seg", default_dir=EVIDENCE_SEGMENTS_DIR, directory_name="segments"
+            segment_id,
+            prefix="seg",
+            default_dir=workspace_path(EVIDENCE_SEGMENTS_DIR),
+            directory_name="segments",
         )
         if segment.get("source_id") != source_id:
             raise ResearchMethodError("adjudication segment does not belong to the source")
     full_text = [
         item
-        for item in _records(RESEARCH_SCREENINGS_DIR, "scr_", run_id)
+        for item in _records(workspace_path(RESEARCH_SCREENINGS_DIR), "scr_", run_id)
         if item.get("candidate_id") == candidate_id and item.get("stage") == "full_text"
     ]
     if _final_decision(full_text) != "include" or source_id not in {
@@ -814,16 +891,21 @@ def adjudicate_extraction(
     if segment_id:
         record["segment_id"] = segment_id
     write_atomic(
-        RESEARCH_EXTRACTIONS_DIR / f"{record['id']}.json", record, schema_name="extraction"
+        workspace_path(RESEARCH_EXTRACTIONS_DIR) / f"{record['id']}.json",
+        record,
+        schema_name="extraction",
     )
     return record["id"]
 
 
-def screening_flow(run_id: str) -> dict[str, int]:
+@workspace_scoped
+def screening_flow(
+    run_id: str, *, workspace: Workspace | Path | str | None = None
+) -> dict[str, int]:
     """Derive PRISMA-style record flow counts from candidate/decision records."""
     _, protocol = _frozen_for_run(run_id, require_active=False)
-    candidates = _records(RESEARCH_CANDIDATES_DIR, "can_", run_id)
-    decisions = _records(RESEARCH_SCREENINGS_DIR, "scr_", run_id)
+    candidates = _records(workspace_path(RESEARCH_CANDIDATES_DIR), "can_", run_id)
+    decisions = _records(workspace_path(RESEARCH_SCREENINGS_DIR), "scr_", run_id)
     duplicates = [candidate for candidate in candidates if candidate["status"] == "duplicate"]
     unique = [candidate for candidate in candidates if candidate["status"] == "unique"]
     by_key = {(decision["candidate_id"], decision["stage"]): [] for decision in decisions}
@@ -865,8 +947,8 @@ def screening_flow(run_id: str) -> dict[str, int]:
     full_text_assessed = sum((c["id"], "full_text") in final for c in unique)
     full_text_excluded = sum(final.get((c["id"], "full_text")) == "exclude" for c in unique)
     included = sum(final.get((c["id"], "full_text")) == "include" for c in unique)
-    searches = _records(RESEARCH_SEARCHES_DIR, "sea_", run_id)
-    extractions = _records(RESEARCH_EXTRACTIONS_DIR, "ext_", run_id)
+    searches = _records(workspace_path(RESEARCH_SEARCHES_DIR), "sea_", run_id)
+    extractions = _records(workspace_path(RESEARCH_EXTRACTIONS_DIR), "ext_", run_id)
     included_ids = {c["id"] for c in unique if final.get((c["id"], "full_text")) == "include"}
     extraction_total = len(included_ids) * len(protocol["extraction_plan"]["fields"])
     extraction_resolved = sum(
@@ -900,16 +982,19 @@ def screening_flow(run_id: str) -> dict[str, int]:
     }
 
 
-def validate_run_for_completion(run_id: str) -> list[str]:
+@workspace_scoped
+def validate_run_for_completion(
+    run_id: str, *, workspace: Workspace | Path | str | None = None
+) -> list[str]:
     """Return all systematic-review completion blockers in deterministic order."""
     run, protocol = _frozen_for_run(run_id, require_active=False)
     issues: list[str] = []
     flow = screening_flow(run_id)
-    searches = _records(RESEARCH_SEARCHES_DIR, "sea_", run_id)
-    candidates = _records(RESEARCH_CANDIDATES_DIR, "can_", run_id)
-    screenings = _records(RESEARCH_SCREENINGS_DIR, "scr_", run_id)
-    appraisals = _records(RESEARCH_APPRAISALS_DIR, "app_", run_id)
-    extractions = _records(RESEARCH_EXTRACTIONS_DIR, "ext_", run_id)
+    searches = _records(workspace_path(RESEARCH_SEARCHES_DIR), "sea_", run_id)
+    candidates = _records(workspace_path(RESEARCH_CANDIDATES_DIR), "can_", run_id)
+    screenings = _records(workspace_path(RESEARCH_SCREENINGS_DIR), "scr_", run_id)
+    appraisals = _records(workspace_path(RESEARCH_APPRAISALS_DIR), "app_", run_id)
+    extractions = _records(workspace_path(RESEARCH_EXTRACTIONS_DIR), "ext_", run_id)
     method_records = searches + candidates + screenings + appraisals + extractions
     for record in method_records:
         if (
@@ -978,7 +1063,7 @@ def validate_run_for_completion(run_id: str) -> list[str]:
                 assert_record_exists(
                     record["source_id"],
                     prefix="src",
-                    default_dir=EVIDENCE_SOURCES_DIR,
+                    default_dir=workspace_path(EVIDENCE_SOURCES_DIR),
                     directory_name="sources",
                 )
             except ValueError as exc:
@@ -1051,7 +1136,7 @@ def validate_run_for_completion(run_id: str) -> list[str]:
                 segment = assert_record_exists(
                     extraction["segment_id"],
                     prefix="seg",
-                    default_dir=EVIDENCE_SEGMENTS_DIR,
+                    default_dir=workspace_path(EVIDENCE_SEGMENTS_DIR),
                     directory_name="segments",
                 )
                 if segment.get("source_id") != extraction["source_id"]:
@@ -1119,7 +1204,7 @@ def validate_run_for_completion(run_id: str) -> list[str]:
                     )
     if flow["unresolved_decisions"]:
         issues.append(f"{flow['unresolved_decisions']} screening decisions remain unresolved")
-    report_path = RESEARCH_REPORTS_DIR / f"{run_id}.json"
+    report_path = workspace_path(RESEARCH_REPORTS_DIR) / f"{run_id}.json"
     if not report_path.is_file():
         issues.append("review audit report has not been generated")
     else:
@@ -1144,22 +1229,22 @@ def validate_run_for_completion(run_id: str) -> list[str]:
 def _record_inventory(run_id: str) -> dict[str, list[str]]:
     inventory: dict[str, list[str]] = {}
     for name, directory, prefix in (
-        ("searches", RESEARCH_SEARCHES_DIR, "sea_"),
-        ("candidates", RESEARCH_CANDIDATES_DIR, "can_"),
-        ("screenings", RESEARCH_SCREENINGS_DIR, "scr_"),
-        ("appraisals", RESEARCH_APPRAISALS_DIR, "app_"),
-        ("extractions", RESEARCH_EXTRACTIONS_DIR, "ext_"),
+        ("searches", workspace_path(RESEARCH_SEARCHES_DIR), "sea_"),
+        ("candidates", workspace_path(RESEARCH_CANDIDATES_DIR), "can_"),
+        ("screenings", workspace_path(RESEARCH_SCREENINGS_DIR), "scr_"),
+        ("appraisals", workspace_path(RESEARCH_APPRAISALS_DIR), "app_"),
+        ("extractions", workspace_path(RESEARCH_EXTRACTIONS_DIR), "ext_"),
     ):
         inventory[name] = sorted(record["id"] for record in _records(directory, prefix, run_id))
     sources: set[str] = set()
-    for record in _records(RESEARCH_SCREENINGS_DIR, "scr_", run_id):
+    for record in _records(workspace_path(RESEARCH_SCREENINGS_DIR), "scr_", run_id):
         if record.get("source_id"):
             sources.add(record["source_id"])
-    for record in _records(RESEARCH_APPRAISALS_DIR, "app_", run_id):
+    for record in _records(workspace_path(RESEARCH_APPRAISALS_DIR), "app_", run_id):
         sources.add(record["source_id"])
     inventory["sources"] = sorted(sources)
     claim_records: list[dict[str, Any]] = []
-    for path in sorted(EVIDENCE_CLAIMS_DIR.glob("clm_*.json")):
+    for path in sorted(workspace_path(EVIDENCE_CLAIMS_DIR).glob("clm_*.json")):
         claim = _read(path)
         try:
             validate("claim", claim)
@@ -1169,7 +1254,7 @@ def _record_inventory(run_id: str) -> dict[str, list[str]]:
             claim_records.append(claim)
     claim_ids = {claim["id"] for claim in claim_records}
     conflict_ids: list[str] = []
-    for path in sorted(EVIDENCE_CONFLICTS_DIR.glob("cfl_*.json")):
+    for path in sorted(workspace_path(EVIDENCE_CONFLICTS_DIR).glob("cfl_*.json")):
         conflict = _read(path)
         try:
             validate("conflict", conflict)
@@ -1185,14 +1270,14 @@ def _record_inventory(run_id: str) -> dict[str, list[str]]:
 def _record_hashes(run_id: str) -> dict[str, str]:
     inventory = _record_inventory(run_id)
     directories = {
-        "searches": RESEARCH_SEARCHES_DIR,
-        "candidates": RESEARCH_CANDIDATES_DIR,
-        "screenings": RESEARCH_SCREENINGS_DIR,
-        "extractions": RESEARCH_EXTRACTIONS_DIR,
-        "appraisals": RESEARCH_APPRAISALS_DIR,
-        "sources": EVIDENCE_SOURCES_DIR,
-        "claims": EVIDENCE_CLAIMS_DIR,
-        "conflicts": EVIDENCE_CONFLICTS_DIR,
+        "searches": workspace_path(RESEARCH_SEARCHES_DIR),
+        "candidates": workspace_path(RESEARCH_CANDIDATES_DIR),
+        "screenings": workspace_path(RESEARCH_SCREENINGS_DIR),
+        "extractions": workspace_path(RESEARCH_EXTRACTIONS_DIR),
+        "appraisals": workspace_path(RESEARCH_APPRAISALS_DIR),
+        "sources": workspace_path(EVIDENCE_SOURCES_DIR),
+        "claims": workspace_path(EVIDENCE_CLAIMS_DIR),
+        "conflicts": workspace_path(EVIDENCE_CONFLICTS_DIR),
     }
     hashes: dict[str, str] = {}
     for group, ids in inventory.items():
@@ -1212,7 +1297,13 @@ def _report_hash(report: dict[str, Any]) -> str:
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
-def generate_review_report(run_id: str, *, limitations: list[str] | None = None) -> Path:
+@workspace_scoped
+def generate_review_report(
+    run_id: str,
+    *,
+    limitations: list[str] | None = None,
+    workspace: Workspace | Path | str | None = None,
+) -> Path:
     """Write a reproducible audit bundle after screening/appraisal checks pass."""
     run, protocol = _frozen_for_run(run_id, require_active=True)
     issues = validate_run_for_completion(run_id)
@@ -1231,14 +1322,14 @@ def generate_review_report(run_id: str, *, limitations: list[str] | None = None)
         "limitations": list(limitations or []),
     }
     report["content_sha256"] = _report_hash(report)
-    report_path = RESEARCH_REPORTS_DIR / f"{run_id}.json"
+    report_path = workspace_path(RESEARCH_REPORTS_DIR) / f"{run_id}.json"
     write_atomic(report_path, report, schema_name="review_report")
     output_ref = f"reports/{run_id}.json"
     outputs = list(run.get("outputs", []))
     if output_ref not in outputs:
         outputs.append(output_ref)
         run["outputs"] = outputs
-        write_atomic(RESEARCH_RUNS_DIR / f"{run_id}.json", run, schema_name="run")
+        write_atomic(workspace_path(RESEARCH_RUNS_DIR) / f"{run_id}.json", run, schema_name="run")
     return report_path
 
 

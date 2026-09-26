@@ -22,7 +22,7 @@ from .classification import (
     cmd_classify_existing,
 )
 from .decision import cmd_decision_run
-from .intake import cmd_intake_register
+from .intake import cmd_intake_register, cmd_source_acquire
 from .new_note import cmd_new_note
 from .state import cmd_build_health, cmd_build_state
 
@@ -42,12 +42,19 @@ def main(argv: list[str] | None = None) -> int:
     fix.add_argument("--apply", action="store_true")
     intake = sub.add_parser("intake-register", help="Register a raw intake item")
     intake.add_argument("--file")
+    intake.add_argument("--manifest", help="Bulk registration manifest (.csv or .jsonl)")
+    intake.add_argument(
+        "--dry-run", action="store_true", help="Show a bulk intake plan without writing"
+    )
     intake.add_argument("--kind", default="other")
     intake.add_argument("--owner", default="agent")
     intake.add_argument("--status", default="new")
     intake.add_argument("--outcome", default="—")
     intake.add_argument("--set", dest="set_file")
     intake.add_argument("--list", action="store_true")
+    acquire = sub.add_parser("source-acquire", help="Acquire content for a registered URL source")
+    acquire.add_argument("--source-id", required=True)
+    acquire.add_argument("--file", required=True, help="File relative to 90-inbox/raw")
     new = sub.add_parser("new-note", help="Scaffold a vault note")
     new.add_argument("--domain", required=True)
     new.add_argument("--title", required=True)
@@ -158,7 +165,11 @@ def main(argv: list[str] | None = None) -> int:
             set_file=args.set_file,
             list_=args.list,
             repository_root=root,
+            manifest=args.manifest,
+            dry_run=args.dry_run,
         )
+    if args.cmd == "source-acquire":
+        return cmd_source_acquire(args.source_id, args.file, repository_root=root)
     if args.cmd == "new-note":
         return cmd_new_note(
             domain=args.domain,

@@ -127,6 +127,7 @@ def _source(source_id: str, status: str) -> dict:
         "id": source_id,
         "schema_version": 1,
         "source_status": status,
+        "acquisition_status": "acquired",
         "source_type": "paper",
         "media_type": "pdf",
         "title": "t",

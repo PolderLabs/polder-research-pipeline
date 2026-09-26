@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from ..agents import get_code_revision, get_instruction_version
 from ..atomic import write_atomic
-from ..paths import RESEARCH_EVENTS_DIR
+from ..paths import RESEARCH_EVENTS_DIR, Workspace, active_workspace, resolve_workspace
 
 
 def _now() -> str:
@@ -32,9 +33,17 @@ def write_event(
     targets: list[str] | None = None,
     error_category: str | None = None,
     error_message: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    workspace: Workspace | Path | str | None = None,
 ) -> str:
     """Append a typed event to the .research/events/ log."""
-    RESEARCH_EVENTS_DIR.mkdir(parents=True, exist_ok=True)
+    selected = workspace if workspace is not None else active_workspace()
+    events_dir = (
+        RESEARCH_EVENTS_DIR
+        if selected is None
+        else resolve_workspace(selected).research_path("events")
+    )
+    events_dir.mkdir(parents=True, exist_ok=True)
     eid = _uuid7("evt")
     record: dict[str, Any] = {
         "id": eid,
@@ -62,5 +71,7 @@ def write_event(
             "sanitized_message": error_message,
             "category": error_category or "internal",
         }
-    write_atomic(RESEARCH_EVENTS_DIR.joinpath(f"{eid}.json"), record, schema_name="event")
+    if metadata:
+        record["metadata"] = metadata
+    write_atomic(events_dir.joinpath(f"{eid}.json"), record, schema_name="event")
     return eid

@@ -7,11 +7,26 @@ import json
 import re
 import uuid
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 from ..atomic import write_atomic
 from ..locking import LockBusyError, acquire_file_lock, release_file_lock
-from ..paths import RESEARCH_LOCKS_DIR, RESEARCH_TASKS_DIR
+from ..paths import (
+    RESEARCH_LOCKS_DIR,
+    RESEARCH_TASKS_DIR,
+    Workspace,
+    active_workspace,
+    resolve_workspace,
+)
+
+
+def _task_paths(workspace: Workspace | Path | str | None = None) -> tuple[Path, Path]:
+    selected = workspace if workspace is not None else active_workspace()
+    if selected is None:
+        return RESEARCH_TASKS_DIR, RESEARCH_LOCKS_DIR
+    resolved = resolve_workspace(selected)
+    return resolved.research_path("tasks"), resolved.research_path("locks")
 
 
 def _now() -> str:
@@ -30,7 +45,7 @@ def _validate_task_id(task_id: str) -> None:
         raise ValueError(f"invalid task record id: {task_id!r}")
 
 
-def _require_task(task_id: str) -> dict[str, Any]:
+def _require_task(task_id: str, workspace: Workspace | Path | str | None = None) -> dict[str, Any]:
     """Verify that a task record exists on disk and matches its id.
 
     Per AUDIT.md §16: foreign-key references must resolve before a child
@@ -38,7 +53,8 @@ def _require_task(task_id: str) -> dict[str, Any]:
     parsed record.
     """
     _validate_task_id(task_id)
-    p = RESEARCH_TASKS_DIR / f"{task_id}.json"
+    tasks_dir, _ = _task_paths(workspace)
+    p = tasks_dir / f"{task_id}.json"
     if not p.is_file():
         raise ValueError(f"task record does not exist: {task_id!r}")
     rec = json.loads(p.read_text())
@@ -47,8 +63,11 @@ def _require_task(task_id: str) -> dict[str, Any]:
     return rec
 
 
-def _write(task_id: str, rec: dict[str, Any]) -> None:
-    target = RESEARCH_TASKS_DIR / f"{task_id}.json"
+def _write(
+    task_id: str, rec: dict[str, Any], workspace: Workspace | Path | str | None = None
+) -> None:
+    tasks_dir, _ = _task_paths(workspace)
+    target = tasks_dir / f"{task_id}.json"
     write_atomic(target, rec, schema_name="task")
 
 
@@ -59,6 +78,7 @@ def write_task(
     summary: str,
     *,
     run_id: str | None = None,
+    workspace: Workspace | Path | str | None = None,
 ) -> str:
     """Create a new task record. If a task with the same (task_kind, role,
     summary) signature already exists in an open state, return its id instead
@@ -66,15 +86,16 @@ def write_task(
     recomputed from each record's own fields — no extra property is stored,
     keeping records schema-clean.
     """
-    RESEARCH_TASKS_DIR.mkdir(parents=True, exist_ok=True)
+    tasks_dir, locks_dir = _task_paths(workspace)
+    tasks_dir.mkdir(parents=True, exist_ok=True)
 
     def _sig(kind: str, r: str, s: str) -> str:
         return hashlib.sha256(f"{kind}|{r}|{s}".encode()).hexdigest()[:16]
 
-    guard = acquire_file_lock(RESEARCH_LOCKS_DIR / "task-create.lock", wait=True)
+    guard = acquire_file_lock(locks_dir / "task-create.lock", wait=True)
     try:
         wanted = _sig(task_kind, role, summary)
-        for existing in RESEARCH_TASKS_DIR.glob("tsk_*.json"):
+        for existing in tasks_dir.glob("tsk_*.json"):
             try:
                 rec = json.loads(existing.read_text(encoding="utf-8"))
             except (OSError, json.JSONDecodeError):
@@ -98,26 +119,38 @@ def write_task(
         }
         if run_id:
             record["run_id"] = run_id
-        _write(tid, record)
+        _write(tid, record, workspace)
         return tid
     finally:
         release_file_lock(guard)
 
 
-def update_task_status(task_id: str, status: str) -> None:
+def update_task_status(
+    task_id: str,
+    status: str,
+    *,
+    workspace: Workspace | Path | str | None = None,
+) -> None:
     """Update a task's status field."""
     _validate_task_id(task_id)
-    guard = acquire_file_lock(RESEARCH_LOCKS_DIR / f"task-{task_id}.lock", wait=True)
+    _, locks_dir = _task_paths(workspace)
+    guard = acquire_file_lock(locks_dir / f"task-{task_id}.lock", wait=True)
     try:
-        rec = _require_task(task_id)
+        rec = _require_task(task_id, workspace)
         rec["status"] = status
         rec["updated_at"] = _now()
-        _write(task_id, rec)
+        _write(task_id, rec, workspace)
     finally:
         release_file_lock(guard)
 
 
-def acquire_lease(task_id: str, leaser: str, ttl_seconds: int) -> str:
+def acquire_lease(
+    task_id: str,
+    leaser: str,
+    ttl_seconds: int,
+    *,
+    workspace: Workspace | Path | str | None = None,
+) -> str:
     """Acquire an exclusive lease on a task. Returns lease token.
 
     Enforces the canonical ``task.lease`` schema (AUDIT.md §7, §20): only
@@ -130,11 +163,12 @@ def acquire_lease(task_id: str, leaser: str, ttl_seconds: int) -> str:
         raise ValueError("leaser must be a non-empty identity")
     _validate_task_id(task_id)
     try:
-        guard = acquire_file_lock(RESEARCH_LOCKS_DIR / f"task-{task_id}.lock", wait=True)
+        _, locks_dir = _task_paths(workspace)
+        guard = acquire_file_lock(locks_dir / f"task-{task_id}.lock", wait=True)
     except LockBusyError as exc:
         raise PermissionError(f"task {task_id} lease is being updated by another process") from exc
     try:
-        rec = _require_task(task_id)
+        rec = _require_task(task_id, workspace)
         existing = rec.get("lease") or {}
         if existing.get("expires_at"):
             if datetime.fromisoformat(existing["expires_at"]) > datetime.now(UTC):
@@ -152,9 +186,9 @@ def acquire_lease(task_id: str, leaser: str, ttl_seconds: int) -> str:
             "lease_token": token,
         }
         rec["updated_at"] = _now()
-        _write(task_id, rec)
+        _write(task_id, rec, workspace)
         write_atomic(
-            RESEARCH_LOCKS_DIR.joinpath(f"{token}.json"),
+            locks_dir.joinpath(f"{token}.json"),
             {
                 "id": token,
                 "task_id": task_id,
@@ -168,7 +202,12 @@ def acquire_lease(task_id: str, leaser: str, ttl_seconds: int) -> str:
         release_file_lock(guard)
 
 
-def release_lease(task_id: str, lease_token: str | None = None) -> None:
+def release_lease(
+    task_id: str,
+    lease_token: str | None = None,
+    *,
+    workspace: Workspace | Path | str | None = None,
+) -> None:
     """Release a task lease; supplying its token prevents stale-owner release.
 
     Omitting the token is retained for administrative recovery compatibility.
@@ -176,11 +215,12 @@ def release_lease(task_id: str, lease_token: str | None = None) -> None:
     """
     _validate_task_id(task_id)
     try:
-        guard = acquire_file_lock(RESEARCH_LOCKS_DIR / f"task-{task_id}.lock", wait=True)
+        _, locks_dir = _task_paths(workspace)
+        guard = acquire_file_lock(locks_dir / f"task-{task_id}.lock", wait=True)
     except LockBusyError as exc:
         raise PermissionError(f"task {task_id} lease is being updated by another process") from exc
     try:
-        rec = _require_task(task_id)
+        rec = _require_task(task_id, workspace)
         lease = rec.get("lease") or {}
         if not lease:
             raise ValueError(f"task {task_id} has no active lease")
@@ -189,6 +229,6 @@ def release_lease(task_id: str, lease_token: str | None = None) -> None:
         rec["status"] = "pending"
         rec["updated_at"] = _now()
         rec.pop("lease", None)
-        _write(task_id, rec)
+        _write(task_id, rec, workspace)
     finally:
         release_file_lock(guard)

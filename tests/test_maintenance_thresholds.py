@@ -114,6 +114,7 @@ def test_superseded_source_proxy_returns_lineage_target(tmp_path: Path):
         "id": "src_canonical",
         "schema_version": 1,
         "source_status": "current",
+        "acquisition_status": "acquired",
         "source_type": "paper",
         "media_type": "pdf",
         "title": "canonical",
@@ -140,6 +141,7 @@ def test_superseded_source_proxy_none_when_no_successor(tmp_path: Path):
         "id": "src_orphan",
         "schema_version": 1,
         "source_status": "superseded",
+        "acquisition_status": "acquired",
         "source_type": "paper",
         "media_type": "pdf",
         "title": "orphan",
@@ -202,6 +204,7 @@ def test_evaluate_maintenance_exposes_stale_derived_in_inputs(tmp_path: Path):
         "id": "src_stale",
         "schema_version": 1,
         "source_status": "current",  # declared current, yet chronologically stale
+        "acquisition_status": "acquired",
         "source_type": "paper",
         "media_type": "pdf",
         "title": "stale",

@@ -89,6 +89,14 @@ Install the project, then run `polder-research serve` from the repository root a
 
 For an individual artifact, place the original in `knowledge-base/90-inbox/raw/`, register it in the manifest, process it from the intake template, and link distilled notes to the source catalog. This workflow does not establish systematic search coverage or independent screening. Follow [the intake guide](knowledge-base/00-home/research-intake-guide.md); for a prespecified review, start with [Research methods](knowledge-base/00-home/research-methods.md) before searching.
 
+## Multiple research workspaces
+
+Pass `--root /path/to/workspace` to the CLI to route reads and writes to a
+separate research folder. The Python workflow APIs also accept a
+`polder_research.paths.Workspace` for event, task, run, handoff, and systematic
+review operations. Workspace-specific search exports must be stored under
+that workspace root.
+
 ## Repository map
 
 | Path | Purpose |

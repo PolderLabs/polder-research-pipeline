@@ -25,6 +25,7 @@ from ..paths import (
     REPO_ROOT,
 )
 from ..schemas import registry_for_root
+from ..urls import normalize_url
 
 _SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 _SENSITIVITY_ORDER = {"public": 0, "internal": 1, "confidential": 2, "restricted": 3}
@@ -191,26 +192,37 @@ def register_source(
     personal_data: bool = False,
     remote_processing_allowed: bool = False,
     tags: list[str] | None = None,
+    source_class: str | None = None,
+    source_status: str = "current",
+    acquisition_status: str = "acquired",
+    retrieved_at: str | None = None,
     repository_root: Path | None = None,
 ) -> str:
-    """Register a new source record. The content SHA-256 is required (computed
-    from ``raw_bytes`` when supplied, otherwise the caller must provide it).
-    Persisting an empty hash is forbidden because the canonical schema requires
-    a 64-character lowercase SHA-256 (AUDIT.md §32)."""
+    """Register acquired content or an explicit URL-only source reference."""
     if sensitivity not in {"public", "internal", "confidential", "restricted"}:
         raise ValueError("sensitivity must be public, internal, confidential, or restricted")
     if not isinstance(personal_data, bool):
         raise ValueError("personal_data must be a boolean")
     if not isinstance(remote_processing_allowed, bool):
         raise ValueError("remote_processing_allowed must be a boolean")
+    if source_status not in {"current", "stale", "superseded", "archived", "retracted"}:
+        raise ValueError(f"invalid source_status: {source_status!r}")
+    if acquisition_status not in {"acquired", "unacquired"}:
+        raise ValueError(f"invalid acquisition_status: {acquisition_status!r}")
+    if canonical_url:
+        canonical_url = normalize_url(canonical_url)
+    if acquisition_status == "unacquired":
+        if not canonical_url:
+            raise ValueError("unacquired sources require a canonical_url")
+        if raw_bytes is not None or content_sha256 is not None:
+            raise ValueError("unacquired sources cannot include content bytes or a hash")
     if raw_bytes is not None:
         content_sha256 = compute_content_hash(raw_bytes)
-    if not content_sha256 or not isinstance(content_sha256, str):
-        raise ValueError(
-            "register_source requires a content_sha256 (compute from raw_bytes "
-            "or supply it explicitly)"
-        )
-    if not _SHA256_PATTERN.match(content_sha256):
+    if acquisition_status == "acquired" and not content_sha256:
+        raise ValueError("acquired sources require content_sha256 or raw_bytes")
+    if content_sha256 is not None and (
+        not isinstance(content_sha256, str) or not _SHA256_PATTERN.match(content_sha256)
+    ):
         raise ValueError(
             f"content_sha256 must be a 64-char lowercase hex string; got {content_sha256!r}"
         )
@@ -219,17 +231,24 @@ def register_source(
     record: dict[str, Any] = {
         "id": sid,
         "schema_version": 1,
-        "source_status": "current",
+        "source_status": source_status,
+        "acquisition_status": acquisition_status,
         "source_type": source_type,
         "media_type": media_type,
         "title": title,
-        "retrieved_at": _now(),
-        "content_sha256": content_sha256,
     }
+    if acquisition_status == "unacquired":
+        record["discovered_at"] = retrieved_at or _now()
+    else:
+        record["retrieved_at"] = retrieved_at or _now()
+    if content_sha256 is not None:
+        record["content_sha256"] = content_sha256
     if doi:
         record["doi"] = doi
     if canonical_url:
         record["canonical_url"] = canonical_url
+    if source_class is not None:
+        record["source_class"] = source_class
     if raw_location:
         record["raw_location"] = raw_location
     if byte_size is not None:
@@ -245,32 +264,33 @@ def register_source(
         f"{sid}.json"
     )
     _persist(source_path, record, schema_name="source", repository_root=repository_root)
-    try:
-        _classify_record(
+    if acquisition_status == "acquired":
+        try:
+            _classify_record(
+                record,
+                build_state_for_target("source", record).state,
+                target_kind="source",
+                target_id=sid,
+                repository_root=repository_root,
+                policy_metadata={
+                    "sensitivity": sensitivity,
+                    "personal_data": personal_data,
+                    "remote_processing_allowed": remote_processing_allowed,
+                },
+                output_dir=_record_dir(EVIDENCE_SOURCES_DIR, repository_root, "sources").parent
+                / "classifications",
+            )
+        except (OSError, ValueError, RuntimeError):
+            record["classification_status"] = "failed"
+            record["classification_error"] = (
+                "Classification could not complete; inspect provider configuration and classification records."
+            )
+        _persist(
+            source_path,
             record,
-            build_state_for_target("source", record).state,
-            target_kind="source",
-            target_id=sid,
+            schema_name="source",
             repository_root=repository_root,
-            policy_metadata={
-                "sensitivity": sensitivity,
-                "personal_data": personal_data,
-                "remote_processing_allowed": remote_processing_allowed,
-            },
-            output_dir=_record_dir(EVIDENCE_SOURCES_DIR, repository_root, "sources").parent
-            / "classifications",
         )
-    except (OSError, ValueError, RuntimeError):
-        record["classification_status"] = "failed"
-        record["classification_error"] = (
-            "Classification could not complete; inspect provider configuration and classification records."
-        )
-    _persist(
-        source_path,
-        record,
-        schema_name="source",
-        repository_root=repository_root,
-    )
     _rebuild_effective_projection(repository_root)
     return sid
 
@@ -294,11 +314,97 @@ def find_duplicate_source(
     for field, expected in checks:
         if not expected:
             continue
+        expected_value = normalize_url(expected) if field == "canonical_url" else expected
         for path in source_dir.glob("src_*.json"):
             record = json.loads(path.read_text(encoding="utf-8"))
-            if record.get(field) == expected:
+            actual = record.get(field)
+            if field == "canonical_url" and actual:
+                actual = normalize_url(actual)
+            if actual == expected_value:
                 return record["id"]
     return None
+
+
+def acquire_source(
+    source_id: str,
+    raw_bytes: bytes,
+    *,
+    raw_location: str | None = None,
+    retrieved_at: str | None = None,
+    repository_root: Path | None = None,
+    actor: str = "curator",
+) -> str:
+    """Promote an unacquired source after reading and hashing its content."""
+    source = assert_record_exists(
+        source_id,
+        prefix="src",
+        default_dir=EVIDENCE_SOURCES_DIR,
+        directory_name="sources",
+        repository_root=repository_root,
+    )
+    if source.get("acquisition_status") != "unacquired":
+        raise ValueError(f"source is not unacquired: {source_id}")
+    digest = compute_content_hash(raw_bytes)
+    duplicate_id = find_duplicate_source(
+        doi=source.get("doi"),
+        canonical_url=None,
+        content_sha256=digest,
+        repository_root=repository_root,
+    )
+    if duplicate_id is not None and duplicate_id != source_id:
+        raise ValueError(f"acquired content duplicates existing source {duplicate_id}")
+    source["source_status"] = "current"
+    source["acquisition_status"] = "acquired"
+    source["content_sha256"] = digest
+    source.pop("discovered_at", None)
+    source["retrieved_at"] = retrieved_at or _now()
+    source["byte_size"] = len(raw_bytes)
+    if raw_location is not None:
+        source["raw_location"] = raw_location
+    source_path = (
+        _record_dir(EVIDENCE_SOURCES_DIR, repository_root, "sources") / f"{source_id}.json"
+    )
+    try:
+        _classify_record(
+            source,
+            build_state_for_target("source", source).state,
+            target_kind="source",
+            target_id=source_id,
+            repository_root=repository_root,
+            policy_metadata={
+                "sensitivity": source.get("sensitivity", "public"),
+                "personal_data": source.get("personal_data", False),
+                "remote_processing_allowed": source.get("remote_processing_allowed", False),
+            },
+            output_dir=_record_dir(EVIDENCE_SOURCES_DIR, repository_root, "sources").parent
+            / "classifications",
+        )
+    except (OSError, ValueError, RuntimeError):
+        source["classification_status"] = "failed"
+        source["classification_error"] = (
+            "Classification could not complete; inspect provider configuration and classification records."
+        )
+    _persist(source_path, source, schema_name="source", repository_root=repository_root)
+
+    from ..events import write_event
+    from ..paths import Workspace
+
+    write_event(
+        "source.acquired",
+        actor,
+        action="acquire-source",
+        summary=f"Acquired source {source_id}",
+        targets=[source_id],
+        metadata={
+            "previous_acquisition_status": "unacquired",
+            "acquisition_status": "acquired",
+            "source_status": "current",
+            "content_sha256": digest,
+        },
+        workspace=Workspace(repository_root) if repository_root is not None else None,
+    )
+    _rebuild_effective_projection(repository_root)
+    return digest
 
 
 def register_segment(
@@ -318,6 +424,8 @@ def register_segment(
         directory_name="sources",
         repository_root=repository_root,
     )
+    if source_record.get("acquisition_status") == "unacquired":
+        raise ValueError("cannot register a segment from an unacquired source")
     ensure_evidence_dirs(repository_root=repository_root)
     seg_id = _uuid7("seg")
     record: dict[str, Any] = {
@@ -379,15 +487,16 @@ def register_claim(
         raise ValueError("register_claim: source_ids must be a non-empty list")
     source_records = []
     for sid in source_ids:
-        source_records.append(
-            assert_record_exists(
-                sid,
-                prefix="src",
-                default_dir=EVIDENCE_SOURCES_DIR,
-                directory_name="sources",
-                repository_root=repository_root,
-            )
+        source_record = assert_record_exists(
+            sid,
+            prefix="src",
+            default_dir=EVIDENCE_SOURCES_DIR,
+            directory_name="sources",
+            repository_root=repository_root,
         )
+        if source_record.get("acquisition_status") == "unacquired":
+            raise ValueError("claims require acquired sources")
+        source_records.append(source_record)
     ensure_evidence_dirs(repository_root=repository_root)
     clm_id = _uuid7("clm")
     record: dict[str, Any] = {
@@ -629,13 +738,15 @@ def register_evidence_edge(
         directory_name="claims",
         repository_root=repository_root,
     )
-    assert_record_exists(
+    source_record = assert_record_exists(
         source_id,
         prefix="src",
         default_dir=EVIDENCE_SOURCES_DIR,
         directory_name="sources",
         repository_root=repository_root,
     )
+    if source_record.get("acquisition_status") == "unacquired":
+        raise ValueError("evidence edges require acquired sources")
 
     edge_locator: dict[str, str]
     if segment_id is not None:

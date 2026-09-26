@@ -28,19 +28,25 @@ from polder_research.scripts import intake as _mod
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--file", help="raw filename (as it appears in 90-inbox/raw/)")
+    ap.add_argument("--manifest", help="CSV or JSON Lines file for bulk source registration")
+    ap.add_argument("--dry-run", action="store_true", help="show the bulk plan without writing")
     ap.add_argument("--kind", default="other")
     ap.add_argument("--owner", default="agent")
     ap.add_argument("--status", default="new")
     ap.add_argument("--outcome", default="—")
+    ap.add_argument("--root", type=Path, help="research workspace root (default: this checkout)")
     ap.add_argument("--set", dest="set_file", help="update an existing row by exact filename")
     ap.add_argument("--list", action="store_true", help="list current queue")
     args = ap.parse_args()
     return _mod.cmd_intake_register(
         file=args.file,
+        manifest=args.manifest,
+        dry_run=args.dry_run,
         kind=args.kind,
         owner=args.owner,
         status=args.status,
         outcome=args.outcome,
+        repository_root=args.root,
         set_file=args.set_file,
         list_=args.list,
     )
