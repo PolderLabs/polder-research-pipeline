@@ -16,7 +16,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest==9.1.1",
-    "ruff==0.16.8",
+    "ruff==0.16.9",
 ]
 laya = ["laya==0.3.20"]
 jev = ["typesafe-sdk==0.7.1"]
