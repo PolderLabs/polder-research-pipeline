@@ -18,7 +18,8 @@
       "enum": [
         "model", "dataset", "tool", "library", "company", "lab",
         "person", "paper", "standard", "event", "concept", "hardware",
-        "license", "benchmark", "other"
+        "license", "benchmark", "organization", "department", "group",
+        "product", "other"
       ]
     },
     "aliases": {

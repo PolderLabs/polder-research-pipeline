@@ -20,7 +20,7 @@ from polder_research.evidence import (
     register_segment,
     register_source,
 )
-from polder_research.schemas import validate
+from polder_research.schemas import SchemaError, validate
 
 
 @pytest.fixture(autouse=True)
@@ -157,6 +157,35 @@ class TestRegisterEntity:
         ensure_evidence_dirs()
         ent_id = register_entity(name="GPT-4", entity_kind="model")
         assert ent_id.startswith("ent_")
+
+    @pytest.mark.parametrize(
+        "kind",
+        ["organization", "department", "group", "product"],
+    )
+    def test_accepts_organisational_kinds(self, kind: str):
+        """Organisational research has no home in the vocabulary without these."""
+        ensure_evidence_dirs()
+        ent_id = register_entity(name=f"Example {kind}", entity_kind=kind)
+        record = json.loads(
+            (_paths_mod.EVIDENCE_ENTITIES_DIR / f"{ent_id}.json").read_text(encoding="utf-8")
+        )
+        assert record["entity_kind"] == kind
+        validate("entity", record)
+
+    def test_person_kind_is_accepted_alongside_new_kinds(self):
+        """The new kinds must not displace or alter the existing `person` behaviour."""
+        ensure_evidence_dirs()
+        person_id = register_entity(name="Example Person", entity_kind="person")
+        person = json.loads(
+            (_paths_mod.EVIDENCE_ENTITIES_DIR / f"{person_id}.json").read_text(encoding="utf-8")
+        )
+        assert person["entity_kind"] == "person"
+        validate("entity", person)
+
+    def test_rejects_unknown_kind(self):
+        ensure_evidence_dirs()
+        with pytest.raises(SchemaError):
+            register_entity(name="Nope", entity_kind="not-a-kind")
 
 
 class TestRegisterGap:
