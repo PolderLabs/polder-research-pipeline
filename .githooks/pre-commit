@@ -1,7 +1,72 @@
 #!/usr/bin/env bash
-# Vault self-evolving safety net: run vault_audit.py before each commit.
-# Non-zero exit aborts the commit with a visible fail.
-set -e
+# Research-boundary guard for the PUBLIC checkout.
+#
+# This repository is the shared, publishable toolchain. Contributors work in a
+# separate private research workspace, and that workspace's findings must never
+# travel here. This hook is the last line of defence for the case where a
+# contributor copies a research file in, or commits from the wrong checkout.
+#
+# It blocks:
+#   - the private research store and the operator's working material
+#   - vault paths that only ever hold research output
+#   - identifiers minted by that store (src_, clm_, ent_, cls_, int_, gap_)
+#   - the private workspace's own handoff document
+#
+# It also runs the pre-existing vault audit, which aborts on a broken vault.
+#
+# A finding may be reported in generic terms without carrying the data that
+# revealed it. See the private workspace's HANDOFF, hard rule 3.
+set -euo pipefail
+
+fail() {
+	echo >&2
+	echo "$@" >&2
+	exit 1
+}
+
+# --- staged paths shared by guards 1 and 2 ----------------------------------
+# Git emits NUL-delimited names because paths may contain whitespace, newlines,
+# leading dashes, or arbitrary non-NUL bytes.
+mapfile -d '' -t staged_paths < <(git diff --cached --name-only -z)
+
+# --- guard 1: private research paths -----------------------------------------
+for path in "${staged_paths[@]}"; do
+	case "$path" in
+		.research/*|Research_1/*|HANDOFF.md)
+			echo "BLOCKED: private research material staged in the public repository." >&2
+			printf '  %s\n' "$path" >&2
+			fail "Research records and operator material stay in the private workspace." \
+				"See that workspace's HANDOFF, hard rule 3."
+			;;
+	esac
+done
+
+# --- guard 2: research output in the vault -----------------------------------
+# These are tracked paths, so the boundary is by name rather than .gitignore.
+for path in "${staged_paths[@]}"; do
+	case "$path" in
+		knowledge-base/02-research/*.md|knowledge-base/06-sources/reference-catalog.md|knowledge-base/90-inbox/*)
+			echo "BLOCKED: research output staged in the public repository." >&2
+			printf '  %s\n' "$path" >&2
+			fail "02-research findings, the source catalog and the inbox manifest are" \
+				"private research output. Toolchain changes only, from this checkout."
+			;;
+	esac
+done
+
+# --- guard 3: identifiers minted by the private store ------------------------
+# Inspect only added diff lines. Unchanged fixture lines in a touched file are
+# not new content and must not block an otherwise safe change.
+if git diff --cached --unified=0 --no-color --diff-filter=ACMR \
+	| awk '/^\+\+\+ [ab]\// { next } /^\+/ && $0 ~ /(^|[^[:alnum:]_])(src|clm|ent|cls|int|gap)_[0-9a-f]{8}-[0-9a-f]{4}([^[:alnum:]_]|$)/ { found = 1 } END { exit !found }'; then
+	echo "BLOCKED: private research identifiers found in newly staged content:" >&2
+	fail "src_/clm_/ent_ identifiers are minted by a private store. If a test" \
+		"or doc needs an example id, use a literal placeholder instead."
+fi
+
+# --- vault audit (pre-existing safety net) -----------------------------------
 if [ -x .venv/bin/python ]; then PY=.venv/bin/python; else PY=python3; fi
 export PYTHONPATH="${PYTHONPATH:-}:$(cd "$(dirname "$0")/.." && pwd)/src"
 "$PY" skills/obsidian-knowledgebase-curator/scripts/vault_audit.py --quiet
+
+exit 0
