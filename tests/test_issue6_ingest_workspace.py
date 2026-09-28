@@ -251,3 +251,46 @@ def test_workspace_writers_and_export_paths_are_isolated(tmp_path: Path) -> None
     assert len(list(second.research_path("handoffs").glob("hnd_*.json"))) == 1
     with pytest.raises(ValueError, match="inside the workspace"):
         _export_path(tmp_path / "outside.csv", workspace=first)
+
+
+def test_manifest_row_may_carry_both_url_and_local_file(tmp_path: Path) -> None:
+    """An acquired page keeps its URL *and* its captured bytes.
+
+    The CSV header already lists ``canonical_url`` and ``local_file`` as
+    independent columns, and ``register_source`` accepts both together, but
+    the bulk parser rejected the combination. A page that was fetched and
+    saved locally is the ordinary case for an acquisition round, and
+    dropping the URL would discard the provenance the record exists to keep.
+    """
+    inbox = _intake_workspace(tmp_path)
+    (inbox / "raw" / "page.html").write_bytes(b"<html>acquired page</html>" * 200)
+    manifest = tmp_path / "sources.csv"
+    manifest.write_text(
+        "title,local_file,canonical_url,source_type,media_type\n"
+        "Acquired page,page.html,https://example.org/page,webpage,html\n",
+        encoding="utf-8",
+    )
+
+    assert cmd_intake_register(None, manifest=str(manifest), repository_root=tmp_path) == 0
+
+    records = [
+        json.loads(p.read_text(encoding="utf-8"))
+        for p in (tmp_path / ".research" / "sources").glob("src_*.json")
+    ]
+    assert len(records) == 1
+    record = records[0]
+    assert record["canonical_url"] == normalize_url("https://example.org/page")
+    assert record["acquisition_status"] == "acquired"
+    assert record["content_sha256"]
+    assert record["raw_location"]
+
+
+def test_manifest_row_must_carry_url_or_file(tmp_path: Path) -> None:
+    """Neither column present is still an error."""
+    _intake_workspace(tmp_path)
+    manifest = tmp_path / "sources.csv"
+    manifest.write_text(
+        "title,local_file,canonical_url,source_type,media_type\nOrphan,,,webpage,html\n",
+        encoding="utf-8",
+    )
+    assert cmd_intake_register(None, manifest=str(manifest), repository_root=tmp_path) == 2

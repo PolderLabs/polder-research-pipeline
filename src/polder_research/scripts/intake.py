@@ -423,8 +423,12 @@ def _parse_manifest_item(
     local_file = get_text("local_file")
     if not title:
         raise ValueError(f"row {row_number}: title is required")
-    if bool(raw_url) == bool(local_file):
-        raise ValueError(f"row {row_number}: provide exactly one of canonical_url or local_file")
+    if not raw_url and not local_file:
+        raise ValueError(f"row {row_number}: provide canonical_url or local_file")
+    # Both are permitted together. A page that was fetched and saved locally
+    # is exactly the ordinary case, and dropping the URL would discard
+    # provenance the record is supposed to keep. `register_source` already
+    # accepts `canonical_url` and `raw_bytes` together.
     canonical_url = normalize_url(raw_url) if raw_url else None
     if canonical_url:
         parsed = urlsplit(canonical_url)
