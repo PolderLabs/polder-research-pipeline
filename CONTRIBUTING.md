@@ -27,18 +27,11 @@ Python 3.13 a supported runtime.
 
 ### Enable the commit hooks
 
-`.githooks/pre-commit` runs the vault audit and refuses commits that contain
-private research material. Git does not track the setting that activates it,
-so it is inert on a fresh clone until you enable it once:
-
-```sh
-git config core.hooksPath .githooks
-git config --get core.hooksPath   # must print .githooks
-```
-
-Verify it works by staging something you should not commit and confirming the
-commit aborts. Without this step, only CI and review stand between a stray
-research file and the public history.
+ `.githooks/pre-commit` runs the vault audit and refuses commits that contain
+private research material. Private paths are rejected by their staged path;
+identifier-shaped content is rejected only when it is newly added in the staged
+diff, so unrelated edits to files containing old synthetic fixtures remain
+allowed. Git does not track the setting that activates it,
 
 - Keep provider credentials out of commits and test fixtures. Use synthetic or public material in examples.
 - Treat changes to schemas, authority boundaries, persistence, classification, and research-method gates as compatibility-sensitive; explain migration and validation evidence.

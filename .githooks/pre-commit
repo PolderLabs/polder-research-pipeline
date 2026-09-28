@@ -24,38 +24,45 @@ fail() {
 	exit 1
 }
 
+# --- staged paths shared by guards 1 and 2 ----------------------------------
+# Git emits NUL-delimited names because paths may contain whitespace, newlines,
+# leading dashes, or arbitrary non-NUL bytes.
+mapfile -d '' -t staged_paths < <(git diff --cached --name-only -z)
+
 # --- guard 1: private research paths -----------------------------------------
-blocked=$(git diff --cached --name-only \
-	| grep -E '^(\.research/|Research_1/|HANDOFF\.md$)' || true)
-[ -z "$blocked" ] || {
-	echo "BLOCKED: private research material staged in the public repository." >&2
-	printf '%s\n' "$blocked" | sed 's/^/  /' >&2
-	fail "Research records and operator material stay in the private workspace." \
-		"See that workspace's HANDOFF, hard rule 3."
-}
+for path in "${staged_paths[@]}"; do
+	case "$path" in
+		.research/*|Research_1/*|HANDOFF.md)
+			echo "BLOCKED: private research material staged in the public repository." >&2
+			printf '  %s\n' "$path" >&2
+			fail "Research records and operator material stay in the private workspace." \
+				"See that workspace's HANDOFF, hard rule 3."
+			;;
+	esac
+done
 
 # --- guard 2: research output in the vault -----------------------------------
 # These are tracked paths, so the boundary is by name rather than .gitignore.
-blocked=$(git diff --cached --name-only \
-	| grep -E '^knowledge-base/(02-research/[^/]+\.md|06-sources/reference-catalog\.md|90-inbox/)' || true)
-[ -z "$blocked" ] || {
-	echo "BLOCKED: research output staged in the public repository." >&2
-	printf '%s\n' "$blocked" | sed 's/^/  /' >&2
-	fail "02-research findings, the source catalog and the inbox manifest are" \
-		"private research output. Toolchain changes only, from this checkout."
-}
+for path in "${staged_paths[@]}"; do
+	case "$path" in
+		knowledge-base/02-research/*.md|knowledge-base/06-sources/reference-catalog.md|knowledge-base/90-inbox/*)
+			echo "BLOCKED: research output staged in the public repository." >&2
+			printf '  %s\n' "$path" >&2
+			fail "02-research findings, the source catalog and the inbox manifest are" \
+				"private research output. Toolchain changes only, from this checkout."
+			;;
+	esac
+done
 
 # --- guard 3: identifiers minted by the private store ------------------------
-# Catches a research file that landed under a name the rules above miss.
-staged=$(git diff --cached --name-only)
-hits=$(printf '%s\n' "$staged" \
-	| xargs -r grep -lE '\b(src|clm|ent|cls|int|gap)_[0-9a-f]{8}-[0-9a-f]{4}' 2>/dev/null || true)
-[ -z "$hits" ] || {
-	echo "BLOCKED: private research identifiers found in staged files:" >&2
-	printf '%s\n' "$hits" | sed 's/^/  /' >&2
+# Inspect only added diff lines. Unchanged fixture lines in a touched file are
+# not new content and must not block an otherwise safe change.
+if git diff --cached --unified=0 --no-color --diff-filter=ACMR \
+	| awk '/^\+\+\+ [ab]\// { next } /^\+/ && $0 ~ /(^|[^[:alnum:]_])(src|clm|ent|cls|int|gap)_[0-9a-f]{8}-[0-9a-f]{4}([^[:alnum:]_]|$)/ { found = 1 } END { exit !found }'; then
+	echo "BLOCKED: private research identifiers found in newly staged content:" >&2
 	fail "src_/clm_/ent_ identifiers are minted by a private store. If a test" \
 		"or doc needs an example id, use a literal placeholder instead."
-}
+fi
 
 # --- vault audit (pre-existing safety net) -----------------------------------
 if [ -x .venv/bin/python ]; then PY=.venv/bin/python; else PY=python3; fi
