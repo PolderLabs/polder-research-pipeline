@@ -16,10 +16,10 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest==9.1.1",
-    "ruff==0.16.9",
+    "ruff==0.16.10",
 ]
-laya = ["laya==0.3.20"]
-jev = ["typesafe-sdk==0.7.1"]
+laya = ["laya==0.3.23"]
+jev = ["typesafe-sdk==0.7.2"]
 
 [project.scripts]
 polder-research = "polder_research.scripts:main"
